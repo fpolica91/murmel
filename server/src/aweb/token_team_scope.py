@@ -104,7 +104,14 @@ def token_identity(auth: TokenAuthContext, team_id: str) -> TeamIdentity:
     ``agent_id`` carry the subject (or ``agent_name`` claim when present) so
     downstream code that records an actor still has a stable identifier.
     """
-    alias = (auth.agent_name or auth.subject or "").strip()
+    # Display name for attribution (comment authors, etc.): prefer the `name`
+    # claim (a human's display name), then the agent_name, then the subject id.
+    # agent_id below keeps the stable subject; alias is display-only here, so a
+    # friendly name is safe (authz is by team membership, not alias).
+    name = ""
+    if isinstance(auth.claims, dict):
+        name = (auth.claims.get("name") or "").strip()
+    alias = (name or auth.agent_name or auth.subject or "").strip()
     return TeamIdentity(
         team_id=team_id,
         alias=alias,

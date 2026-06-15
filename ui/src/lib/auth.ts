@@ -89,6 +89,8 @@ function buildAuth() {
             return {
               team_ids: teamIds,
               roles,
+              // Display name for attribution (comment authors, etc.).
+              ...(user.name ? { name: user.name } : {}),
               ...(agentName ? { agent_name: agentName } : {}),
             };
           },
