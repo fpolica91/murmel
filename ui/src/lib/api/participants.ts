@@ -27,8 +27,9 @@ export type ParticipantKind = "human" | "agent";
 
 /**
  * A single team participant (human or agent). `kind` is authoritative; the UI
- * keys on it and never guesses. Humans report `online:false`, `status:"offline"`,
- * `last_seen:null`; agents carry live presence.
+ * keys on it and never guesses. Presence applies to any participant that
+ * heartbeats: a signed-in human (via POST /v1/presence/heartbeat) and an agent
+ * (via its own heartbeat) both carry live `online`/`status`/`last_seen`.
  */
 export interface Participant {
   /** AUTHORITATIVE. "human" iff agent_type === 'human', else "agent". */
@@ -46,11 +47,11 @@ export interface Participant {
   role: string | null;
   /** Raw passthrough of agents.agent_type ("human" | "agent" | ...). */
   agent_type: string;
-  /** True only for agents with live presence; humans are always false. */
+  /** True for any participant (human or agent) with live presence. */
   online: boolean;
-  /** "offline" when no live presence; humans are always "offline". */
+  /** "active" when a fresh presence record exists, else "offline". */
   status: string;
-  /** ISO-8601 last-seen, or null. Humans are always null. */
+  /** ISO-8601 last-seen, or null when no presence record exists. */
   last_seen: string | null;
 }
 
