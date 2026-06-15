@@ -1,7 +1,4 @@
-"""Team certificate authentication and dashboard JWT verification.
-
-Team certificates are Ed25519-signed JSON documents that prove an agent
-is a member of a specific team. They replace API key auth.
+"""Dashboard JWT verification.
 
 Dashboard tokens are short-lived JWTs containing allowed team_ids,
 issued by the hosted dashboard for human dashboard access.
@@ -9,120 +6,12 @@ issued by the hosted dashboard for human dashboard access.
 
 from __future__ import annotations
 
-import base64
-import json
 import logging
-from typing import Any, Callable, Optional
+from typing import Any, Optional
 
 import jwt as pyjwt
 
-from awid.did import public_key_from_did
-from awid.signing import canonical_json_bytes, verify_signature_with_public_key, VerifyResult
-from aweb.identity_scope import legacy_lifetime_for_scope, normalize_identity_scope
-
 logger = logging.getLogger(__name__)
-
-_CERTIFICATE_VERSION = 1
-
-
-# ---------------------------------------------------------------------------
-# Certificate verification
-# ---------------------------------------------------------------------------
-
-
-def _verify_certificate_signature(cert: dict, team_did_key: str) -> bool:
-    """Verify that a certificate was signed by the given team key.
-
-    The team_did_key MUST come from a trusted source (the awid registry),
-    never from the certificate itself.
-    """
-    signature = cert.get("signature")
-    if not signature:
-        return False
-
-    # The signed payload is the entire certificate minus the signature field.
-    payload_fields = {k: v for k, v in cert.items() if k != "signature"}
-    payload_bytes = canonical_json_bytes(payload_fields)
-
-    try:
-        public_key = public_key_from_did(team_did_key)
-    except Exception:
-        return False
-
-    result = verify_signature_with_public_key(public_key, payload_bytes, signature)
-    return result == VerifyResult.VERIFIED
-
-
-def parse_and_verify_certificate(
-    encoded_certificate: str,
-    *,
-    request_did_key: str,
-    team_public_key_resolver: Callable[[str], str],
-    revocation_checker: Callable[[str, str], bool],
-) -> dict[str, str]:
-    """Parse, verify, and validate a team certificate.
-
-    Args:
-        encoded_certificate: Base64-encoded certificate JSON.
-        request_did_key: The did:key from the Authorization header.
-        team_public_key_resolver: Given a team_id, returns team_did_key
-            from the awid registry (cached). Must raise on failure.
-        revocation_checker: Given (team_id, certificate_id), returns
-            True if the certificate has been revoked.
-
-    Returns:
-        Dict with team_id, alias, did_key, identity_scope, certificate_id,
-        member_did_aw, member_address, plus compatibility lifetime. The last
-        two identity fields are empty strings for local certificates.
-
-    Raises:
-        ValueError: If the certificate is invalid, tampered, revoked, or mismatched.
-    """
-    try:
-        cert_json = base64.b64decode(encoded_certificate)
-        cert = json.loads(cert_json)
-    except Exception:
-        raise ValueError("Malformed certificate: invalid base64 or JSON")
-
-    version = cert.get("version")
-    if version != _CERTIFICATE_VERSION:
-        raise ValueError(f"Unsupported certificate version: {version}")
-
-    team_id = cert.get("team_id")
-    member_did_key = cert.get("member_did_key")
-    certificate_id = cert.get("certificate_id")
-
-    if not team_id or not member_did_key or not certificate_id:
-        raise ValueError("Certificate missing required fields")
-
-    # Verify the requesting agent's did:key matches the certificate
-    if member_did_key != request_did_key:
-        raise ValueError("Certificate did_key mismatch: agent's did:key does not match certificate")
-
-    # Get the team's public key from a trusted source (awid registry)
-    team_did_key = team_public_key_resolver(team_id)
-    if not team_did_key:
-        raise ValueError(f"Unknown team: {team_id}")
-
-    # Verify certificate signature against the registry-resolved team key
-    if not _verify_certificate_signature(cert, team_did_key):
-        raise ValueError("Certificate signature verification failed")
-
-    # Check revocation
-    if revocation_checker(team_id, certificate_id):
-        raise ValueError(f"Certificate {certificate_id} has been revoked")
-
-    identity_scope = normalize_identity_scope(cert.get("identity_scope") or cert.get("lifetime"))
-    return {
-        "team_id": team_id,
-        "alias": cert.get("alias", ""),
-        "did_key": member_did_key,
-        "identity_scope": identity_scope,
-        "lifetime": legacy_lifetime_for_scope(identity_scope),
-        "certificate_id": certificate_id,
-        "member_did_aw": cert.get("member_did_aw", ""),
-        "member_address": cert.get("member_address", ""),
-    }
 
 
 # ---------------------------------------------------------------------------

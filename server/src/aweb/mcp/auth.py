@@ -15,13 +15,12 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from aweb.internal_auth import parse_internal_auth_context
 from aweb.identity_auth_deps import lookup_identity_agent_context, resolve_identity_auth
-from aweb.team_auth_deps import _aweb_db, verify_request_certificate
+from aweb.team_auth_deps import _aweb_db
 from aweb.token_auth import TokenAuthError, resolve_token_auth
 from aweb.token_team_scope import (
     TEAM_ID_HEADER,
     _select_team,
     request_has_bearer_token,
-    request_has_team_certificate,
     token_auth_enabled,
 )
 
