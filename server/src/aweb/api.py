@@ -20,7 +20,6 @@ from .routing_utils import move_mount_before_spa_fallback
 from .service_errors import ServiceError
 from .mcp.server import NormalizeMountedMCPPathMiddleware
 from .routes.agents import router as agents_router
-from .routes.connect import router as connect_router
 from .routes.dashboard import router as dashboard_router
 from .routes.chat import router as chat_router
 from .routes.claims import router as claims_router
@@ -115,12 +114,18 @@ def _build_awid_registry_client(app: FastAPI, redis: Redis | None) -> RegistryCl
 
 
 async def _validate_awid_registry_client(registry_client: RegistryClient) -> None:
+    # The token-auth product does not require awid at runtime; only the legacy
+    # DIDKey identity-messaging path uses it. Warn (don't fail startup) when it
+    # is unreachable so aweb can run standalone without an awid service.
     try:
         await registry_client.health()
     except Exception as exc:
-        raise RuntimeError(
-            f"Failed to reach AWID registry at {registry_client.registry_url}: {exc}"
-        ) from exc
+        logger.warning(
+            "AWID registry not reachable at %s (%s) — continuing; this is only "
+            "needed for the legacy identity-messaging path.",
+            registry_client.registry_url,
+            exc,
+        )
 
 
 def _make_standalone_lifespan():
@@ -353,7 +358,6 @@ def create_app(
         return {"status": "ok" if healthy else "unhealthy", "checks": checks}
 
     app.include_router(agents_router)
-    app.include_router(connect_router)
     app.include_router(chat_router)
     app.include_router(dashboard_router)
     app.include_router(claims_router)
