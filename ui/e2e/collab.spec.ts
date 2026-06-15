@@ -21,7 +21,6 @@ import { mkdirSync } from "node:fs";
  */
 const EMAIL = process.env.E2E_EMAIL ?? "founder@local.test";
 const PASSWORD = process.env.E2E_PASSWORD ?? "Test1234!pass";
-const ISSUE_ID = process.env.E2E_ISSUE_ID ?? "";
 const ART = "e2e/artifacts";
 
 mkdirSync(ART, { recursive: true });
@@ -85,38 +84,10 @@ test.describe("aweb collaboration — live human<->agent E2E", () => {
     await page.screenshot({ path: `${ART}/11-members.png`, fullPage: true });
   });
 
-  test("issue thread shows seeded comments and Ada as assignee", async ({
-    page,
-  }) => {
-    test.skip(!ISSUE_ID, "E2E_ISSUE_ID not provided by the harness");
-    await page.goto(`/dashboard/work/issues/${ISSUE_ID}`);
-
-    // Issue detail rendered.
-    await expect(
-      page.getByRole("heading", { name: "Wire JWKS verify" }),
-    ).toBeVisible({ timeout: 15_000 });
-
-    // Seeded comment thread — both authors' comments are present.
-    await expect(
-      page.getByText("Ada, this is the JWKS verify work for the token-auth pivot"),
-    ).toBeVisible();
-    await expect(
-      page.getByText(
-        "I will wire PyJWKClient against the Better Auth JWKS endpoint",
-      ),
-    ).toBeVisible();
-    // Comment authors are labelled human vs agent.
-    await expect(page.getByText("agent", { exact: true }).first()).toBeVisible();
-    await expect(page.getByText("human", { exact: true }).first()).toBeVisible();
-
-    // Assignee picker reflects Ada as the current assignee.
-    await expect(page.getByLabel("Assignee")).toHaveValue("agent:Ada (agent)");
-
-    await page.screenshot({
-      path: `${ART}/12-issue-thread.png`,
-      fullPage: true,
-    });
-  });
+  // NOTE: issue-thread comments + assignee attribution (human vs agent) are
+  // covered end-to-end and self-seeded by complete.spec.ts (COMMENTS / TASKS),
+  // so the older env-gated variant that needed a harness-provided E2E_ISSUE_ID
+  // was removed to keep the suite free of conditional skips.
 
   test("work board renders the seeded issue", async ({ page }) => {
     await page.goto("/dashboard/work");
