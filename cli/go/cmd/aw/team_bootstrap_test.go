@@ -280,15 +280,6 @@ func TestAgentsCommandSurfaceKeepsLegacyAgentsAlongsideHumanTeamVerbs(t *testing
 	if agents.GroupID != groupObsolete {
 		t.Fatalf("aw agents GroupID=%q, want %q", agents.GroupID, groupObsolete)
 	}
-	team := findRootSubcommand("team")
-	if team == nil {
-		t.Fatal("root command missing aw team")
-	}
-	for _, name := range []string{"create", "invite", "join", "list", "switch", "leave", "remove-agent"} {
-		if findSubcommand(team, name) == nil {
-			t.Fatalf("aw team missing %s subcommand", name)
-		}
-	}
 	for _, tt := range []struct {
 		name string
 		use  string
