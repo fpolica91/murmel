@@ -77,6 +77,8 @@ services:
       AWEB_TOKEN_AUTH_JWKS_URL: ${AWEB_TOKEN_AUTH_JWKS_URL:-}
       AWEB_TOKEN_AUTH_ISSUER: ${AWEB_TOKEN_AUTH_ISSUER:-}
       AWEB_TOKEN_AUTH_AUDIENCE: ${AWEB_TOKEN_AUTH_AUDIENCE:-}
+      # Browser CORS for the web UI. Comma-separated allowed origins.
+      AWEB_CORS_ORIGINS: ${AWEB_CORS_ORIGINS:-}
     depends_on:
       redis:
         condition: service_healthy

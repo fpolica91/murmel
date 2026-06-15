@@ -275,6 +275,24 @@ def create_app(
     app = FastAPI(title="aweb coordination core", version="0.1.0", lifespan=lifespan)
     app.add_middleware(NormalizeMountedMCPPathMiddleware, mount_path="/mcp")
 
+    # Browser CORS for the web UI (Next.js issuer/app). Off by default; set
+    # AWEB_CORS_ORIGINS to a comma-separated list of allowed origins
+    # (e.g. "http://localhost:3000"). Token auth uses the Authorization header,
+    # so allow_headers must include it (covered by "*").
+    _cors_origins = [
+        o.strip() for o in os.getenv("AWEB_CORS_ORIGINS", "").split(",") if o.strip()
+    ]
+    if _cors_origins:
+        from fastapi.middleware.cors import CORSMiddleware
+
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=_cors_origins,
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+
     @app.middleware("http")
     async def cache_body_middleware(request: Request, call_next):
         """Cache request body and compute SHA256 for signature verification.
