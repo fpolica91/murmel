@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { ApiError } from "@/lib/api/http";
-import { listAgents, listMembers } from "@/lib/api/members";
-import type { Agent, Member } from "@/lib/api/members";
+import { listParticipants } from "@/lib/api/participants";
+import type { Participant } from "@/lib/api/participants";
 import type { AssigneeType } from "@/lib/api/types";
 import styles from "./issue-thread.module.css";
 
@@ -12,17 +12,14 @@ import styles from "./issue-thread.module.css";
  * Assignee picker — pick the human or agent who owns an issue and PATCH the
  * issue's `assignee_type`/`assignee_id`.
  *
- * Roster sources (CONTRACTS.md §2):
- *   - listAgents(teamId)  -> agents WITH presence; any caller.
- *   - listMembers(teamId) -> human members; ADMIN-ONLY (403 otherwise).
+ * Roster source (AUDIT.md §3.1/§3.3): the unified, non-admin participant
+ * directory `GET /v1/participants`. It returns BOTH humans (`kind:"human"`)
+ * and agents (`kind:"agent"`), so no admin-gated member lookup and no graceful
+ * degradation are needed — any team member can assign to anyone.
  *
- * Graceful degradation: a 403 from `listMembers` means the caller is not an
- * admin, so we hide the human options and show a muted note. Agents stay
- * available to everyone.
- *
- * Identity stored in `assignee_id`:
- *   - agents -> the agent `alias` (display parity with comment authors).
- *   - humans -> the member `subject` (Better Auth user id; no alias exists).
+ * Identity stored in `assignee_id` is the participant's team-unique `alias`
+ * for BOTH humans and agents (display parity with comment authors and chat
+ * targets). `assignee_type` mirrors the participant `kind`.
  */
 export function AssigneePicker({
   teamId,
@@ -40,13 +37,11 @@ export function AssigneePicker({
     id: string | null,
   ) => void | Promise<void>;
 }) {
-  const [agents, setAgents] = useState<Agent[]>([]);
-  const [members, setMembers] = useState<Member[]>([]);
-  const [membersLocked, setMembersLocked] = useState(false);
+  const [participants, setParticipants] = useState<Participant[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Selected value, encoded as "type:id" (or "" for unassigned) so a single
+  // Selected value, encoded as "type:alias" (or "" for unassigned) so a single
   // <select> can mix humans and agents without ambiguity.
   const current = assigneeType && assigneeId
     ? `${assigneeType}:${assigneeId}`
@@ -61,8 +56,7 @@ export function AssigneePicker({
   useEffect(() => {
     let cancelled = false;
     if (!teamId) {
-      setAgents([]);
-      setMembers([]);
+      setParticipants([]);
       setLoading(false);
       return;
     }
@@ -71,35 +65,19 @@ export function AssigneePicker({
       setLoading(true);
       setError(null);
       try {
-        const ags = await listAgents(teamId);
-        if (!cancelled) setAgents(ags);
+        const list = await listParticipants(teamId);
+        if (!cancelled) setParticipants(list);
       } catch (err) {
         if (!cancelled) {
           setError(
             err instanceof ApiError
-              ? `Could not load agents (${err.status}).`
-              : "Could not load agents.",
+              ? `Could not load participants (${err.status}).`
+              : "Could not load participants.",
           );
         }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-
-      // Human members are admin-only; degrade silently to agents-only on 403.
-      try {
-        const mems = await listMembers(teamId as string);
-        if (!cancelled) {
-          setMembers(mems);
-          setMembersLocked(false);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setMembers([]);
-          setMembersLocked(
-            err instanceof ApiError && err.status === 403,
-          );
-        }
-      }
-
-      if (!cancelled) setLoading(false);
     }
 
     void run();
@@ -108,17 +86,24 @@ export function AssigneePicker({
     };
   }, [teamId]);
 
+  const humans = useMemo(
+    () => participants.filter((p) => p.kind === "human"),
+    [participants],
+  );
+  const agents = useMemo(
+    () => participants.filter((p) => p.kind === "agent"),
+    [participants],
+  );
+
   const dirty = selected !== current;
 
-  // If the current assignee isn't in either roster (e.g. an agent that has
-  // since left, or a free-form id), surface it so the select doesn't silently
-  // reset to "Unassigned".
+  // If the current assignee isn't in the directory (e.g. someone who has since
+  // left, or a free-form id), surface it so the select doesn't silently reset
+  // to "Unassigned".
   const currentIsKnown = useMemo(() => {
     if (!current) return true;
-    const inAgents = agents.some((a) => `agent:${a.alias}` === current);
-    const inMembers = members.some((m) => `human:${m.subject}` === current);
-    return inAgents || inMembers;
-  }, [current, agents, members]);
+    return participants.some((p) => `${p.kind}:${p.alias}` === current);
+  }, [current, participants]);
 
   function apply() {
     if (!selected) {
@@ -150,22 +135,22 @@ export function AssigneePicker({
           </option>
         ) : null}
 
-        {agents.length > 0 ? (
-          <optgroup label="Agents">
-            {agents.map((a) => (
-              <option key={`agent:${a.alias}`} value={`agent:${a.alias}`}>
-                {a.alias}
-                {a.online ? " ●" : ""}
+        {humans.length > 0 ? (
+          <optgroup label="Humans">
+            {humans.map((p) => (
+              <option key={`human:${p.alias}`} value={`human:${p.alias}`}>
+                {p.display_name || p.alias}
               </option>
             ))}
           </optgroup>
         ) : null}
 
-        {members.length > 0 ? (
-          <optgroup label="Humans">
-            {members.map((m) => (
-              <option key={`human:${m.subject}`} value={`human:${m.subject}`}>
-                {shortSubject(m.subject)} ({m.role})
+        {agents.length > 0 ? (
+          <optgroup label="Agents">
+            {agents.map((p) => (
+              <option key={`agent:${p.alias}`} value={`agent:${p.alias}`}>
+                {p.display_name || p.alias}
+                {p.online ? " ●" : ""}
               </option>
             ))}
           </optgroup>
@@ -184,20 +169,9 @@ export function AssigneePicker({
 
       {loading ? <p className={styles.assignNote}>Loading roster…</p> : null}
       {error ? <p className={styles.assignNote}>{error}</p> : null}
-      {membersLocked ? (
-        <p className={styles.assignNote}>
-          Human member list requires admin — showing agents only.
-        </p>
-      ) : null}
-      {!loading && agents.length === 0 && members.length === 0 && !error ? (
-        <p className={styles.assignNote}>No assignable members.</p>
+      {!loading && participants.length === 0 && !error ? (
+        <p className={styles.assignNote}>No assignable participants.</p>
       ) : null}
     </div>
   );
-}
-
-/** Truncate a long Better Auth subject for display. */
-function shortSubject(subject: string): string {
-  if (subject.length <= 12) return subject;
-  return `${subject.slice(0, 6)}…${subject.slice(-4)}`;
 }
