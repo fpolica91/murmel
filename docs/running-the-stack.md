@@ -138,12 +138,18 @@ cd ui && npm run typecheck && npm run build
 - **`aw login` (CLI device flow).** The CLI implements RFC 8628 against an OAuth
   issuer. Better Auth ships a `deviceAuthorization` plugin exposing
   `/api/auth/device/code`, `/api/auth/device/token`, and a `/api/auth/device`
-  approval page. Wiring it requires: enabling the plugin in `ui/src/lib/auth.ts`
-  (with a `validateClient` that accepts the `aweb-cli` client id), aligning the
-  CLI's token endpoint from `{issuer}/token` to `{issuer}/device/token`, building
-  the device-approval page, and confirming `/device/token` returns a
-  JWKS-verifiable JWT (not an opaque session token). The browser UI is the
-  primary surface and is fully working; the CLI is secondary.
+  approval page. **Confirmed blocker:** the plugin's `/device/token` handler
+  calls `createSession` and returns an **opaque Better Auth session token**, not
+  a JWT — so it is NOT directly JWKS-verifiable by aweb. Completing `aw login`
+  therefore requires a two-step exchange: device flow → session token, then
+  exchange that session for a JWT via the jwt plugin's `/api/auth/token`
+  (which needs the `bearer` plugin so the session can be presented as a Bearer,
+  or the session cookie forwarded). Full scope: enable `deviceAuthorization`
+  (+ `bearer`) in `ui/src/lib/auth.ts` with a `validateClient` accepting the
+  `aweb-cli` client id; build the `/device` approval page; rework the CLI to
+  cache the session as the refresh credential and mint/refresh JWTs from
+  `/api/auth/token`; align endpoints. The browser UI is the primary surface and
+  is fully working; the CLI is a secondary effort.
 - **Multi-team `X-AWEB-Team-Id`.** The UI API client sends the bearer token but
   not the team header; single-team users work via the server's sole-membership
   fallback. Multi-team users need the active team threaded from the team-context
