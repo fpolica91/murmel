@@ -262,3 +262,44 @@ async def test_update_issue_status(aweb_cloud_db):
         assert body["status"] == "done"
         assert body["issue_id"] == issue_id
         assert body["team_id"] == TEAM_ID
+
+
+@pytest.mark.asyncio
+async def test_issue_comments_post_and_list(aweb_cloud_db):
+    app = await _setup(aweb_cloud_db)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        issue = (
+            await client.post("/v1/issues", json={"title": "needs discussion"})
+        ).json()
+        iid = issue["issue_id"]
+
+        r = await client.post(
+            f"/v1/issues/{iid}/comments", json={"body": "first comment"}
+        )
+        assert r.status_code == 201, r.text
+        c = r.json()
+        assert c["author"] == "alice"  # the authenticated actor
+        assert c["body"] == "first comment"
+        assert c["issue_id"] == iid
+
+        await client.post(f"/v1/issues/{iid}/comments", json={"body": "second"})
+
+        lst = await client.get(f"/v1/issues/{iid}/comments")
+        assert lst.status_code == 200, lst.text
+        body = lst.json()
+        assert body["issue_id"] == iid
+        # Oldest-first ordering.
+        assert [x["body"] for x in body["comments"]] == ["first comment", "second"]
+
+
+@pytest.mark.asyncio
+async def test_issue_comments_missing_issue_404(aweb_cloud_db):
+    app = await _setup(aweb_cloud_db)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        missing = str(uuid4())
+        post = await client.post(
+            f"/v1/issues/{missing}/comments", json={"body": "x"}
+        )
+        assert post.status_code == 404
+        get = await client.get(f"/v1/issues/{missing}/comments")
+        assert get.status_code == 404
