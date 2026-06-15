@@ -65,34 +65,32 @@ test.describe("aweb — humans as first-class participants (full E2E)", () => {
   test("CHAT: human<->human renders with You + Human badge", async ({
     page,
   }) => {
+    // Run-unique message bodies so reruns never collide in a reused session.
+    const tag = Date.now().toString().slice(-6);
+    const open = `Hi Founder, Mia here (human-to-human) #${tag}.`;
+    const reply = `Hello Mia, Founder replying (human) #${tag}.`;
+
     await login(page, "mia@local.test");
     await page.goto("/dashboard/chat");
 
-    // Start a NEW chat with the other human (Founder).
+    // Start a NEW chat with the other human (Founder). The chat picker is the
+    // <select> whose options carry the "· human/agent" labels (NOT the topbar
+    // team-select); option values are the participant alias.
     await page.getByRole("button", { name: "+ New" }).click();
-    // The picker is sourced from /v1/participants (humans + agents). Select the
-    // human option "Founder · human".
-    // The chat picker is the <select> whose options carry the "· human/agent"
-    // labels (NOT the topbar team-select). Option values are the participant
-    // alias; select the human "Founder".
     const picker = page.locator("select", { hasText: "· human" });
+    await expect(picker).toBeVisible();
     await picker.selectOption("Founder");
-    await page
-      .getByPlaceholder("Opening message…")
-      .fill("Hi Founder, Mia here (human-to-human).");
+    await page.getByPlaceholder("Opening message…").fill(open);
     await page.getByRole("button", { name: "Start chat" }).click();
 
     // Mia's own message renders under "You".
-    await expect(
-      page.getByText("Hi Founder, Mia here (human-to-human)."),
-    ).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(open)).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText("You").first()).toBeVisible();
 
-    // Founder (a human) replies over the API; the reply must render with the
-    // authoritative "Human" badge (from_kind=human), not guessed.
+    // Founder (a human) replies over the API into the session Mia just opened;
+    // the reply must render with the authoritative "Human" badge.
     const founderJwt = await mintJwt("founder@local.test");
     const fctx = await apiCtx(founderJwt);
-    // Find the session Mia just created (founder is a participant).
     const sessRes = await fctx.get("/v1/chat/sessions");
     const sessions = (await sessRes.json()).sessions as Array<{
       session_id: string;
@@ -104,14 +102,12 @@ test.describe("aweb — humans as first-class participants (full E2E)", () => {
       .sort((a, b) => b.last_activity.localeCompare(a.last_activity))[0];
     expect(sess, "founder should see Mia's session").toBeTruthy();
     await fctx.post(`/v1/chat/sessions/${sess!.session_id}/messages`, {
-      data: { body: "Hello Mia, Founder replying (human)." },
+      data: { body: reply },
     });
     await fctx.dispose();
 
     // The UI polls every 4s; wait for Founder's reply to surface with a Human tag.
-    await expect(
-      page.getByText("Hello Mia, Founder replying (human)."),
-    ).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(reply)).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText("Human", { exact: true }).first()).toBeVisible();
 
     await page.screenshot({
@@ -121,6 +117,11 @@ test.describe("aweb — humans as first-class participants (full E2E)", () => {
   });
 
   test("CHAT: human<->agent renders with Agent badge", async ({ page }) => {
+    // Run-unique message bodies so reruns never collide in a reused session.
+    const tag = Date.now().toString().slice(-6);
+    const open = `Hi Ada, Mia here — can you take this issue? #${tag}`;
+    const reply = `On it, Mia — Ada (agent) taking the issue. #${tag}`;
+
     await login(page, "mia@local.test");
     await page.goto("/dashboard/chat");
 
@@ -129,15 +130,12 @@ test.describe("aweb — humans as first-class participants (full E2E)", () => {
     // labels (NOT the topbar team-select). Option values are the participant
     // alias; select the agent "Ada (agent)".
     const picker = page.locator("select", { hasText: "· agent" });
+    await expect(picker).toBeVisible();
     await picker.selectOption("Ada (agent)");
-    await page
-      .getByPlaceholder("Opening message…")
-      .fill("Hi Ada, Mia here — can you take this issue?");
+    await page.getByPlaceholder("Opening message…").fill(open);
     await page.getByRole("button", { name: "Start chat" }).click();
 
-    await expect(
-      page.getByText("Hi Ada, Mia here — can you take this issue?"),
-    ).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(open)).toBeVisible({ timeout: 15_000 });
 
     // Ada (agent) replies over the API; the reply renders with an "Agent" badge.
     const adaJwt = await mintJwt("ada@local.test");
@@ -153,13 +151,11 @@ test.describe("aweb — humans as first-class participants (full E2E)", () => {
       .sort((a, b) => b.last_activity.localeCompare(a.last_activity))[0];
     expect(sess, "Ada should see Mia's session").toBeTruthy();
     await actx.post(`/v1/chat/sessions/${sess!.session_id}/messages`, {
-      data: { body: "On it, Mia — Ada (agent) taking the issue." },
+      data: { body: reply },
     });
     await actx.dispose();
 
-    await expect(
-      page.getByText("On it, Mia — Ada (agent) taking the issue."),
-    ).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(reply)).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText("Agent", { exact: true }).first()).toBeVisible();
 
     await page.screenshot({
