@@ -153,9 +153,14 @@ cd ui && npm run typecheck && npm run build
   cached session at `/api/auth/token`). When a workspace resolves but has no
   team certificate, `resolveClientSelection` falls back to a bearer client, so
   `aw` commands auto-attach + auto-refresh the token (and send `X-AWEB-Team-Id`).
-  The cert path is unchanged. The remaining edge is a *workspace-less* bearer
-  user (no `.aw/`): they'd need a base URL from `--server`/`AWEB_URL` and a
-  top-level bearer fallback in `resolveClient`.
+  The cert path is unchanged. `resolveClient` also falls back to a bearer client
+  (base URL from `AWEB_URL`) for a fully workspace-less user. **Caveat:** many
+  commands (e.g. `aw task list`) resolve via `resolveClientSelection`, which
+  requires a `.aw/` workspace and errors before the bearer fallback. Full
+  workspace-less support is a broader change — decoupling those commands from
+  the workspace `Selection` so they can run on a bearer token + `AWEB_URL`
+  alone. The realistic bearer scenario (a joined team with a workspace but no
+  certificate) is already covered by the `resolveClientSelection` fallback.
 - **Multi-team `X-AWEB-Team-Id`.** The UI API client sends the bearer token but
   not the team header; single-team users work via the server's sole-membership
   fallback. Multi-team users need the active team threaded from the team-context

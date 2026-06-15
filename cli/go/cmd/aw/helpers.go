@@ -504,7 +504,16 @@ func configureResolvedClient(c *aweb.Client, sel *awconfig.Selection, baseURL st
 
 func resolveClient() (*aweb.Client, error) {
 	c, _, err := resolveClientSelection()
-	return c, err
+	if err == nil {
+		return c, nil
+	}
+	// Workspace-less SimpleAuth fallback: no `.aw/` workspace at all, but the
+	// user ran `aw login`. Build a bearer client from AWEB_URL. On any failure
+	// (no token / no base URL) surface the original workspace error.
+	if bc, berr := resolveWorkspacelessBearerClient(); berr == nil && bc != nil {
+		return bc, nil
+	}
+	return nil, err
 }
 
 func cleanBaseURL(raw string) (string, error) {

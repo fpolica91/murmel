@@ -103,3 +103,23 @@ func bearerClientIfAvailable(baseURL, teamID string) (*aweb.Client, error) {
 	c.SetBearerProvider(bearerTokenProvider)
 	return c, nil
 }
+
+// resolveWorkspacelessBearerClient builds a bearer client for a user who ran
+// `aw login` but has no `.aw/` workspace at all. The base URL comes from
+// AWEB_URL (resolveAuthenticatedBaseURL); the team from --team if given,
+// otherwise the server's sole-membership fallback applies. Returns an error
+// when no token is cached or no base URL is configured, so the caller surfaces
+// the original workspace-resolution error instead.
+func resolveWorkspacelessBearerClient() (*aweb.Client, error) {
+	if _, err := awconfig.LoadToken(); err != nil {
+		return nil, err
+	}
+	baseURL, err := resolveAuthenticatedBaseURL("")
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(baseURL) == "" {
+		return nil, fmt.Errorf("no aweb server configured: set AWEB_URL")
+	}
+	return bearerClientIfAvailable(baseURL, strings.TrimSpace(teamFlag))
+}
