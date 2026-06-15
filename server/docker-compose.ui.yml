@@ -1,0 +1,59 @@
+# Opt-in overlay that adds the web UI (Better Auth JWT issuer) to the OSS stack
+# and wires the server <-> UI simplified-auth contract. Bring up the whole
+# product with one command:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.ui.yml up --build -d
+#
+# Then open http://localhost:3000. Set BETTER_AUTH_SECRET and
+# AWEB_MEMBERSHIPS_HINT_KEY in server/.env for anything beyond local testing.
+
+services:
+  # One-shot: create Better Auth's tables (user/session/account/verification/
+  # jwks/deviceCode) in the aweb database before the UI starts. Uses the build
+  # stage (has node_modules + the migrate script). Coexists with aweb's tables.
+  ui-migrate:
+    build:
+      context: ../ui
+      target: build
+    command: npm run db:migrate
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-aweb}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-aweb}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-dev-insecure-change-me-please-32-chars}
+      BETTER_AUTH_URL: http://localhost:3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  ui:
+    build:
+      context: ../ui
+    ports:
+      - "${UI_PORT:-3000}:3000"
+    environment:
+      BETTER_AUTH_URL: http://localhost:3000
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-dev-insecure-change-me-please-32-chars}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-aweb}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-aweb}
+      AWEB_JWT_AUDIENCE: http://localhost:8000
+      # Server-side (SSR) fetch to aweb over the internal network.
+      AWEB_MEMBERSHIPS_URL: http://aweb:8000/v1/memberships
+      AWEB_MEMBERSHIPS_HINT_KEY: ${AWEB_MEMBERSHIPS_HINT_KEY:-dev-hint-key-change-me}
+    depends_on:
+      ui-migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+
+  # Wire the server's token-auth + CORS to the UI. JWKS is fetched server-side
+  # over the internal network (ui:3000); iss/aud match the browser-facing URLs.
+  # AWID_REGISTRY_URL is pinned to defeat a leaked shell env override.
+  aweb:
+    environment:
+      AWID_REGISTRY_URL: http://awid:8010
+      AWID_PUBLIC_REGISTRY_URL: http://awid:8010
+      AWEB_ENABLE_TOKEN_AUTH: "true"
+      AWEB_TOKEN_AUTH_JWKS_URL: http://ui:3000/api/auth/jwks
+      AWEB_TOKEN_AUTH_ISSUER: http://localhost:3000
+      AWEB_TOKEN_AUTH_AUDIENCE: http://localhost:8000
+      AWEB_CORS_ORIGINS: http://localhost:3000
+      AWEB_MEMBERSHIPS_HINT_KEY: ${AWEB_MEMBERSHIPS_HINT_KEY:-dev-hint-key-change-me}

@@ -5,6 +5,24 @@ awid registry, Postgres/Redis, and the Next.js UI that is the Better Auth **JWT
 issuer**. This is the exact wiring verified end-to-end (browser login → Work
 board loads issues created via the API/MCP).
 
+## Quickest path: one command
+
+The whole product — server, awid, Postgres, Redis, **and the UI** (Better Auth
+issuer), all wired — comes up with one command via the opt-in overlay:
+
+```bash
+cd server
+cp .env.example .env            # set POSTGRES_PASSWORD (+ BETTER_AUTH_SECRET / AWEB_MEMBERSHIPS_HINT_KEY for non-local)
+docker compose -f docker-compose.yml -f docker-compose.ui.yml up --build -d
+# open http://localhost:3000  (sign up, then have an admin add your membership)
+```
+
+The overlay (`docker-compose.ui.yml`) runs Better Auth's migration as a one-shot
+`ui-migrate` service, starts the `ui` service, and wires the server's token-auth
++ CORS to it (JWKS fetched internally at `ui:3000`; `iss`/`aud` are the
+browser-facing URLs). The sections below explain the same wiring for running the
+pieces by hand.
+
 Two planes:
 
 - **Issuer plane** — the Next.js app (`ui/`) runs Better Auth, holds the signing
