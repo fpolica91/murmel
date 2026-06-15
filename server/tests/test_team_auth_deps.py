@@ -210,55 +210,6 @@ class TestResolveTeamIdentity:
 
 
 @pytest.mark.asyncio
-async def test_get_team_identity_accepts_raw_manager(aweb_cloud_db, monkeypatch):
-    from aweb.routes.connect import connect_agent
-    from aweb.team_auth_deps import get_team_identity
-
-    db = aweb_cloud_db.aweb_db
-    team_sk, _, team_did_key = _make_keypair()
-    _, _, agent_did_key = _make_keypair()
-
-    connected = await connect_agent(
-        db=db,
-        cert_info={
-            "team_id": "backend:acme.com",
-            "alias": "alice",
-            "did_key": agent_did_key,
-            "member_did_aw": "did:aw:alice",
-            "member_address": "acme.com/alice",
-            "identity_scope": "global",
-            "certificate_id": "cert-raw-manager",
-        },
-        team_did_key=team_did_key,
-        hostname="Mac.local",
-        workspace_path="/project",
-        repo_origin="",
-        role="developer",
-        human_name="",
-        agent_type="agent",
-    )
-
-    async def _fake_verify_request_certificate(_request, _db):
-        return {
-            "team_id": "backend:acme.com",
-            "alias": "alice",
-            "did_key": agent_did_key,
-            "member_did_aw": "did:aw:alice",
-            "member_address": "acme.com/alice",
-            "identity_scope": "global",
-            "certificate_id": "cert-raw-manager",
-        }
-
-    monkeypatch.setattr(_team_auth_mod, "verify_request_certificate", _fake_verify_request_certificate)
-
-    identity = await get_team_identity(_request_with_headers({}), db)
-
-    assert identity.agent_id == connected["agent_id"]
-    assert identity.did_aw == "did:aw:alice"
-    assert identity.address == "acme.com/alice"
-
-
-@pytest.mark.asyncio
 async def test_verify_request_certificate_uses_app_public_origin_without_settings(monkeypatch):
     from aweb.team_auth_deps import verify_request_certificate
 

@@ -9,7 +9,7 @@ from uuid import UUID, uuid4
 
 import pytest
 import httpx
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from httpx import ASGITransport, AsyncClient
 from nacl.signing import SigningKey
 
@@ -35,28 +35,6 @@ def _make_keypair():
     return bytes(sk), pk, did_key
 
 
-def _make_certificate(team_sk, team_did_key, member_did_key, **kwargs):
-    cert = {
-        "version": 1,
-        "certificate_id": kwargs.get("certificate_id", "cert-001"),
-        "team_id": kwargs.get("team_id", "backend:acme.com"),
-        "team_did_key": team_did_key,
-        "member_did_key": member_did_key,
-        "member_did_aw": kwargs.get("member_did_aw", ""),
-        "member_address": kwargs.get("member_address", ""),
-        "alias": kwargs.get("alias", "alice"),
-        "identity_scope": kwargs.get("identity_scope", "global"),
-        "issued_at": kwargs.get("issued_at", datetime.now(timezone.utc).isoformat()),
-    }
-    payload = canonical_json_bytes(cert)
-    cert["signature"] = sign_message(team_sk, payload)
-    return cert
-
-
-def _encode_certificate(cert):
-    return base64.b64encode(json.dumps(cert).encode()).decode()
-
-
 def _signed_identity_headers(agent_sk, agent_did_key, did_aw: str, body_bytes=b""):
     timestamp = datetime.now(timezone.utc).isoformat()
     payload = canonical_json_bytes(
@@ -71,23 +49,6 @@ def _signed_identity_headers(agent_sk, agent_did_key, did_aw: str, body_bytes=b"
         "Authorization": f"DIDKey {agent_did_key} {sig}",
         IDENTITY_DID_AW_HEADER: did_aw,
         "X-AWEB-Timestamp": timestamp,
-    }
-
-
-def _signed_team_headers(agent_sk, agent_did_key, team_id: str, cert_header: str, body_bytes=b""):
-    timestamp = datetime.now(timezone.utc).isoformat()
-    payload = canonical_json_bytes(
-        {
-            "body_sha256": hashlib.sha256(body_bytes).hexdigest(),
-            "team_id": team_id,
-            "timestamp": timestamp,
-        }
-    )
-    sig = sign_message(agent_sk, payload)
-    return {
-        "Authorization": f"DIDKey {agent_did_key} {sig}",
-        "X-AWEB-Timestamp": timestamp,
-        "X-AWID-Team-Certificate": cert_header,
     }
 
 
@@ -244,18 +205,6 @@ def _build_test_app(aweb_db, registry):
     app.state.awid_registry_client = registry
     app.state.public_origin = "http://test"
     return app
-
-
-def _cert(certificate_id: str, member_did_aw: str, member_did_key: str, alias: str = "alice"):
-    return {
-        "certificate_id": certificate_id,
-        "member_did_aw": member_did_aw,
-        "member_did_key": member_did_key,
-        "member_address": "",
-        "alias": alias,
-        "identity_scope": "global",
-        "issued_at": datetime.now(timezone.utc).isoformat(),
-    }
 
 
 async def _insert_team(aweb_db, team_id: str):
@@ -3132,33 +3081,27 @@ async def test_team_auth_alias_send_resolves_active_team_with_persistent_multi_m
     )
     assert alice_ops_row is not None
 
-    cert = _make_certificate(
-        ops_team_sk,
-        ops_team_did_key,
-        alice_did_key,
-        team_id="ops:acme.com",
-        alias="alice",
-        member_did_aw="did:aw:alice",
-        member_address="acme.com/alice",
-    )
     registry = AsyncMock()
-    registry.get_team_public_key = AsyncMock(return_value=ops_team_did_key)
-    registry.get_team_revocations = AsyncMock(return_value=set())
     registry.list_team_certificates = AsyncMock(return_value=[])
     app = _build_test_app(aweb_cloud_db.aweb_db, registry)
 
+    async def _auth_override():
+        return MessagingAuth(
+            did_key=alice_did_key,
+            did_aw="did:aw:alice",
+            address="acme.com/alice",
+            team_id="ops:acme.com",
+            alias="alice",
+            agent_id=str(alice_ops_row["agent_id"]),
+            identity_scope="global",
+            verified_team_id="ops:acme.com",
+        )
+
+    app.dependency_overrides[get_messaging_auth] = _auth_override
+
     payload = {"to_alias": "bob", "subject": "multi membership team auth", "body": "hello"}
     body_bytes = json.dumps(payload).encode()
-    headers = {
-        **_signed_team_headers(
-            alice_sk,
-            alice_did_key,
-            "ops:acme.com",
-            _encode_certificate(cert),
-            body_bytes,
-        ),
-        "Content-Type": "application/json",
-    }
+    headers = {"Content-Type": "application/json"}
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         send_resp = await client.post("/v1/messages", content=body_bytes, headers=headers)
 
@@ -5321,53 +5264,52 @@ async def test_send_message_team_and_contacts_accepts_equivalent_owner_did(aweb_
 
 @pytest.mark.asyncio
 async def test_send_message_accepts_team_auth(aweb_cloud_db):
-    team_sk, _, team_did_key = _make_keypair()
-    alice_sk, _, alice_did_key = _make_keypair()
-    bob_sk, _, bob_did_key = _make_keypair()
-    del bob_sk
+    _, _, alice_did_key = _make_keypair()
+    _, _, bob_did_key = _make_keypair()
 
     await aweb_cloud_db.aweb_db.execute(
         """
         INSERT INTO {{tables.teams}} (team_id, namespace, team_name, team_did_key)
-        VALUES ('backend:acme.com', 'acme.com', 'backend', $1)
+        VALUES ('backend:acme.com', 'acme.com', 'backend', 'did:key:z6Mkteam')
+        """
+    )
+    alice_row = await aweb_cloud_db.aweb_db.fetch_one(
+        """
+        INSERT INTO {{tables.agents}} (team_id, did_key, did_aw, address, alias, identity_scope, role, inbound_mode)
+        VALUES ('backend:acme.com', $1, 'did:aw:alice', 'acme.com/alice', 'alice', 'global', 'developer', 'open')
+        RETURNING agent_id
         """,
-        team_did_key,
+        alice_did_key,
     )
     await aweb_cloud_db.aweb_db.execute(
         """
         INSERT INTO {{tables.agents}} (team_id, did_key, did_aw, address, alias, identity_scope, role, inbound_mode)
-        VALUES
-            ('backend:acme.com', $1, 'did:aw:alice', 'acme.com/alice', 'alice', 'global', 'developer', 'open'),
-            ('backend:acme.com', $2, 'did:aw:bob', 'acme.com/bob', 'bob', 'global', 'developer', 'open')
+        VALUES ('backend:acme.com', $1, 'did:aw:bob', 'acme.com/bob', 'bob', 'global', 'developer', 'open')
         """,
-        alice_did_key,
         bob_did_key,
     )
 
-    cert = _make_certificate(
-        team_sk,
-        team_did_key,
-        alice_did_key,
-        team_id="backend:acme.com",
-        alias="alice",
-        member_did_aw="did:aw:alice",
-        member_address="acme.com/alice",
-    )
-    cert_header = _encode_certificate(cert)
     registry = AsyncMock()
-    registry.get_team_public_key = AsyncMock(return_value=team_did_key)
-    registry.get_team_revocations = AsyncMock(return_value=set())
-    registry.list_team_certificates = AsyncMock(
-        return_value=[_cert("cert-1", "did:aw:alice", alice_did_key, "alice")]
-    )
+    registry.list_team_certificates = AsyncMock(return_value=[])
     app = _build_test_app(aweb_cloud_db.aweb_db, registry)
+
+    async def _auth_override():
+        return MessagingAuth(
+            did_key=alice_did_key,
+            did_aw="did:aw:alice",
+            address="acme.com/alice",
+            team_id="backend:acme.com",
+            alias="alice",
+            agent_id=str(alice_row["agent_id"]),
+            identity_scope="global",
+            verified_team_id="backend:acme.com",
+        )
+
+    app.dependency_overrides[get_messaging_auth] = _auth_override
 
     payload = {"to_alias": "bob", "subject": "hello", "body": "hi"}
     body_bytes = json.dumps(payload).encode()
-    headers = {
-        **_signed_team_headers(alice_sk, alice_did_key, "backend:acme.com", cert_header, body_bytes),
-        "Content-Type": "application/json",
-    }
+    headers = {"Content-Type": "application/json"}
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.post("/v1/messages", content=body_bytes, headers=headers)
 
@@ -5376,53 +5318,55 @@ async def test_send_message_accepts_team_auth(aweb_cloud_db):
 
 @pytest.mark.asyncio
 async def test_send_message_team_and_contacts_accepts_verified_same_team_non_contact_http(aweb_cloud_db):
-    """aapq: HTTP-level regression — a same-team valid team certificate
+    """aapq: HTTP-level regression — a same-team verified messaging context
     authorizes delivery into a team_and_contacts recipient even without
     an exact active contact."""
-    team_sk, _, team_did_key = _make_keypair()
-    alice_sk, _, alice_did_key = _make_keypair()
+    _, _, alice_did_key = _make_keypair()
     _, _, bob_did_key = _make_keypair()
 
     await aweb_cloud_db.aweb_db.execute(
         """
         INSERT INTO {{tables.teams}} (team_id, namespace, team_name, team_did_key)
-        VALUES ('backend:acme.com', 'acme.com', 'backend', $1)
+        VALUES ('backend:acme.com', 'acme.com', 'backend', 'did:key:z6Mkteam')
+        """
+    )
+    alice_row = await aweb_cloud_db.aweb_db.fetch_one(
+        """
+        INSERT INTO {{tables.agents}} (team_id, did_key, did_aw, address, alias, identity_scope, role, inbound_mode)
+        VALUES ('backend:acme.com', $1, 'did:aw:alice', 'acme.com/alice', 'alice', 'global', 'developer', 'open')
+        RETURNING agent_id
         """,
-        team_did_key,
+        alice_did_key,
     )
     await aweb_cloud_db.aweb_db.execute(
         """
         INSERT INTO {{tables.agents}} (team_id, did_key, did_aw, address, alias, identity_scope, role, inbound_mode)
-        VALUES
-            ('backend:acme.com', $1, 'did:aw:alice', 'acme.com/alice', 'alice', 'global', 'developer', 'open'),
-            ('backend:acme.com', $2, 'did:aw:bob', 'acme.com/bob', 'bob', 'global', 'developer', 'team_and_contacts')
+        VALUES ('backend:acme.com', $1, 'did:aw:bob', 'acme.com/bob', 'bob', 'global', 'developer', 'team_and_contacts')
         """,
-        alice_did_key,
         bob_did_key,
     )
 
-    cert = _make_certificate(
-        team_sk,
-        team_did_key,
-        alice_did_key,
-        team_id="backend:acme.com",
-        alias="alice",
-        member_did_aw="did:aw:alice",
-        member_address="acme.com/alice",
-    )
-    cert_header = _encode_certificate(cert)
     registry = AsyncMock()
-    registry.get_team_public_key = AsyncMock(return_value=team_did_key)
-    registry.get_team_revocations = AsyncMock(return_value=set())
     registry.list_team_certificates = AsyncMock(return_value=[])
     app = _build_test_app(aweb_cloud_db.aweb_db, registry)
 
+    async def _auth_override():
+        return MessagingAuth(
+            did_key=alice_did_key,
+            did_aw="did:aw:alice",
+            address="acme.com/alice",
+            team_id="backend:acme.com",
+            alias="alice",
+            agent_id=str(alice_row["agent_id"]),
+            identity_scope="global",
+            verified_team_id="backend:acme.com",
+        )
+
+    app.dependency_overrides[get_messaging_auth] = _auth_override
+
     payload = {"to_alias": "bob", "subject": "team delivery", "body": "hi"}
     body_bytes = json.dumps(payload).encode()
-    headers = {
-        **_signed_team_headers(alice_sk, alice_did_key, "backend:acme.com", cert_header, body_bytes),
-        "Content-Type": "application/json",
-    }
+    headers = {"Content-Type": "application/json"}
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.post("/v1/messages", content=body_bytes, headers=headers)
 
@@ -5431,50 +5375,52 @@ async def test_send_message_team_and_contacts_accepts_verified_same_team_non_con
 
 @pytest.mark.asyncio
 async def test_send_message_team_and_contacts_accepts_verified_same_team_non_contact(aweb_cloud_db):
-    team_sk, _, team_did_key = _make_keypair()
-    alice_sk, _, alice_did_key = _make_keypair()
+    _, _, alice_did_key = _make_keypair()
     _, _, bob_did_key = _make_keypair()
 
     await aweb_cloud_db.aweb_db.execute(
         """
         INSERT INTO {{tables.teams}} (team_id, namespace, team_name, team_did_key)
-        VALUES ('backend:acme.com', 'acme.com', 'backend', $1)
+        VALUES ('backend:acme.com', 'acme.com', 'backend', 'did:key:z6Mkteam')
+        """
+    )
+    alice_row = await aweb_cloud_db.aweb_db.fetch_one(
+        """
+        INSERT INTO {{tables.agents}} (team_id, did_key, did_aw, address, alias, identity_scope, role, inbound_mode)
+        VALUES ('backend:acme.com', $1, 'did:aw:alice', 'acme.com/alice', 'alice', 'global', 'developer', 'open')
+        RETURNING agent_id
         """,
-        team_did_key,
+        alice_did_key,
     )
     await aweb_cloud_db.aweb_db.execute(
         """
         INSERT INTO {{tables.agents}} (team_id, did_key, did_aw, address, alias, identity_scope, role, inbound_mode)
-        VALUES
-            ('backend:acme.com', $1, 'did:aw:alice', 'acme.com/alice', 'alice', 'global', 'developer', 'open'),
-            ('backend:acme.com', $2, 'did:aw:bob', 'acme.com/bob', 'bob', 'global', 'developer', 'team_and_contacts')
+        VALUES ('backend:acme.com', $1, 'did:aw:bob', 'acme.com/bob', 'bob', 'global', 'developer', 'team_and_contacts')
         """,
-        alice_did_key,
         bob_did_key,
     )
 
-    cert = _make_certificate(
-        team_sk,
-        team_did_key,
-        alice_did_key,
-        team_id="backend:acme.com",
-        alias="alice",
-        member_did_aw="did:aw:alice",
-        member_address="acme.com/alice",
-    )
-    cert_header = _encode_certificate(cert)
     registry = AsyncMock()
-    registry.get_team_public_key = AsyncMock(return_value=team_did_key)
-    registry.get_team_revocations = AsyncMock(return_value=set())
     registry.list_team_certificates = AsyncMock(return_value=[])
     app = _build_test_app(aweb_cloud_db.aweb_db, registry)
 
+    async def _auth_override():
+        return MessagingAuth(
+            did_key=alice_did_key,
+            did_aw="did:aw:alice",
+            address="acme.com/alice",
+            team_id="backend:acme.com",
+            alias="alice",
+            agent_id=str(alice_row["agent_id"]),
+            identity_scope="global",
+            verified_team_id="backend:acme.com",
+        )
+
+    app.dependency_overrides[get_messaging_auth] = _auth_override
+
     payload = {"to_alias": "bob", "subject": "team delivery", "body": "hi"}
     body_bytes = json.dumps(payload).encode()
-    headers = {
-        **_signed_team_headers(alice_sk, alice_did_key, "backend:acme.com", cert_header, body_bytes),
-        "Content-Type": "application/json",
-    }
+    headers = {"Content-Type": "application/json"}
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.post("/v1/messages", content=body_bytes, headers=headers)
 
@@ -5634,51 +5580,71 @@ async def test_ephemeral_team_auth_mail_routes_by_did_key_and_inboxes_by_identit
         bob_did_key,
     )
 
-    alice_cert = _make_certificate(
-        team_sk,
-        team_did_key,
-        alice_did_key,
-        team_id="default:local",
-        alias="alice",
-        identity_scope="local",
+    alice_agent = await aweb_cloud_db.aweb_db.fetch_one(
+        "SELECT agent_id FROM {{tables.agents}} WHERE team_id = 'default:local' AND alias = 'alice'"
     )
-    bob_cert = _make_certificate(
-        team_sk,
-        team_did_key,
-        bob_did_key,
-        team_id="default:local",
-        alias="bob",
-        identity_scope="local",
+    bob_agent = await aweb_cloud_db.aweb_db.fetch_one(
+        "SELECT agent_id FROM {{tables.agents}} WHERE team_id = 'default:local' AND alias = 'bob'"
     )
     registry = AsyncMock()
-    registry.get_team_public_key = AsyncMock(return_value=team_did_key)
-    registry.get_team_revocations = AsyncMock(return_value=set())
     registry.list_team_certificates = AsyncMock(return_value=[])
     app = _build_test_app(aweb_cloud_db.aweb_db, registry)
+
+    # The two POSTs send as alice/bob via verified team-auth context. Dispatch
+    # the override on the DIDKey in the Authorization header so each request
+    # resolves to the right local identity.
+    _team_ctx = {
+        alice_did_key: MessagingAuth(
+            did_key=alice_did_key,
+            did_aw=None,
+            address=None,
+            team_id="default:local",
+            alias="alice",
+            agent_id=str(alice_agent["agent_id"]),
+            identity_scope="local",
+            verified_team_id="default:local",
+        ),
+        bob_did_key: MessagingAuth(
+            did_key=bob_did_key,
+            did_aw=None,
+            address=None,
+            team_id="default:local",
+            alias="bob",
+            agent_id=str(bob_agent["agent_id"]),
+            identity_scope="local",
+            verified_team_id="default:local",
+        ),
+    }
+
+    # FastAPI passes the Request to the dependency; resolve via header.
+    async def _resolve_team_ctx(request: Request) -> MessagingAuth:
+        auth = request.headers.get("Authorization", "")
+        for did, ctx in _team_ctx.items():
+            if did in auth:
+                return ctx
+        # Inbox GETs use plain identity auth (no team membership context).
+        from aweb.identity_auth_deps import resolve_identity_auth
+
+        identity = await resolve_identity_auth(request)
+        return MessagingAuth(
+            did_key=identity.did_key,
+            did_aw=identity.did_aw,
+            address=identity.address,
+        )
+
+    app.dependency_overrides[get_messaging_auth] = _resolve_team_ctx
 
     alice_payload = {"to_alias": "bob", "subject": "local to bob", "body": "hello bob"}
     alice_body = json.dumps(alice_payload).encode()
     alice_headers = {
-        **_signed_team_headers(
-            alice_sk,
-            alice_did_key,
-            "default:local",
-            _encode_certificate(alice_cert),
-            alice_body,
-        ),
+        **_signed_identity_headers(alice_sk, alice_did_key, "", alice_body),
         "Content-Type": "application/json",
     }
 
     bob_payload = {"to_alias": "alice", "subject": "local to alice", "body": "hello alice"}
     bob_body = json.dumps(bob_payload).encode()
     bob_headers = {
-        **_signed_team_headers(
-            bob_sk,
-            bob_did_key,
-            "default:local",
-            _encode_certificate(bob_cert),
-            bob_body,
-        ),
+        **_signed_identity_headers(bob_sk, bob_did_key, "", bob_body),
         "Content-Type": "application/json",
     }
 
@@ -5778,25 +5744,28 @@ async def test_identity_auth_mail_derives_sender_address_from_agent_row(aweb_clo
 
 @pytest.mark.asyncio
 async def test_send_message_team_auth_uses_cert_identity_when_agent_row_is_partial(aweb_cloud_db):
-    team_sk, _, team_did_key = _make_keypair()
-    alice_sk, _, alice_did_key = _make_keypair()
+    _, _, alice_did_key = _make_keypair()
     _, _, bob_did_key = _make_keypair()
 
     await aweb_cloud_db.aweb_db.execute(
         """
         INSERT INTO {{tables.teams}} (team_id, namespace, team_name, team_did_key)
-        VALUES ('backend:acme.com', 'acme.com', 'backend', $1)
+        VALUES ('backend:acme.com', 'acme.com', 'backend', 'did:key:z6Mkteam')
+        """
+    )
+    alice_row = await aweb_cloud_db.aweb_db.fetch_one(
+        """
+        INSERT INTO {{tables.agents}} (team_id, did_key, did_aw, address, alias, identity_scope, role, inbound_mode)
+        VALUES ('backend:acme.com', $1, NULL, NULL, 'alice', 'global', 'developer', 'open')
+        RETURNING agent_id
         """,
-        team_did_key,
+        alice_did_key,
     )
     await aweb_cloud_db.aweb_db.execute(
         """
         INSERT INTO {{tables.agents}} (team_id, did_key, did_aw, address, alias, identity_scope, role, inbound_mode)
-        VALUES
-            ('backend:acme.com', $1, NULL, NULL, 'alice', 'global', 'developer', 'open'),
-            ('backend:acme.com', $2, 'did:aw:bob', 'acme.com/bob', 'bob', 'global', 'developer', 'team_and_contacts')
+        VALUES ('backend:acme.com', $1, 'did:aw:bob', 'acme.com/bob', 'bob', 'global', 'developer', 'team_and_contacts')
         """,
-        alice_did_key,
         bob_did_key,
     )
     await aweb_cloud_db.aweb_db.execute(
@@ -5805,37 +5774,31 @@ async def test_send_message_team_auth_uses_cert_identity_when_agent_row_is_parti
         VALUES ('did:aw:bob', 'acme.com/alice', 'Alice')
         """
     )
-    alice_row = await aweb_cloud_db.aweb_db.fetch_one(
-        """
-        SELECT agent_id
-        FROM {{tables.agents}}
-        WHERE team_id = 'backend:acme.com' AND alias = 'alice'
-        """
-    )
     assert alice_row is not None
 
-    cert = _make_certificate(
-        team_sk,
-        team_did_key,
-        alice_did_key,
-        team_id="backend:acme.com",
-        alias="alice",
-        member_did_aw="did:aw:alice",
-        member_address="acme.com/alice",
-    )
-    cert_header = _encode_certificate(cert)
     registry = AsyncMock()
-    registry.get_team_public_key = AsyncMock(return_value=team_did_key)
-    registry.get_team_revocations = AsyncMock(return_value=set())
     registry.list_team_certificates = AsyncMock(return_value=[])
     app = _build_test_app(aweb_cloud_db.aweb_db, registry)
 
+    # The verified messaging context carries the did_aw/address even though the
+    # local agent row is partial (NULL did_aw/address).
+    async def _auth_override():
+        return MessagingAuth(
+            did_key=alice_did_key,
+            did_aw="did:aw:alice",
+            address="acme.com/alice",
+            team_id="backend:acme.com",
+            alias="alice",
+            agent_id=str(alice_row["agent_id"]),
+            identity_scope="global",
+            verified_team_id="backend:acme.com",
+        )
+
+    app.dependency_overrides[get_messaging_auth] = _auth_override
+
     payload = {"to_alias": "bob", "subject": "hello partial", "body": "hi"}
     body_bytes = json.dumps(payload).encode()
-    headers = {
-        **_signed_team_headers(alice_sk, alice_did_key, "backend:acme.com", cert_header, body_bytes),
-        "Content-Type": "application/json",
-    }
+    headers = {"Content-Type": "application/json"}
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.post("/v1/messages", content=body_bytes, headers=headers)
 
@@ -5886,21 +5849,20 @@ async def test_inbox_matches_stable_and_current_identity_dids(aweb_cloud_db):
 
 
 @pytest.mark.asyncio
-async def test_messages_inbox_and_ack_accept_persistent_cert_auth(aweb_cloud_db):
-    team_sk, _, team_did_key = _make_keypair()
-    alice_sk, _, alice_did_key = _make_keypair()
+async def test_messages_inbox_and_ack_accept_persistent_team_auth(aweb_cloud_db):
+    _, _, alice_did_key = _make_keypair()
 
     await aweb_cloud_db.aweb_db.execute(
         """
         INSERT INTO {{tables.teams}} (team_id, namespace, team_name, team_did_key)
-        VALUES ('backend:acme.com', 'acme.com', 'backend', $1)
-        """,
-        team_did_key,
+        VALUES ('backend:acme.com', 'acme.com', 'backend', 'did:key:z6Mkteam')
+        """
     )
-    await aweb_cloud_db.aweb_db.execute(
+    alice_row = await aweb_cloud_db.aweb_db.fetch_one(
         """
         INSERT INTO {{tables.agents}} (team_id, did_key, did_aw, address, alias, identity_scope, role, inbound_mode)
         VALUES ('backend:acme.com', $1, 'did:aw:alice', 'acme.com/alice', 'alice', 'global', 'developer', 'open')
+        RETURNING agent_id
         """,
         alice_did_key,
     )
@@ -5922,25 +5884,26 @@ async def test_messages_inbox_and_ack_accept_persistent_cert_auth(aweb_cloud_db)
         """
     )
 
-    cert = _make_certificate(
-        team_sk,
-        team_did_key,
-        alice_did_key,
-        team_id="backend:acme.com",
-        alias="alice",
-        member_did_aw="did:aw:alice",
-        member_address="acme.com/alice",
-    )
-    cert_header = _encode_certificate(cert)
     registry = AsyncMock()
-    registry.get_team_public_key = AsyncMock(return_value=team_did_key)
-    registry.get_team_revocations = AsyncMock(return_value=set())
     app = _build_test_app(aweb_cloud_db.aweb_db, registry)
 
-    headers = _signed_team_headers(alice_sk, alice_did_key, "backend:acme.com", cert_header)
+    async def _auth_override():
+        return MessagingAuth(
+            did_key=alice_did_key,
+            did_aw="did:aw:alice",
+            address="acme.com/alice",
+            team_id="backend:acme.com",
+            alias="alice",
+            agent_id=str(alice_row["agent_id"]),
+            identity_scope="global",
+            verified_team_id="backend:acme.com",
+        )
+
+    app.dependency_overrides[get_messaging_auth] = _auth_override
+
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        inbox_resp = await client.get("/v1/messages/inbox", headers=headers)
-        ack_resp = await client.post("/v1/messages/33333333-3333-3333-3333-333333333333/ack", headers=headers)
+        inbox_resp = await client.get("/v1/messages/inbox")
+        ack_resp = await client.post("/v1/messages/33333333-3333-3333-3333-333333333333/ack")
 
     assert inbox_resp.status_code == 200, inbox_resp.text
     assert [item["subject"] for item in inbox_resp.json()["messages"]] == ["persistent cert inbox"]
@@ -5952,21 +5915,20 @@ async def test_messages_inbox_and_ack_accept_persistent_cert_auth(aweb_cloud_db)
 
 
 @pytest.mark.asyncio
-async def test_messages_inbox_and_ack_accept_ephemeral_cert_auth(aweb_cloud_db):
-    team_sk, _, team_did_key = _make_keypair()
-    alice_sk, _, alice_did_key = _make_keypair()
+async def test_messages_inbox_and_ack_accept_ephemeral_team_auth(aweb_cloud_db):
+    _, _, alice_did_key = _make_keypair()
 
     await aweb_cloud_db.aweb_db.execute(
         """
         INSERT INTO {{tables.teams}} (team_id, namespace, team_name, team_did_key)
-        VALUES ('default:local', 'local', 'default', $1)
-        """,
-        team_did_key,
+        VALUES ('default:local', 'local', 'default', 'did:key:z6Mkteam')
+        """
     )
-    await aweb_cloud_db.aweb_db.execute(
+    alice_row = await aweb_cloud_db.aweb_db.fetch_one(
         """
         INSERT INTO {{tables.agents}} (team_id, did_key, did_aw, address, alias, identity_scope, role, inbound_mode)
         VALUES ('default:local', $1, NULL, NULL, 'alice', 'local', 'developer', 'open')
+        RETURNING agent_id
         """,
         alice_did_key,
     )
@@ -5989,24 +5951,26 @@ async def test_messages_inbox_and_ack_accept_ephemeral_cert_auth(aweb_cloud_db):
         alice_did_key,
     )
 
-    cert = _make_certificate(
-        team_sk,
-        team_did_key,
-        alice_did_key,
-        team_id="default:local",
-        alias="alice",
-        identity_scope="local",
-    )
-    cert_header = _encode_certificate(cert)
     registry = AsyncMock()
-    registry.get_team_public_key = AsyncMock(return_value=team_did_key)
-    registry.get_team_revocations = AsyncMock(return_value=set())
     app = _build_test_app(aweb_cloud_db.aweb_db, registry)
 
-    headers = _signed_team_headers(alice_sk, alice_did_key, "default:local", cert_header)
+    async def _auth_override():
+        return MessagingAuth(
+            did_key=alice_did_key,
+            did_aw=None,
+            address=None,
+            team_id="default:local",
+            alias="alice",
+            agent_id=str(alice_row["agent_id"]),
+            identity_scope="local",
+            verified_team_id="default:local",
+        )
+
+    app.dependency_overrides[get_messaging_auth] = _auth_override
+
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        inbox_resp = await client.get("/v1/messages/inbox", headers=headers)
-        ack_resp = await client.post("/v1/messages/44444444-4444-4444-4444-444444444444/ack", headers=headers)
+        inbox_resp = await client.get("/v1/messages/inbox")
+        ack_resp = await client.post("/v1/messages/44444444-4444-4444-4444-444444444444/ack")
 
     assert inbox_resp.status_code == 200, inbox_resp.text
     assert [item["subject"] for item in inbox_resp.json()["messages"]] == ["ephemeral cert inbox"]

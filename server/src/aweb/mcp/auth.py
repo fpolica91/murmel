@@ -117,75 +117,11 @@ class MCPAuthMiddleware:
         if internal is not None:
             return await self._resolve_proxy_auth(internal)
 
-        # Additive bearer-JWT (Better Auth) path. Engages only when the simple
-        # auth feature is on, no team certificate is present (cert always wins),
-        # and the request carries an ``Authorization: Bearer <jwt>`` header. The
-        # certificate path below is left byte-for-byte unchanged: a DIDKey or
-        # cert request never reaches this branch.
-        if (
-            not request_has_team_certificate(request)
-            and request_has_bearer_token(request)
-            and token_auth_enabled()
-        ):
+        # Bearer-JWT (Better Auth) is the only client auth path for MCP.
+        if request_has_bearer_token(request) and token_auth_enabled():
             return await self._resolve_token_auth(request)
 
-        auth_header = request.headers.get("authorization", "")
-        if not auth_header.startswith("DIDKey "):
-            return None
-
-        cert_header = request.headers.get("x-awid-team-certificate", "")
-        if not cert_header:
-            identity = await resolve_identity_auth(request)
-            row = await lookup_identity_agent_context(
-                self.db_infra,
-                did_key=identity.did_key,
-                did_aw=identity.did_aw,
-            )
-            return AuthContext(
-                team_id=(row or {}).get("team_id") or None,
-                agent_id=(str((row or {}).get("agent_id")) if (row or {}).get("agent_id") else None),
-                workspace_id=None,
-                alias=(row or {}).get("alias") or None,
-                did_key=identity.did_key,
-                did_aw=identity.did_aw or ((row or {}).get("did_aw") or None),
-                address=identity.address or ((row or {}).get("address") or None),
-            )
-
-        cert_info = await verify_request_certificate(request, self.db_infra)
-
-        aweb_db = _aweb_db(self.db_infra)
-        row = await aweb_db.fetch_one(
-            """
-            SELECT agent_id, alias, did_aw, address FROM {{tables.agents}}
-            WHERE team_id = $1 AND did_key = $2 AND deleted_at IS NULL
-            """,
-            cert_info["team_id"],
-            cert_info["did_key"],
-        )
-        if not row:
-            raise HTTPException(status_code=403, detail="Agent not connected")
-
-        workspace = await aweb_db.fetch_one(
-            """
-            SELECT workspace_id
-            FROM {{tables.workspaces}}
-            WHERE agent_id = $1 AND team_id = $2 AND deleted_at IS NULL
-            ORDER BY updated_at DESC, workspace_id DESC
-            LIMIT 1
-            """,
-            row["agent_id"],
-            cert_info["team_id"],
-        )
-
-        return AuthContext(
-            team_id=cert_info["team_id"],
-            agent_id=str(row["agent_id"]),
-            workspace_id=(str(workspace["workspace_id"]) if workspace else None),
-            alias=row["alias"],
-            did_key=cert_info["did_key"],
-            did_aw=(cert_info.get("member_did_aw") or row.get("did_aw") or "").strip() or None,
-            address=(cert_info.get("member_address") or row.get("address") or "").strip() or None,
-        )
+        return None
 
     async def _resolve_token_auth(self, request: Request) -> AuthContext:
         """Resolve a Better Auth bearer JWT onto the MCP ``AuthContext`` shape.

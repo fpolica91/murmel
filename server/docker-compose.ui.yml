@@ -15,7 +15,9 @@ services:
     build:
       context: ../ui
       target: build
-    command: npm run db:migrate
+    # Idempotent: Better Auth's CLI errors if its tables already exist
+    # (relation-already-exists), so a re-run is a no-op rather than a failure.
+    command: ["sh", "-c", "npm run db:migrate || echo 'better-auth tables already present; skipping migrate'"]
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-aweb}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-aweb}
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-dev-insecure-change-me-please-32-chars}

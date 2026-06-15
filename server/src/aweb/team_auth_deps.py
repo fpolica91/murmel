@@ -218,40 +218,28 @@ async def verify_request_certificate(request: Request, db) -> dict[str, str]:
 
 
 async def get_team_identity(request: Request, db=Depends(get_db)) -> TeamIdentity:
-    """FastAPI dependency: authenticate request via team certificate.
+    """FastAPI dependency: authenticate the request via the Better Auth JWT.
 
-    Full auth pipeline (steps 1-6): verifies the certificate and
-    resolves the agent from the local DB. For routes where the agent
-    must already exist.
+    Token auth is the only accepted auth path. The request must present a valid
+    bearer JWT whose subject has an active membership for the requested team
+    (selected via the ``X-AWEB-Team-Id`` header or the subject's sole active
+    team). Raises HTTPException(401) when no valid token is present.
 
     IMPORTANT: this must be used as Depends(get_team_identity) so FastAPI
-    evaluates it before body parameter injection. Calling it directly
-    inside a route handler deadlocks on POST requests because
-    request.body() blocks after FastAPI has already consumed the stream.
+    evaluates it before body parameter injection.
 
-    Returns a TeamIdentity or raises HTTPException(401/403).
-
-    Additive simple-auth path: if the request presents a bearer JWT (and no
-    team certificate) and ``AWEB_ENABLE_TOKEN_AUTH`` is on, authenticate via
-    the token pipeline instead, scoping the identity to one of the subject's
-    active memberships. Certificate requests are unaffected. See
-    ``aweb.token_team_scope``.
+    See ``aweb.token_team_scope`` / ``aweb.token_auth``.
     """
-    # Imported lazily to keep the token-auth path fully optional and to avoid
-    # any import cycle through the integration glue module.
+    # Imported lazily to avoid an import cycle through the integration glue.
     from aweb.token_team_scope import resolve_token_team_identity
 
     token_identity = await resolve_token_team_identity(request, db)
-    if token_identity is not None:
-        return token_identity
-
-    cert_info = await verify_request_certificate(request, db)
-
-    aweb_db = _aweb_db(db)
-    try:
-        return await resolve_team_identity(aweb_db, cert_info)
-    except ValueError as e:
-        raise HTTPException(status_code=403, detail=str(e))
+    if token_identity is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required: present a valid bearer token.",
+        )
+    return token_identity
 
 
 # ---------------------------------------------------------------------------

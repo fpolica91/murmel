@@ -49,28 +49,6 @@ def _signed_identity_headers(agent_sk, agent_did_key, did_aw: str, body_bytes=b"
     }
 
 
-def _make_certificate(team_sk, team_did_key, member_did_key, **kwargs):
-    cert = {
-        "version": 1,
-        "certificate_id": kwargs.get("certificate_id", "cert-001"),
-        "team_id": kwargs.get("team_id", "backend:acme.com"),
-        "team_did_key": team_did_key,
-        "member_did_key": member_did_key,
-        "member_did_aw": kwargs.get("member_did_aw", ""),
-        "member_address": kwargs.get("member_address", ""),
-        "alias": kwargs.get("alias", "alice"),
-        "identity_scope": kwargs.get("identity_scope", "global"),
-        "issued_at": kwargs.get("issued_at", datetime.now(timezone.utc).isoformat()),
-    }
-    payload = canonical_json_bytes(cert)
-    cert["signature"] = sign_message(team_sk, payload)
-    return cert
-
-
-def _encode_certificate(cert):
-    return base64.b64encode(json.dumps(cert).encode()).decode()
-
-
 def _raw_b64(data: bytes) -> str:
     return base64.b64encode(data).rstrip(b"=").decode("ascii")
 
@@ -182,23 +160,6 @@ def _encrypted_chat_envelope(
     )
     envelope["signature"] = _raw_b64(signing_key.sign(payload).signature)
     return envelope
-
-
-def _signed_team_headers(agent_sk, agent_did_key, team_id: str, cert_header: str, body_bytes=b""):
-    timestamp = datetime.now(timezone.utc).isoformat()
-    payload = canonical_json_bytes(
-        {
-            "body_sha256": hashlib.sha256(body_bytes).hexdigest(),
-            "team_id": team_id,
-            "timestamp": timestamp,
-        }
-    )
-    sig = sign_message(agent_sk, payload)
-    return {
-        "Authorization": f"DIDKey {agent_did_key} {sig}",
-        "X-AWEB-Timestamp": timestamp,
-        "X-AWID-Team-Certificate": cert_header,
-    }
 
 
 def _build_test_app(aweb_db, registry):
@@ -2739,19 +2700,17 @@ async def test_create_chat_session_global_recipient_allows_explicit_inbound_mode
 
 @pytest.mark.asyncio
 async def test_create_chat_session_team_and_contacts_accepts_verified_same_team_non_contact(aweb_cloud_db):
-    """aapq: a same-team valid team certificate authorizes chat session
+    """aapq: a same-team verified sender authorizes chat session
     creation for a team_and_contacts recipient even without an exact
     active contact."""
-    team_sk, _, team_did_key = _make_keypair()
     alice_sk, _, alice_did_key = _make_keypair()
     _, _, bob_did_key = _make_keypair()
 
     await aweb_cloud_db.aweb_db.execute(
         """
         INSERT INTO {{tables.teams}} (team_id, namespace, team_name, team_did_key)
-        VALUES ('backend:acme.com', 'acme.com', 'backend', $1)
-        """,
-        team_did_key,
+        VALUES ('backend:acme.com', 'acme.com', 'backend', 'did:key:team-1')
+        """
     )
     await aweb_cloud_db.aweb_db.execute(
         """
@@ -2764,46 +2723,58 @@ async def test_create_chat_session_team_and_contacts_accepts_verified_same_team_
         bob_did_key,
     )
 
-    cert = _make_certificate(
-        team_sk,
-        team_did_key,
-        alice_did_key,
-        team_id="backend:acme.com",
-        alias="alice",
-        member_did_aw="did:aw:alice",
-        member_address="acme.com/alice",
-    )
-    cert_header = _encode_certificate(cert)
     registry = AsyncMock()
-    registry.get_team_public_key = AsyncMock(return_value=team_did_key)
-    registry.get_team_revocations = AsyncMock(return_value=set())
-    registry.list_team_certificates = AsyncMock(return_value=[])
     app = _build_test_app(aweb_cloud_db.aweb_db, registry)
 
-    payload = {"to_aliases": ["bob"], "message": "team delivery"}
-    body = json.dumps(payload).encode()
-    headers = {
-        **_signed_team_headers(alice_sk, alice_did_key, "backend:acme.com", cert_header, body),
-        "Content-Type": "application/json",
+    async def _auth_override():
+        return MessagingAuth(
+            did_key=alice_did_key,
+            did_aw="did:aw:alice",
+            address="acme.com/alice",
+            team_id="backend:acme.com",
+            alias="alice",
+        )
+
+    app.dependency_overrides[get_messaging_auth] = _auth_override
+
+    message_id = str(uuid4())
+    timestamp = "2026-04-17T12:00:00Z"
+    signed_payload = json.dumps(
+        {
+            "type": "chat",
+            "from": "alice",
+            "to": "bob",
+            "body": "team delivery",
+            "from_did": alice_did_key,
+            "message_id": message_id,
+            "timestamp": timestamp,
+        }
+    )
+    payload = {
+        "to_aliases": ["bob"],
+        "message": "team delivery",
+        "from_did": alice_did_key,
+        "signature": "test-signature",
+        "message_id": message_id,
+        "timestamp": timestamp,
+        "signed_payload": signed_payload,
     }
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        resp = await client.post("/v1/chat/sessions", content=body, headers=headers)
+        resp = await client.post("/v1/chat/sessions", json=payload)
 
     assert resp.status_code == 200, resp.text
 
 
 @pytest.mark.asyncio
 async def test_create_chat_session_team_and_contacts_accepts_verified_same_team_non_contact_duplicate_path(aweb_cloud_db):
-    team_sk, _, team_did_key = _make_keypair()
     alice_sk, _, alice_did_key = _make_keypair()
     _, _, bob_did_key = _make_keypair()
 
     await aweb_cloud_db.aweb_db.execute(
         """
         INSERT INTO {{tables.teams}} (team_id, namespace, team_name, team_did_key)
-        VALUES ('backend:acme.com', 'acme.com', 'backend', $1)
-        """,
-        team_did_key,
+        VALUES ('backend:acme.com', 'acme.com', 'backend', 'did:key:team-1')
+        """
     )
     await aweb_cloud_db.aweb_db.execute(
         """
@@ -2816,30 +2787,44 @@ async def test_create_chat_session_team_and_contacts_accepts_verified_same_team_
         bob_did_key,
     )
 
-    cert = _make_certificate(
-        team_sk,
-        team_did_key,
-        alice_did_key,
-        team_id="backend:acme.com",
-        alias="alice",
-        member_did_aw="did:aw:alice",
-        member_address="acme.com/alice",
-    )
-    cert_header = _encode_certificate(cert)
     registry = AsyncMock()
-    registry.get_team_public_key = AsyncMock(return_value=team_did_key)
-    registry.get_team_revocations = AsyncMock(return_value=set())
-    registry.list_team_certificates = AsyncMock(return_value=[])
     app = _build_test_app(aweb_cloud_db.aweb_db, registry)
 
-    payload = {"to_aliases": ["bob"], "message": "team delivery"}
-    body = json.dumps(payload).encode()
-    headers = {
-        **_signed_team_headers(alice_sk, alice_did_key, "backend:acme.com", cert_header, body),
-        "Content-Type": "application/json",
+    async def _auth_override():
+        return MessagingAuth(
+            did_key=alice_did_key,
+            did_aw="did:aw:alice",
+            address="acme.com/alice",
+            team_id="backend:acme.com",
+            alias="alice",
+        )
+
+    app.dependency_overrides[get_messaging_auth] = _auth_override
+
+    message_id = str(uuid4())
+    timestamp = "2026-04-17T12:00:00Z"
+    signed_payload = json.dumps(
+        {
+            "type": "chat",
+            "from": "alice",
+            "to": "bob",
+            "body": "team delivery",
+            "from_did": alice_did_key,
+            "message_id": message_id,
+            "timestamp": timestamp,
+        }
+    )
+    payload = {
+        "to_aliases": ["bob"],
+        "message": "team delivery",
+        "from_did": alice_did_key,
+        "signature": "test-signature",
+        "message_id": message_id,
+        "timestamp": timestamp,
+        "signed_payload": signed_payload,
     }
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        resp = await client.post("/v1/chat/sessions", content=body, headers=headers)
+        resp = await client.post("/v1/chat/sessions", json=payload)
 
     assert resp.status_code == 200, resp.text
 

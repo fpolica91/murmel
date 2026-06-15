@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import base64
 import json
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
@@ -10,61 +9,13 @@ from uuid import uuid4
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
-from nacl.signing import SigningKey
 
-from awid.did import did_from_public_key
-from awid.signing import canonical_json_bytes, sign_message
 import aweb.routes.events as events_module
 from aweb.routes.events import router as events_router
+from aweb.team_auth_deps import TeamIdentity, get_team_identity
 
 
-def _make_keypair():
-    sk = SigningKey.generate()
-    pk = bytes(sk.verify_key)
-    did_key = did_from_public_key(pk)
-    return bytes(sk), pk, did_key
-
-
-def _make_certificate(team_sk, team_did_key, member_did_key, **kwargs):
-    cert = {
-        "version": 1,
-        "certificate_id": kwargs.get("certificate_id", "cert-001"),
-        "team_id": kwargs.get("team_id", "backend:acme.com"),
-        "team_did_key": team_did_key,
-        "member_did_key": member_did_key,
-        "member_did_aw": kwargs.get("member_did_aw", ""),
-        "member_address": kwargs.get("member_address", ""),
-        "alias": kwargs.get("alias", "bob"),
-        "identity_scope": kwargs.get("identity_scope", "global"),
-        "issued_at": datetime.now(timezone.utc).isoformat(),
-    }
-    payload = canonical_json_bytes(cert)
-    cert["signature"] = sign_message(team_sk, payload)
-    return cert
-
-
-def _encode_certificate(cert):
-    return base64.b64encode(json.dumps(cert).encode()).decode()
-
-
-def _signed_request(agent_sk, agent_did_key, team_id, body_bytes=b""):
-    import hashlib
-
-    timestamp = datetime.now(timezone.utc).isoformat()
-    body_sha256 = hashlib.sha256(body_bytes).hexdigest()
-    payload_bytes = canonical_json_bytes({
-        "body_sha256": body_sha256,
-        "team_id": team_id,
-        "timestamp": timestamp,
-    })
-    sig = sign_message(agent_sk, payload_bytes)
-    return {
-        "Authorization": f"DIDKey {agent_did_key} {sig}",
-        "X-AWEB-Timestamp": timestamp,
-    }
-
-
-def _build_test_app(aweb_db, team_did_key):
+def _build_test_app(aweb_db, identity: TeamIdentity):
     app = FastAPI()
     app.include_router(events_router)
 
@@ -72,64 +23,20 @@ def _build_test_app(aweb_db, team_did_key):
         def get_manager(self, name="aweb"):
             return aweb_db
 
-    import hashlib as _hashlib
-    from unittest.mock import AsyncMock
-
-    @app.middleware("http")
-    async def cache_body(request, call_next):
-        if request.method in {"GET", "HEAD", "OPTIONS"}:
-            request.state.cached_body = b""
-            request.state.body_sha256 = _hashlib.sha256(b"").hexdigest()
-            return await call_next(request)
-
-        original_receive = request._receive
-        body = await request.body()
-        request.state.cached_body = body
-        request.state.body_sha256 = _hashlib.sha256(body).hexdigest()
-        replayed = False
-
-        async def _receive():
-            nonlocal replayed
-            if not replayed:
-                replayed = True
-                return {"type": "http.request", "body": body, "more_body": False}
-            while True:
-                message = await original_receive()
-                if message["type"] == "http.disconnect":
-                    return message
-                if message["type"] == "http.request" and not message.get("more_body", False):
-                    continue
-                return message
-
-        request._receive = _receive
-        return await call_next(request)
-
     app.state.db = _DbShim()
     app.state.redis = None
 
-    registry = AsyncMock()
-    registry.get_team_public_key = AsyncMock(return_value=team_did_key)
-    registry.get_team_revocations = AsyncMock(return_value=set())
-    app.state.awid_registry_client = registry
+    async def _fake_team_identity() -> TeamIdentity:
+        return identity
+
+    app.dependency_overrides[get_team_identity] = _fake_team_identity
     return app
 
 
 @pytest.mark.asyncio
 async def test_events_stream_includes_existing_unread_mail(aweb_cloud_db):
-    team_sk, _, team_did_key = _make_keypair()
-    alice_sk, _, alice_did_key = _make_keypair()
-    bob_sk, _, bob_did_key = _make_keypair()
-
-    cert = _make_certificate(
-        team_sk,
-        team_did_key,
-        bob_did_key,
-        team_id="backend:acme.com",
-        alias="bob",
-        identity_scope="global",
-        member_did_aw="did:aw:bob",
-    )
-    cert_header = _encode_certificate(cert)
+    bob_did_key = "did:key:z6MkBob"
+    alice_did_key = "did:key:z6MkAlice"
 
     await aweb_cloud_db.aweb_db.execute(
         """
@@ -139,7 +46,7 @@ async def test_events_stream_includes_existing_unread_mail(aweb_cloud_db):
         "backend:acme.com",
         "acme.com",
         "backend",
-        team_did_key,
+        "did:key:z6Mkteam",
     )
 
     alice = await aweb_cloud_db.aweb_db.fetch_one(
@@ -178,13 +85,21 @@ async def test_events_stream_includes_existing_unread_mail(aweb_cloud_db):
         bob["agent_id"],
     )
 
-    app = _build_test_app(aweb_cloud_db.aweb_db, team_did_key)
+    identity = TeamIdentity(
+        team_id="backend:acme.com",
+        alias="bob",
+        did_key=bob_did_key,
+        did_aw="did:aw:bob",
+        address="",
+        agent_id=str(bob["agent_id"]),
+        identity_scope="token",
+        certificate_id="",
+    )
+    app = _build_test_app(aweb_cloud_db.aweb_db, identity)
     deadline = (datetime.now(timezone.utc) + timedelta(seconds=2)).isoformat()
-    headers = _signed_request(bob_sk, bob_did_key, "backend:acme.com")
-    headers["X-AWID-Team-Certificate"] = cert_header
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        resp = await client.get("/v1/events/stream", params={"deadline": deadline}, headers=headers)
+        resp = await client.get("/v1/events/stream", params={"deadline": deadline})
 
     assert resp.status_code == 200
     assert "event: connected" in resp.text
@@ -197,19 +112,7 @@ async def test_events_stream_includes_existing_unread_mail(aweb_cloud_db):
 
 @pytest.mark.asyncio
 async def test_events_stream_sends_idle_heartbeats(aweb_cloud_db, monkeypatch):
-    team_sk, _, team_did_key = _make_keypair()
-    bob_sk, _, bob_did_key = _make_keypair()
-
-    cert = _make_certificate(
-        team_sk,
-        team_did_key,
-        bob_did_key,
-        team_id="backend:acme.com",
-        alias="bob",
-        identity_scope="global",
-        member_did_aw="did:aw:bob",
-    )
-    cert_header = _encode_certificate(cert)
+    bob_did_key = "did:key:z6MkBob"
 
     await aweb_cloud_db.aweb_db.execute(
         """
@@ -219,12 +122,13 @@ async def test_events_stream_sends_idle_heartbeats(aweb_cloud_db, monkeypatch):
         "backend:acme.com",
         "acme.com",
         "backend",
-        team_did_key,
+        "did:key:z6Mkteam",
     )
-    await aweb_cloud_db.aweb_db.execute(
+    bob = await aweb_cloud_db.aweb_db.fetch_one(
         """
         INSERT INTO {{tables.agents}} (team_id, did_key, alias, identity_scope, role)
         VALUES ($1, $2, 'bob', 'global', 'developer')
+        RETURNING agent_id
         """,
         "backend:acme.com",
         bob_did_key,
@@ -233,13 +137,21 @@ async def test_events_stream_sends_idle_heartbeats(aweb_cloud_db, monkeypatch):
     monkeypatch.setattr(events_module, "EVENTS_POLL_INTERVAL", 0.01)
     monkeypatch.setattr(events_module, "EVENTS_HEARTBEAT_INTERVAL", 0.01)
 
-    app = _build_test_app(aweb_cloud_db.aweb_db, team_did_key)
+    identity = TeamIdentity(
+        team_id="backend:acme.com",
+        alias="bob",
+        did_key=bob_did_key,
+        did_aw="did:aw:bob",
+        address="",
+        agent_id=str(bob["agent_id"]),
+        identity_scope="token",
+        certificate_id="",
+    )
+    app = _build_test_app(aweb_cloud_db.aweb_db, identity)
     deadline = (datetime.now(timezone.utc) + timedelta(seconds=0.05)).isoformat()
-    headers = _signed_request(bob_sk, bob_did_key, "backend:acme.com")
-    headers["X-AWID-Team-Certificate"] = cert_header
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        resp = await client.get("/v1/events/stream", params={"deadline": deadline}, headers=headers)
+        resp = await client.get("/v1/events/stream", params={"deadline": deadline})
 
     assert resp.status_code == 200
     assert resp.text.count(": keepalive") >= 2
@@ -247,20 +159,8 @@ async def test_events_stream_sends_idle_heartbeats(aweb_cloud_db, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_events_stream_matches_unread_mail_across_viewer_dids(aweb_cloud_db):
-    team_sk, _, team_did_key = _make_keypair()
-    alice_sk, _, alice_did_key = _make_keypair()
-    bob_sk, _, bob_did_key = _make_keypair()
-
-    cert = _make_certificate(
-        team_sk,
-        team_did_key,
-        bob_did_key,
-        team_id="backend:acme.com",
-        alias="bob",
-        identity_scope="global",
-        member_did_aw="did:aw:bob",
-    )
-    cert_header = _encode_certificate(cert)
+    bob_did_key = "did:key:z6MkBob"
+    alice_did_key = "did:key:z6MkAlice"
 
     await aweb_cloud_db.aweb_db.execute(
         """
@@ -270,7 +170,7 @@ async def test_events_stream_matches_unread_mail_across_viewer_dids(aweb_cloud_d
         "backend:acme.com",
         "acme.com",
         "backend",
-        team_did_key,
+        "did:key:z6Mkteam",
     )
 
     alice = await aweb_cloud_db.aweb_db.fetch_one(
@@ -310,13 +210,21 @@ async def test_events_stream_matches_unread_mail_across_viewer_dids(aweb_cloud_d
         bob["agent_id"],
     )
 
-    app = _build_test_app(aweb_cloud_db.aweb_db, team_did_key)
+    identity = TeamIdentity(
+        team_id="backend:acme.com",
+        alias="bob",
+        did_key=bob_did_key,
+        did_aw="did:aw:bob",
+        address="",
+        agent_id=str(bob["agent_id"]),
+        identity_scope="token",
+        certificate_id="",
+    )
+    app = _build_test_app(aweb_cloud_db.aweb_db, identity)
     deadline = (datetime.now(timezone.utc) + timedelta(seconds=2)).isoformat()
-    headers = _signed_request(bob_sk, bob_did_key, "backend:acme.com")
-    headers["X-AWID-Team-Certificate"] = cert_header
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        resp = await client.get("/v1/events/stream", params={"deadline": deadline}, headers=headers)
+        resp = await client.get("/v1/events/stream", params={"deadline": deadline})
 
     assert resp.status_code == 200
     assert "event: actionable_mail" in resp.text
@@ -431,20 +339,8 @@ async def test_current_actionable_mail_redacts_encrypted_subject(aweb_cloud_db):
 
 @pytest.mark.asyncio
 async def test_events_stream_matches_pending_chat_across_viewer_dids(aweb_cloud_db):
-    team_sk, _, team_did_key = _make_keypair()
-    alice_sk, _, alice_did_key = _make_keypair()
-    bob_sk, _, bob_did_key = _make_keypair()
-
-    cert = _make_certificate(
-        team_sk,
-        team_did_key,
-        bob_did_key,
-        team_id="backend:acme.com",
-        alias="bob",
-        identity_scope="global",
-        member_did_aw="did:aw:bob",
-    )
-    cert_header = _encode_certificate(cert)
+    bob_did_key = "did:key:z6MkBob"
+    alice_did_key = "did:key:z6MkAlice"
 
     await aweb_cloud_db.aweb_db.execute(
         """
@@ -454,7 +350,7 @@ async def test_events_stream_matches_pending_chat_across_viewer_dids(aweb_cloud_
         "backend:acme.com",
         "acme.com",
         "backend",
-        team_did_key,
+        "did:key:z6Mkteam",
     )
 
     alice = await aweb_cloud_db.aweb_db.fetch_one(
@@ -510,13 +406,21 @@ async def test_events_stream_matches_pending_chat_across_viewer_dids(aweb_cloud_
         "hello stable bob",
     )
 
-    app = _build_test_app(aweb_cloud_db.aweb_db, team_did_key)
+    identity = TeamIdentity(
+        team_id="backend:acme.com",
+        alias="bob",
+        did_key=bob_did_key,
+        did_aw="did:aw:bob",
+        address="",
+        agent_id=str(bob["agent_id"]),
+        identity_scope="token",
+        certificate_id="",
+    )
+    app = _build_test_app(aweb_cloud_db.aweb_db, identity)
     deadline = (datetime.now(timezone.utc) + timedelta(seconds=2)).isoformat()
-    headers = _signed_request(bob_sk, bob_did_key, "backend:acme.com")
-    headers["X-AWID-Team-Certificate"] = cert_header
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        resp = await client.get("/v1/events/stream", params={"deadline": deadline}, headers=headers)
+        resp = await client.get("/v1/events/stream", params={"deadline": deadline})
 
     assert resp.status_code == 200
     assert "event: actionable_chat" in resp.text

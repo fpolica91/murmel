@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import base64
 import json
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock
@@ -11,61 +10,29 @@ from uuid import uuid4
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
-from nacl.signing import SigningKey
 
-from awid.did import did_from_public_key
-from awid.signing import canonical_json_bytes, sign_message
+from aweb.coordination.routes import workspaces as workspace_routes
 from aweb.coordination.routes.workspaces import router as workspaces_router
+from aweb.team_auth_deps import TeamIdentity
 
 
-def _make_keypair():
-    sk = SigningKey.generate()
-    pk = bytes(sk.verify_key)
-    did_key = did_from_public_key(pk)
-    return bytes(sk), pk, did_key
+def _fake_identity(team_id: str, alias: str = "bob", agent_id: str | None = None):
+    async def _identity(_request, _db_infra):
+        return TeamIdentity(
+            team_id=team_id,
+            alias=alias,
+            agent_id=agent_id or str(uuid4()),
+            identity_scope="token",
+            did_key="",
+            did_aw="",
+            address="",
+            certificate_id="",
+        )
+
+    return _identity
 
 
-def _make_certificate(team_sk, team_did_key, member_did_key, **kwargs):
-    cert = {
-        "version": 1,
-        "certificate_id": kwargs.get("certificate_id", "cert-001"),
-        "team_id": kwargs.get("team_id", "backend:acme.com"),
-        "team_did_key": team_did_key,
-        "member_did_key": member_did_key,
-        "member_did_aw": "",
-        "member_address": "",
-        "alias": kwargs.get("alias", "bob"),
-        "identity_scope": kwargs.get("identity_scope", "local"),
-        "issued_at": datetime.now(timezone.utc).isoformat(),
-    }
-    cert["signature"] = sign_message(team_sk, canonical_json_bytes(cert))
-    return cert
-
-
-def _encode_certificate(cert):
-    return base64.b64encode(json.dumps(cert).encode()).decode()
-
-
-def _signed_request(agent_sk, agent_did_key, team_id, body_bytes=b""):
-    import hashlib
-
-    timestamp = datetime.now(timezone.utc).isoformat()
-    body_sha256 = hashlib.sha256(body_bytes).hexdigest()
-    payload_bytes = canonical_json_bytes(
-        {
-            "body_sha256": body_sha256,
-            "team_id": team_id,
-            "timestamp": timestamp,
-        }
-    )
-    sig = sign_message(agent_sk, payload_bytes)
-    return {
-        "Authorization": f"DIDKey {agent_did_key} {sig}",
-        "X-AWEB-Timestamp": timestamp,
-    }
-
-
-def _build_test_app(aweb_db, team_did_key, redis=None):
+def _build_test_app(aweb_db, redis=None):
     app = FastAPI()
     app.include_router(workspaces_router)
 
@@ -73,44 +40,9 @@ def _build_test_app(aweb_db, team_did_key, redis=None):
         def get_manager(self, name="aweb"):
             return aweb_db
 
-    import hashlib as _hashlib
-
-    @app.middleware("http")
-    async def cache_body(request, call_next):
-        if request.method in {"GET", "HEAD", "OPTIONS"}:
-            request.state.cached_body = b""
-            request.state.body_sha256 = _hashlib.sha256(b"").hexdigest()
-            return await call_next(request)
-
-        original_receive = request._receive
-        body = await request.body()
-        request.state.cached_body = body
-        request.state.body_sha256 = _hashlib.sha256(body).hexdigest()
-        replayed = False
-
-        async def _receive():
-            nonlocal replayed
-            if not replayed:
-                replayed = True
-                return {"type": "http.request", "body": body, "more_body": False}
-            while True:
-                message = await original_receive()
-                if message["type"] == "http.disconnect":
-                    return message
-                if message["type"] == "http.request" and not message.get("more_body", False):
-                    continue
-                return message
-
-        request._receive = _receive
-        return await call_next(request)
-
     app.state.db = _DbShim()
     app.state.redis = redis
-
-    registry = AsyncMock()
-    registry.get_team_public_key = AsyncMock(return_value=team_did_key)
-    registry.get_team_revocations = AsyncMock(return_value=set())
-    app.state.awid_registry_client = registry
+    app.state.awid_registry_client = AsyncMock()
     return app
 
 
@@ -146,23 +78,18 @@ class _FakeRedis:
 
 
 @pytest.mark.asyncio
-async def test_delete_workspace_soft_deletes_stale_ephemeral_identity(aweb_cloud_db):
-    team_sk, _, team_did_key = _make_keypair()
-    agent_sk, _, agent_did_key = _make_keypair()
+async def test_delete_workspace_soft_deletes_stale_ephemeral_identity(
+    aweb_cloud_db, monkeypatch
+):
     team_id = "backend:acme.com"
     workspace_id = uuid4()
     agent_id = uuid4()
 
-    cert = _make_certificate(
-        team_sk,
-        team_did_key,
-        agent_did_key,
-        team_id=team_id,
-        alias="bob",
-        identity_scope="local",
+    monkeypatch.setattr(
+        workspace_routes,
+        "get_team_identity",
+        _fake_identity(team_id, alias="bob", agent_id=str(agent_id)),
     )
-    headers = _signed_request(agent_sk, agent_did_key, team_id)
-    headers["X-AWID-Team-Certificate"] = _encode_certificate(cert)
 
     await aweb_cloud_db.aweb_db.execute(
         """
@@ -172,7 +99,7 @@ async def test_delete_workspace_soft_deletes_stale_ephemeral_identity(aweb_cloud
         team_id,
         "acme.com",
         "backend",
-        team_did_key,
+        "did:key:z6Mkteam",
     )
     await aweb_cloud_db.aweb_db.execute(
         """
@@ -182,7 +109,7 @@ async def test_delete_workspace_soft_deletes_stale_ephemeral_identity(aweb_cloud
         """,
         agent_id,
         team_id,
-        agent_did_key,
+        "did:key:z6Mkbob",
         "bob",
     )
     await aweb_cloud_db.aweb_db.execute(
@@ -213,12 +140,12 @@ async def test_delete_workspace_soft_deletes_stale_ephemeral_identity(aweb_cloud
     )
 
     redis = _FakeRedis()
-    app = _build_test_app(aweb_cloud_db.aweb_db, team_did_key, redis=redis)
+    app = _build_test_app(aweb_cloud_db.aweb_db, redis=redis)
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
     ) as client:
-        resp = await client.delete(f"/v1/workspaces/{workspace_id}", headers=headers)
+        resp = await client.delete(f"/v1/workspaces/{workspace_id}")
 
     assert resp.status_code == 200, resp.text
     body = resp.json()
@@ -273,23 +200,16 @@ async def test_delete_workspace_soft_deletes_stale_ephemeral_identity(aweb_cloud
 
 
 @pytest.mark.asyncio
-async def test_delete_workspace_rejects_persistent_identity(aweb_cloud_db):
-    team_sk, _, team_did_key = _make_keypair()
-    agent_sk, _, agent_did_key = _make_keypair()
+async def test_delete_workspace_rejects_persistent_identity(aweb_cloud_db, monkeypatch):
     team_id = "backend:acme.com"
     workspace_id = uuid4()
     agent_id = uuid4()
 
-    cert = _make_certificate(
-        team_sk,
-        team_did_key,
-        agent_did_key,
-        team_id=team_id,
-        alias="maintainer",
-        identity_scope="global",
+    monkeypatch.setattr(
+        workspace_routes,
+        "get_team_identity",
+        _fake_identity(team_id, alias="maintainer", agent_id=str(agent_id)),
     )
-    headers = _signed_request(agent_sk, agent_did_key, team_id)
-    headers["X-AWID-Team-Certificate"] = _encode_certificate(cert)
 
     await aweb_cloud_db.aweb_db.execute(
         """
@@ -299,7 +219,7 @@ async def test_delete_workspace_rejects_persistent_identity(aweb_cloud_db):
         team_id,
         "acme.com",
         "backend",
-        team_did_key,
+        "did:key:z6Mkteam",
     )
     await aweb_cloud_db.aweb_db.execute(
         """
@@ -309,7 +229,7 @@ async def test_delete_workspace_rejects_persistent_identity(aweb_cloud_db):
         """,
         agent_id,
         team_id,
-        agent_did_key,
+        "did:key:z6Mkmaintainer",
         "did:aw:maintainer",
         "acme.com/maintainer",
         "maintainer",
@@ -341,12 +261,12 @@ async def test_delete_workspace_rejects_persistent_identity(aweb_cloud_db):
         datetime.now(timezone.utc),
     )
 
-    app = _build_test_app(aweb_cloud_db.aweb_db, team_did_key)
+    app = _build_test_app(aweb_cloud_db.aweb_db)
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
     ) as client:
-        resp = await client.delete(f"/v1/workspaces/{workspace_id}", headers=headers)
+        resp = await client.delete(f"/v1/workspaces/{workspace_id}")
 
     assert resp.status_code == 409
     body = resp.json()
@@ -379,7 +299,7 @@ async def test_delete_workspace_rejects_persistent_identity(aweb_cloud_db):
     assert workspace_row["deleted_at"] is None
     assert agent_row["deleted_at"] is None
     assert agent_row["status"] == "active"
-    assert agent_row["did_key"] == agent_did_key
+    assert agent_row["did_key"] == "did:key:z6Mkmaintainer"
     assert agent_row["did_aw"] == "did:aw:maintainer"
     assert agent_row["address"] == "acme.com/maintainer"
     assert agent_row["identity_scope"] == "global"
@@ -387,23 +307,18 @@ async def test_delete_workspace_rejects_persistent_identity(aweb_cloud_db):
 
 
 @pytest.mark.asyncio
-async def test_delete_workspace_unknown_identity_scope_fails_closed(aweb_cloud_db):
-    team_sk, _, team_did_key = _make_keypair()
-    agent_sk, _, agent_did_key = _make_keypair()
+async def test_delete_workspace_unknown_identity_scope_fails_closed(
+    aweb_cloud_db, monkeypatch
+):
     team_id = "backend:acme.com"
     workspace_id = uuid4()
     missing_agent_id = uuid4()
 
-    cert = _make_certificate(
-        team_sk,
-        team_did_key,
-        agent_did_key,
-        team_id=team_id,
-        alias="orphan",
-        identity_scope="local",
+    monkeypatch.setattr(
+        workspace_routes,
+        "get_team_identity",
+        _fake_identity(team_id, alias="caller"),
     )
-    headers = _signed_request(agent_sk, agent_did_key, team_id)
-    headers["X-AWID-Team-Certificate"] = _encode_certificate(cert)
 
     await aweb_cloud_db.aweb_db.execute(
         """
@@ -413,7 +328,7 @@ async def test_delete_workspace_unknown_identity_scope_fails_closed(aweb_cloud_d
         team_id,
         "acme.com",
         "backend",
-        team_did_key,
+        "did:key:z6Mkteam",
     )
     await aweb_cloud_db.aweb_db.execute(
         """
@@ -422,7 +337,7 @@ async def test_delete_workspace_unknown_identity_scope_fails_closed(aweb_cloud_d
         VALUES ($1, $2, $3, 'local', 'developer')
         """,
         team_id,
-        agent_did_key,
+        "did:key:z6Mkcaller",
         "caller",
     )
     await aweb_cloud_db.aweb_db.execute(
@@ -452,12 +367,12 @@ async def test_delete_workspace_unknown_identity_scope_fails_closed(aweb_cloud_d
         datetime.now(timezone.utc),
     )
 
-    app = _build_test_app(aweb_cloud_db.aweb_db, team_did_key)
+    app = _build_test_app(aweb_cloud_db.aweb_db)
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
     ) as client:
-        resp = await client.delete(f"/v1/workspaces/{workspace_id}", headers=headers)
+        resp = await client.delete(f"/v1/workspaces/{workspace_id}")
 
     assert resp.status_code == 409
     body = resp.json()
@@ -485,23 +400,18 @@ async def test_delete_workspace_unknown_identity_scope_fails_closed(aweb_cloud_d
 
 
 @pytest.mark.asyncio
-async def test_delete_workspace_rejects_recent_ephemeral_workspace(aweb_cloud_db):
-    team_sk, _, team_did_key = _make_keypair()
-    agent_sk, _, agent_did_key = _make_keypair()
+async def test_delete_workspace_rejects_recent_ephemeral_workspace(
+    aweb_cloud_db, monkeypatch
+):
     team_id = "backend:acme.com"
     workspace_id = uuid4()
     agent_id = uuid4()
 
-    cert = _make_certificate(
-        team_sk,
-        team_did_key,
-        agent_did_key,
-        team_id=team_id,
-        alias="bot",
-        identity_scope="local",
+    monkeypatch.setattr(
+        workspace_routes,
+        "get_team_identity",
+        _fake_identity(team_id, alias="bot", agent_id=str(agent_id)),
     )
-    headers = _signed_request(agent_sk, agent_did_key, team_id)
-    headers["X-AWID-Team-Certificate"] = _encode_certificate(cert)
 
     await aweb_cloud_db.aweb_db.execute(
         """
@@ -511,7 +421,7 @@ async def test_delete_workspace_rejects_recent_ephemeral_workspace(aweb_cloud_db
         team_id,
         "acme.com",
         "backend",
-        team_did_key,
+        "did:key:z6Mkteam",
     )
     await aweb_cloud_db.aweb_db.execute(
         """
@@ -521,7 +431,7 @@ async def test_delete_workspace_rejects_recent_ephemeral_workspace(aweb_cloud_db
         """,
         agent_id,
         team_id,
-        agent_did_key,
+        "did:key:z6Mkbot",
         "bot",
     )
     await aweb_cloud_db.aweb_db.execute(
@@ -538,12 +448,12 @@ async def test_delete_workspace_rejects_recent_ephemeral_workspace(aweb_cloud_db
         datetime.now(timezone.utc) - timedelta(minutes=5),
     )
 
-    app = _build_test_app(aweb_cloud_db.aweb_db, team_did_key)
+    app = _build_test_app(aweb_cloud_db.aweb_db)
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
     ) as client:
-        resp = await client.delete(f"/v1/workspaces/{workspace_id}", headers=headers)
+        resp = await client.delete(f"/v1/workspaces/{workspace_id}")
 
     assert resp.status_code == 409
     assert resp.json()["detail"]["code"] == "local_workspace_still_active"
@@ -567,25 +477,19 @@ async def test_delete_workspace_rejects_recent_ephemeral_workspace(aweb_cloud_db
 
 
 @pytest.mark.asyncio
-async def test_delete_workspace_rejects_cross_team_request(aweb_cloud_db):
-    team_a_sk, _, team_a_did_key = _make_keypair()
-    team_b_sk, _, team_b_did_key = _make_keypair()
-    agent_sk, _, agent_did_key = _make_keypair()
+async def test_delete_workspace_rejects_cross_team_request(aweb_cloud_db, monkeypatch):
     team_a_address = "backend:acme.com"
     team_b_address = "dev:other.example"
     workspace_id = uuid4()
     agent_id = uuid4()
 
-    cert = _make_certificate(
-        team_b_sk,
-        team_b_did_key,
-        agent_did_key,
-        team_id=team_b_address,
-        alias="eve",
-        identity_scope="local",
+    # Caller authenticates as team B; the target workspace belongs to team A,
+    # so it must not be visible (404) under team-scoped lookup.
+    monkeypatch.setattr(
+        workspace_routes,
+        "get_team_identity",
+        _fake_identity(team_b_address, alias="eve"),
     )
-    headers = _signed_request(agent_sk, agent_did_key, team_b_address)
-    headers["X-AWID-Team-Certificate"] = _encode_certificate(cert)
 
     await aweb_cloud_db.aweb_db.execute(
         """
@@ -595,11 +499,11 @@ async def test_delete_workspace_rejects_cross_team_request(aweb_cloud_db):
         team_a_address,
         "acme.com",
         "backend",
-        team_a_did_key,
+        "did:key:z6Mkteama",
         team_b_address,
         "other.example",
         "dev",
-        team_b_did_key,
+        "did:key:z6Mkteamb",
     )
     await aweb_cloud_db.aweb_db.execute(
         """
@@ -609,7 +513,7 @@ async def test_delete_workspace_rejects_cross_team_request(aweb_cloud_db):
         """,
         agent_id,
         team_a_address,
-        agent_did_key,
+        "did:key:z6Mkalice",
         "alice",
     )
     await aweb_cloud_db.aweb_db.execute(
@@ -619,7 +523,7 @@ async def test_delete_workspace_rejects_cross_team_request(aweb_cloud_db):
         VALUES ($1, $2, $3, 'local', 'developer')
         """,
         team_b_address,
-        agent_did_key,
+        "did:key:z6Mkeve",
         "eve",
     )
     await aweb_cloud_db.aweb_db.execute(
@@ -636,12 +540,12 @@ async def test_delete_workspace_rejects_cross_team_request(aweb_cloud_db):
         datetime.now(timezone.utc) - timedelta(hours=1),
     )
 
-    app = _build_test_app(aweb_cloud_db.aweb_db, team_b_did_key)
+    app = _build_test_app(aweb_cloud_db.aweb_db)
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
     ) as client:
-        resp = await client.delete(f"/v1/workspaces/{workspace_id}", headers=headers)
+        resp = await client.delete(f"/v1/workspaces/{workspace_id}")
 
     assert resp.status_code == 404
 

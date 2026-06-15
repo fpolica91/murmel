@@ -1,11 +1,10 @@
-"""Tests for the additive bearer-JWT path in the MCP auth middleware.
+"""Tests for the bearer-JWT path in the MCP auth middleware.
 
-These cover the new ``_resolve_token_auth`` branch in
-:class:`aweb.mcp.auth.MCPAuthMiddleware`: a Better Auth bearer JWT (no team
-certificate) is resolved via the existing token pipeline and mapped onto the
-same :class:`AuthContext` shape the certificate path produces, gated by the
-``enable_token_auth`` settings flag. The certificate / DIDKey paths must remain
-untouched.
+These cover the ``_resolve_token_auth`` branch in
+:class:`aweb.mcp.auth.MCPAuthMiddleware`: a Better Auth bearer JWT is resolved
+via the token pipeline and mapped onto the :class:`AuthContext` shape, gated by
+the ``enable_token_auth`` settings flag. The bearer JWT is the only client auth
+path for MCP; with the flag off the middleware resolves no identity.
 """
 
 from __future__ import annotations
@@ -131,11 +130,12 @@ async def test_bearer_jwt_verification_failure_is_401(monkeypatch, middleware):
 
 
 @pytest.mark.asyncio
-async def test_flag_off_falls_through_to_cert_path(monkeypatch, middleware):
+async def test_flag_off_yields_no_auth_context(monkeypatch, middleware):
     """When the flag is off, a bearer token is NOT treated as token auth.
 
-    The request falls through to the existing DIDKey/cert gate, which returns
-    None for a non-DIDKey Authorization header.
+    Token auth is the only client auth path for MCP, so with the flag off the
+    middleware resolves no identity and the request is treated as
+    unauthenticated.
     """
     monkeypatch.setattr(mcp_auth, "token_auth_enabled", lambda: False)
 
@@ -148,35 +148,3 @@ async def test_flag_off_falls_through_to_cert_path(monkeypatch, middleware):
         _request({"authorization": "Bearer the-jwt"})
     )
     assert ctx is None
-
-
-@pytest.mark.asyncio
-async def test_team_certificate_present_skips_token_path(monkeypatch, middleware):
-    """A team certificate always wins, even if a bearer token is also present."""
-    monkeypatch.setattr(mcp_auth, "token_auth_enabled", lambda: True)
-
-    async def _must_not_run(*a, **k):  # pragma: no cover - guard
-        raise AssertionError("token pipeline must not run when a cert is present")
-
-    monkeypatch.setattr(mcp_auth, "resolve_token_auth", _must_not_run)
-
-    cert_calls: list[object] = []
-
-    async def _fake_verify_cert(request, db):
-        cert_calls.append(request)
-        raise HTTPException(status_code=403, detail="cert path reached")
-
-    monkeypatch.setattr(mcp_auth, "verify_request_certificate", _fake_verify_cert)
-
-    with pytest.raises(HTTPException) as exc:
-        await middleware._resolve_auth(
-            _request(
-                {
-                    "authorization": "DIDKey z6MkX",
-                    "x-awid-team-certificate": "cert-blob",
-                }
-            )
-        )
-    # Reached the cert path, not the token path.
-    assert exc.value.detail == "cert path reached"
-    assert cert_calls
