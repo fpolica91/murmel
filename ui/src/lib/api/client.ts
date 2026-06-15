@@ -13,6 +13,8 @@
  */
 
 import type {
+  Comment,
+  CommentListResponse,
   CreateEpicInput,
   CreateIssueInput,
   CreateStoryInput,
@@ -175,6 +177,20 @@ export const workApi = {
 
   async getIssue(issueId: string): Promise<Issue> {
     return request<Issue>(`/v1/issues/${encodeURIComponent(issueId)}`);
+  },
+
+  async listComments(issueId: string): Promise<Comment[]> {
+    const res = await request<CommentListResponse>(
+      `/v1/issues/${encodeURIComponent(issueId)}/comments`,
+    );
+    return res.comments ?? [];
+  },
+
+  async addComment(issueId: string, body: string): Promise<Comment> {
+    return request<Comment>(
+      `/v1/issues/${encodeURIComponent(issueId)}/comments`,
+      { method: "POST", body: { body } },
+    );
   },
 
   async createIssue(input: CreateIssueInput): Promise<Issue> {

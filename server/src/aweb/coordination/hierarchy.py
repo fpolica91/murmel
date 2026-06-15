@@ -551,3 +551,60 @@ async def claim_issue(
         assignee_type=assignee_type,
         assignee_id=assignee_id,
     )
+
+
+# ---------------------------------------------------------------------------
+# Comments (issue activity thread)
+# ---------------------------------------------------------------------------
+
+
+async def add_issue_comment(
+    db, *, team_id: str, issue_id: str | UUID, author: str, body: str
+) -> dict[str, Any]:
+    """Append a comment to an issue's thread. Validates the issue exists in the
+    team first (raises NotFoundError otherwise)."""
+    await get_issue(db, team_id=team_id, issue_id=issue_id)
+    aweb_db = db.get_manager("aweb")
+    resolved = _coerce_uuid(issue_id, label="issue_id")
+    row = await aweb_db.fetch_one(
+        """
+        INSERT INTO {{tables.issue_comments}} (issue_id, team_id, author, body)
+        VALUES ($1, $2, $3, $4)
+        RETURNING comment_id, issue_id, author, body, created_at
+        """,
+        resolved,
+        team_id,
+        author,
+        body,
+    )
+    return _comment_view(row)
+
+
+async def list_issue_comments(
+    db, *, team_id: str, issue_id: str | UUID
+) -> list[dict[str, Any]]:
+    """List an issue's comments oldest-first. Validates the issue exists."""
+    await get_issue(db, team_id=team_id, issue_id=issue_id)
+    aweb_db = db.get_manager("aweb")
+    resolved = _coerce_uuid(issue_id, label="issue_id")
+    rows = await aweb_db.fetch_all(
+        """
+        SELECT comment_id, issue_id, author, body, created_at
+        FROM {{tables.issue_comments}}
+        WHERE issue_id = $1 AND team_id = $2
+        ORDER BY created_at ASC
+        """,
+        resolved,
+        team_id,
+    )
+    return [_comment_view(r) for r in rows]
+
+
+def _comment_view(row: Any) -> dict[str, Any]:
+    return {
+        "comment_id": str(row["comment_id"]),
+        "issue_id": str(row["issue_id"]),
+        "author": row["author"],
+        "body": row["body"],
+        "created_at": _iso(row["created_at"]),
+    }

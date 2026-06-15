@@ -77,6 +77,19 @@ export interface CreateIssueInput {
   assignee_id?: string | null;
 }
 
+export interface Comment {
+  comment_id: string;
+  issue_id: string;
+  author: string;
+  body: string;
+  created_at: string | null;
+}
+
+export interface CommentListResponse {
+  issue_id: string;
+  comments: Comment[];
+}
+
 export interface CreateEpicInput {
   title: string;
   status?: string;

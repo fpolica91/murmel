@@ -37,6 +37,8 @@ from aweb.mcp.tools.contacts import list_contacts_tool as _list_contacts_tool_im
 from aweb.mcp.tools.contacts import send_message_to_contact as _send_message_to_contact_impl
 from aweb.mcp.tools.contacts import read_messages_from_contact as _read_messages_from_contact_impl
 from aweb.mcp.tools.hierarchy import issues_claim as _issues_claim_impl
+from aweb.mcp.tools.hierarchy import issues_comment_add as _issues_comment_add_impl
+from aweb.mcp.tools.hierarchy import issues_comments_list as _issues_comments_list_impl
 from aweb.mcp.tools.hierarchy import issues_create as _issues_create_impl
 from aweb.mcp.tools.hierarchy import issues_get as _issues_get_impl
 from aweb.mcp.tools.hierarchy import issues_list as _issues_list_impl
@@ -529,6 +531,24 @@ def register_tools(
             issue_id=issue_id,
             status=status,
         )
+
+    @mcp.tool(
+        name="issues_comment_add",
+        description="Post a comment to an issue's thread (the human/agent discussion surface).",
+    )
+    async def issues_comment_add(issue_id: str, body: str) -> str:
+        return await _issues_comment_add_impl(
+            db_infra,
+            issue_id=issue_id,
+            body=body,
+        )
+
+    @mcp.tool(
+        name="issues_comments_list",
+        description="List an issue's comments, oldest first.",
+    )
+    async def issues_comments_list(issue_id: str) -> str:
+        return await _issues_comments_list_impl(db_infra, issue_id=issue_id)
 
     # -- Roles --
 

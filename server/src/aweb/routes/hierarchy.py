@@ -496,3 +496,75 @@ async def claim_issue(
     except ServiceError as exc:
         _raise_http(exc)
     return IssueView(**issue)
+
+
+# ---------------------------------------------------------------------------
+# Comments (issue activity thread)
+# ---------------------------------------------------------------------------
+
+
+class CommentView(BaseModel):
+    comment_id: str
+    issue_id: str
+    author: str
+    body: str
+    created_at: Optional[str] = None
+
+
+class CreateCommentRequest(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    body: str = Field(..., min_length=1, max_length=16384)
+
+
+class ListCommentsResponse(BaseModel):
+    issue_id: str
+    comments: list[CommentView]
+
+
+@router.post(
+    "/issues/{issue_id}/comments",
+    response_model=CommentView,
+    status_code=201,
+)
+async def add_issue_comment(
+    issue_id: str,
+    payload: CreateCommentRequest,
+    db=Depends(get_db),
+    identity: TeamIdentity = Depends(get_team_identity),
+) -> CommentView:
+    """Post a comment to an issue's thread. The author is the authenticated
+    actor (human or agent); this is the human<->agent discussion surface."""
+    try:
+        comment = await hierarchy_service.add_issue_comment(
+            db,
+            team_id=identity.team_id,
+            issue_id=issue_id,
+            author=identity.alias,
+            body=payload.body,
+        )
+    except ServiceError as exc:
+        _raise_http(exc)
+    return CommentView(**comment)
+
+
+@router.get(
+    "/issues/{issue_id}/comments",
+    response_model=ListCommentsResponse,
+)
+async def list_issue_comments(
+    issue_id: str,
+    db=Depends(get_db),
+    identity: TeamIdentity = Depends(get_team_identity),
+) -> ListCommentsResponse:
+    """List an issue's comments, oldest first."""
+    try:
+        comments = await hierarchy_service.list_issue_comments(
+            db, team_id=identity.team_id, issue_id=issue_id
+        )
+    except ServiceError as exc:
+        _raise_http(exc)
+    return ListCommentsResponse(
+        issue_id=issue_id,
+        comments=[CommentView(**c) for c in comments],
+    )

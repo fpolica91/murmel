@@ -14,6 +14,7 @@ import {
   type Story,
   type UpdateIssueInput,
 } from "@/lib/api/types";
+import { CommentsThread } from "./comments-thread";
 import { StatusBadge } from "./issue-badges";
 import styles from "./work.module.css";
 
@@ -142,10 +143,7 @@ export function IssueDetail({ issueId }: { issueId: string }) {
           />
 
           <h2 className={styles.sectionTitle}>Activity</h2>
-          <div className={styles.activityThread}>
-            Activity thread coming soon. Comments and status history will appear
-            here.
-          </div>
+          <CommentsThread issueId={issue.issue_id} />
         </article>
 
         <aside className={styles.sidebar}>

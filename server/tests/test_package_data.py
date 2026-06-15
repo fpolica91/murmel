@@ -58,6 +58,7 @@ def test_canonical_chain_starts_with_reset_baseline_then_forward_migrations():
         "008_simple_auth.sql",
         "009_work_hierarchy.sql",
         "010_backfill_tasks_to_issues.sql",
+        "011_issue_comments.sql",
     ]
 
 

@@ -11,9 +11,11 @@ from __future__ import annotations
 import json
 
 from aweb.coordination.hierarchy import (
+    add_issue_comment,
     claim_issue,
     create_issue,
     get_issue,
+    list_issue_comments,
     list_issues,
     update_issue,
 )
@@ -132,3 +134,36 @@ async def issues_update_status(db_infra, *, issue_id: str, status: str) -> str:
     except (ConflictError, NotFoundError, ValidationError) as exc:
         return json.dumps({"error": exc.detail})
     return json.dumps(issue)
+
+
+async def issues_comment_add(db_infra, *, issue_id: str, body: str) -> str:
+    """Post a comment to an issue's thread (the human<->agent discussion
+    surface). The author is the authenticated agent/user."""
+    auth, error = require_team_context()
+    if auth is None:
+        return error or json.dumps({"error": "This tool requires team context."})
+    try:
+        result = await add_issue_comment(
+            db_infra,
+            team_id=auth.team_id,
+            issue_id=issue_id,
+            author=getattr(auth, "alias", "") or "agent",
+            body=body,
+        )
+    except (NotFoundError, ValidationError) as exc:
+        return json.dumps({"error": exc.detail})
+    return json.dumps(result)
+
+
+async def issues_comments_list(db_infra, *, issue_id: str) -> str:
+    """List an issue's comments, oldest first."""
+    auth, error = require_team_context()
+    if auth is None:
+        return error or json.dumps({"error": "This tool requires team context."})
+    try:
+        result = await list_issue_comments(
+            db_infra, team_id=auth.team_id, issue_id=issue_id
+        )
+    except (NotFoundError, ValidationError) as exc:
+        return json.dumps({"error": exc.detail})
+    return json.dumps({"issue_id": issue_id, "comments": result})
