@@ -99,6 +99,13 @@ export interface ChatMessage {
   /** Sender alias — use to render who sent it. */
   from_agent: string;
   from_address: string | null;
+  /**
+   * AUTHORITATIVE sender kind (AUDIT.md §3.2), resolved server-side from the
+   * sender's participant row. The UI renders human-vs-agent from this, NOT by
+   * matching `from_agent` against another roster. Optional for back-compat with
+   * pre-contract servers; treat a missing value as "agent".
+   */
+  from_kind?: "human" | "agent";
   /** Plaintext (encrypted sessions return ""). */
   body: string;
   content_mode: string;

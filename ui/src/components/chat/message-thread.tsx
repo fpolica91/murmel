@@ -19,7 +19,7 @@ function fmtTime(iso: string): string {
 export function MessageThread({
   messages,
   peerAliases,
-  humanAliases,
+  kindByAlias,
   loading,
 }: {
   messages: ChatMessage[];
@@ -29,8 +29,13 @@ export function MessageThread({
    * NOT one of these peers — reliable even for a 1:1 session.
    */
   peerAliases: Set<string>;
-  /** Aliases known to be HUMAN senders (for the agent/human tag). */
-  humanAliases: Set<string>;
+  /**
+   * Directory-backed fallback for a message's sender kind, keyed by alias. Used
+   * ONLY when the server did not stamp `from_kind` on the message (pre-contract
+   * server). The authoritative signal is `message.from_kind` (AUDIT.md §3.2);
+   * the UI keys on that and never guesses by alias-matching.
+   */
+  kindByAlias: Map<string, "human" | "agent">;
   loading: boolean;
 }) {
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -56,7 +61,11 @@ export function MessageThread({
     <div className={styles.messages}>
       {messages.map((m) => {
         const mine = !peerAliases.has(m.from_agent);
-        const isHuman = humanAliases.has(m.from_agent);
+        // Authoritative: server-stamped from_kind. Fall back to the directory
+        // lookup, then to "agent" for legacy/unresolved senders.
+        const kind =
+          m.from_kind ?? kindByAlias.get(m.from_agent) ?? "agent";
+        const isHuman = kind === "human";
         return (
           <div
             key={m.message_id}
