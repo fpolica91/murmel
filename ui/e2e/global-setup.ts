@@ -33,36 +33,90 @@ function psql(sql: string): string {
   }).trim();
 }
 
-export default async function globalSetup(): Promise<void> {
-  // 1. Sign up (200 = created; 4xx = already exists — both acceptable).
+/**
+ * Sign up a user (idempotent — "already exists" is fine), resolve its id, and
+ * ensure an active membership on the team. Returns the resolved user id so the
+ * caller can post-process the participant row (e.g. mark an account as an agent).
+ */
+async function ensureUser(
+  email: string,
+  name: string,
+  role: "admin" | "member",
+): Promise<string> {
   try {
     const res = await fetch(`${UI}/api/auth/sign-up/email`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email: EMAIL, password: PASSWORD, name: "Founder" }),
+      body: JSON.stringify({ email, password: PASSWORD, name }),
     });
-    console.log(`[e2e setup] sign-up ${EMAIL} -> HTTP ${res.status}`);
+    console.log(`[e2e setup] sign-up ${email} -> HTTP ${res.status}`);
   } catch (err) {
-    console.warn(`[e2e setup] sign-up request failed (continuing): ${String(err)}`);
+    console.warn(`[e2e setup] sign-up ${email} failed (continuing): ${String(err)}`);
   }
-
-  // 2. Resolve the user id (auth table is the case-sensitive "user").
-  const userId = psql(`SELECT id FROM aweb."user" WHERE email='${EMAIL}' LIMIT 1`);
+  const userId = psql(`SELECT id FROM aweb."user" WHERE email='${email}' LIMIT 1`);
   if (!userId) {
-    throw new Error(`[e2e setup] user ${EMAIL} not found after sign-up — is the UI/DB up?`);
+    throw new Error(`[e2e setup] user ${email} not found after sign-up — is the UI/DB up?`);
   }
+  psql(
+    `INSERT INTO aweb.memberships (subject, team_id, role, status) ` +
+      `VALUES ('${userId}','${TEAM}','${role}','active') ` +
+      `ON CONFLICT (subject, team_id) DO UPDATE SET role='${role}', status='active'`,
+  );
+  // Trigger human-participant provisioning by minting a JWT and hitting an
+  // authed endpoint (the provisioning funnel upserts the agents row).
+  try {
+    const signin = await fetch(`${UI}/api/auth/sign-in/email`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email, password: PASSWORD }),
+    });
+    const cookie = (signin.headers.getSetCookie?.() ?? [])
+      .map((c) => c.split(";")[0])
+      .join("; ");
+    const tokRes = await fetch(`${UI}/api/auth/token`, {
+      headers: { accept: "application/json", cookie },
+    });
+    const tok = (await tokRes.json()) as { token?: string };
+    if (tok.token) {
+      await fetch(`${process.env.E2E_AWEB_URL ?? "http://localhost:8088"}/v1/participants`, {
+        headers: { Authorization: `Bearer ${tok.token}`, "X-AWEB-Team-Id": TEAM },
+      });
+    }
+  } catch (err) {
+    console.warn(`[e2e setup] provision ${email} failed (continuing): ${String(err)}`);
+  }
+  return userId;
+}
 
-  // 3. Team + active admin membership (idempotent).
+export default async function globalSetup(): Promise<void> {
+  // Team must exist first (memberships FK).
   psql(
     `INSERT INTO aweb.teams (team_id, namespace, team_name, team_did_key) ` +
       `VALUES ('${TEAM}','local','default','did:key:zPLACEHOLDER') ` +
       `ON CONFLICT (team_id) DO NOTHING`,
   );
+
+  // Two humans: founder (admin) + mia (member).
+  const founderId = await ensureUser(EMAIL, "Founder", "admin");
+  await ensureUser("mia@local.test", "Mia", "member");
+
+  // Two agents: ada + bob. They onboard the same way (sign up + membership +
+  // first authenticated request), then their participant rows are marked
+  // agent_type='agent' (the participant/agents path) so the directory reports
+  // kind='agent'. The provisioning upsert never overwrites agent_type, so this
+  // sticks across re-auth.
+  const adaId = await ensureUser("ada@local.test", "Ada (agent)", "member");
+  const bobId = await ensureUser("bob@local.test", "Bob (agent)", "member");
   psql(
-    `INSERT INTO aweb.memberships (subject, team_id, role, status) ` +
-      `VALUES ('${userId}','${TEAM}','admin','active') ` +
-      `ON CONFLICT (subject, team_id) DO UPDATE SET role='admin', status='active'`,
+    `UPDATE aweb.agents SET agent_type='agent', human_name='Ada AI', role='engineer' ` +
+      `WHERE did_key='did:key:jwt-${adaId}' AND deleted_at IS NULL`,
+  );
+  psql(
+    `UPDATE aweb.agents SET agent_type='agent', human_name='Bob AI', role='reviewer' ` +
+      `WHERE did_key='did:key:jwt-${bobId}' AND deleted_at IS NULL`,
   );
 
-  console.log(`[e2e setup] ready: user=${userId} team=${TEAM} (admin/active)`);
+  console.log(
+    `[e2e setup] ready: founder=${founderId} + mia (humans), ada/bob (agents) on ${TEAM}`,
+  );
 }
