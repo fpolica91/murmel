@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { ApiError } from "@/lib/api/http";
-import { listAgents, listMembers } from "@/lib/api/members";
-import type { Agent, Member } from "@/lib/api/members";
+import { listParticipants, type Participant } from "@/lib/api/participants";
 import { useTeam } from "@/components/team-context";
 import { MemberRow } from "./member-row";
 import styles from "./members.module.css";
@@ -12,48 +11,27 @@ import styles from "./members.module.css";
 /**
  * Team roster: humans and AI agents side-by-side as teammates.
  *
- * Data sources (see CONTRACTS.md §2):
- *   - listAgents(teamId)  -> agents WITH presence (any caller).
- *   - listMembers(teamId) -> human memberships, ADMIN-ONLY (may 403).
+ * Sources the unified participant directory (AUDIT.md §3.1):
+ *   - listParticipants(teamId) -> GET /v1/participants
  *
- * Degradation: a 403 on listMembers means the caller is not an admin. We still
- * render the full agent roster and surface a muted note explaining the humans
- * list needs admin. Humans have no presence/display name by design, so their
- * rows only show subject + role + status.
+ * This is NON-admin: it returns BOTH humans (`kind:"human"`) and agents
+ * (`kind:"agent"`) to any team member, each with an AUTHORITATIVE `kind` and a
+ * real `display_name`. No 403 degradation, no raw auth subject as a name, and
+ * no alias-guessing. Agents carry live presence; humans report offline.
  */
 export function MemberList() {
   const { activeTeam } = useTeam();
 
-  const [agents, setAgents] = useState<Agent[]>([]);
-  const [members, setMembers] = useState<Member[]>([]);
-  /** True when listMembers returned 403 (caller is not an admin). */
-  const [membersForbidden, setMembersForbidden] = useState(false);
-
+  const [participants, setParticipants] = useState<Participant[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async (teamId: string) => {
     setLoading(true);
     setError(null);
-    setMembersForbidden(false);
     try {
-      // Agents are the load-bearing call; humans are best-effort (admin-gated).
-      const agentList = await listAgents(teamId);
-      setAgents(agentList);
-
-      try {
-        const memberList = await listMembers(teamId);
-        setMembers(memberList);
-      } catch (err) {
-        if (err instanceof ApiError && err.status === 403) {
-          setMembersForbidden(true);
-          setMembers([]);
-        } else {
-          // Non-403 failures on the humans list shouldn't blank the page;
-          // just drop humans and keep going (agents already loaded).
-          setMembers([]);
-        }
-      }
+      const list = await listParticipants(teamId);
+      setParticipants(list);
     } catch (err) {
       const message =
         err instanceof ApiError
@@ -69,8 +47,7 @@ export function MemberList() {
 
   useEffect(() => {
     if (!activeTeam) {
-      setAgents([]);
-      setMembers([]);
+      setParticipants([]);
       setLoading(false);
       return;
     }
@@ -93,22 +70,29 @@ export function MemberList() {
     return <div className={styles.error}>{error}</div>;
   }
 
-  const total = agents.length + members.length;
-
-  if (total === 0) {
+  if (participants.length === 0) {
     return (
       <div className={styles.empty}>
-        No teammates yet. Agents appear here once a workspace joins this team
-        {membersForbidden ? "" : ", and human members once they are invited"}.
+        No teammates yet. People and agents appear here once they join this
+        team.
       </div>
     );
   }
 
-  // Online agents first, then by alias for a stable, scannable order.
+  const humans = participants.filter((p) => p.kind === "human");
+  const agents = participants.filter((p) => p.kind === "agent");
+
+  // Online agents first, then by display name for a stable, scannable order.
   const sortedAgents = [...agents].sort((a, b) => {
     if (a.online !== b.online) return a.online ? -1 : 1;
-    return (a.alias || a.agent_id).localeCompare(b.alias || b.agent_id);
+    return (a.display_name || a.alias).localeCompare(b.display_name || b.alias);
   });
+  // Humans by display name.
+  const sortedHumans = [...humans].sort((a, b) =>
+    (a.display_name || a.alias).localeCompare(b.display_name || b.alias),
+  );
+
+  const total = participants.length;
   const onlineCount = agents.filter((a) => a.online).length;
 
   return (
@@ -120,11 +104,18 @@ export function MemberList() {
         ) : null}
       </div>
 
-      {membersForbidden ? (
-        <p className={styles.note}>
-          Human member list requires admin — showing AI agents only. Humans also
-          have no live presence on this surface.
-        </p>
+      {sortedHumans.length > 0 ? (
+        <section className={styles.section}>
+          <h2 className={styles.sectionLabel}>
+            Humans
+            <span className={styles.count}>{sortedHumans.length}</span>
+          </h2>
+          <div className={styles.list}>
+            {sortedHumans.map((p) => (
+              <MemberRow key={p.alias} participant={p} />
+            ))}
+          </div>
+        </section>
       ) : null}
 
       {sortedAgents.length > 0 ? (
@@ -134,25 +125,8 @@ export function MemberList() {
             <span className={styles.count}>{sortedAgents.length}</span>
           </h2>
           <div className={styles.list}>
-            {sortedAgents.map((a) => (
-              <MemberRow key={a.agent_id} entry={{ kind: "agent", agent: a }} />
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      {members.length > 0 ? (
-        <section className={styles.section}>
-          <h2 className={styles.sectionLabel}>
-            Humans
-            <span className={styles.count}>{members.length}</span>
-          </h2>
-          <div className={styles.list}>
-            {members.map((m) => (
-              <MemberRow
-                key={m.subject}
-                entry={{ kind: "human", member: m }}
-              />
+            {sortedAgents.map((p) => (
+              <MemberRow key={p.alias} participant={p} />
             ))}
           </div>
         </section>

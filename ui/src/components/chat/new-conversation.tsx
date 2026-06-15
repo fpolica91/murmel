@@ -2,25 +2,26 @@
 
 import { useState } from "react";
 
-import type { Agent } from "@/lib/api/members";
+import type { Participant } from "@/lib/api/participants";
 import styles from "./chat.module.css";
 
 /**
- * Start a new chat: pick an agent peer (by alias) and send an opening message.
- * Humans are intentionally not selectable — the backend can only target
- * `to_aliases`/`to_dids`/`to_addresses`, and human members have no alias (see
- * CONTRACTS.md degradation notes). We surface that as a muted note.
+ * Start a new chat: pick a peer (human OR agent) by alias and send an opening
+ * message. Humans are now first-class chat recipients (AUDIT.md §2.3) — they
+ * are reachable by `to_aliases` exactly like agents, so they appear in this
+ * picker alongside agents. We source the list from the unified participant
+ * directory (`/v1/participants`) and key on the authoritative `kind`.
  */
 export function NewConversation({
-  agents,
+  participants,
   onStart,
   onCancel,
 }: {
-  agents: Agent[];
+  participants: Participant[];
   onStart: (toAlias: string, message: string) => Promise<void>;
   onCancel: () => void;
 }) {
-  const [alias, setAlias] = useState<string>(agents[0]?.alias ?? "");
+  const [alias, setAlias] = useState<string>(participants[0]?.alias ?? "");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -40,11 +41,18 @@ export function NewConversation({
     }
   }
 
+  // Humans first, then agents; within each, online before offline, then alias.
+  const sorted = [...participants].sort((a, b) => {
+    if (a.kind !== b.kind) return a.kind === "human" ? -1 : 1;
+    if (a.online !== b.online) return a.online ? -1 : 1;
+    return (a.display_name || a.alias).localeCompare(b.display_name || b.alias);
+  });
+
   return (
     <div className={styles.newForm}>
-      {agents.length === 0 ? (
+      {sorted.length === 0 ? (
         <p className={styles.note}>
-          No agents are available on this team to start a chat with.
+          No teammates are available on this team to start a chat with.
         </p>
       ) : (
         <>
@@ -54,12 +62,17 @@ export function NewConversation({
             onChange={(e) => setAlias(e.target.value)}
             disabled={busy}
           >
-            {agents.map((a) => (
-              <option key={a.agent_id} value={a.alias}>
-                {a.alias}
-                {a.online ? " · online" : ""}
-              </option>
-            ))}
+            {sorted.map((p) => {
+              const label = p.display_name || p.alias;
+              const kindLabel = p.kind === "human" ? "human" : "agent";
+              const presence = p.kind === "agent" && p.online ? " · online" : "";
+              return (
+                <option key={p.alias} value={p.alias}>
+                  {label} · {kindLabel}
+                  {presence}
+                </option>
+              );
+            })}
           </select>
           <textarea
             className={styles.composerInput}
@@ -89,8 +102,7 @@ export function NewConversation({
             </button>
           </div>
           <p className={styles.note}>
-            Chats start with agents (they have aliases). Human members can&apos;t
-            be messaged directly by the current backend.
+            Chat with anyone on the team — humans and agents alike.
           </p>
         </>
       )}

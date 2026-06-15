@@ -1,20 +1,16 @@
 "use client";
 
-import type { Agent, Member } from "@/lib/api/members";
+import type { Participant } from "@/lib/api/participants";
 import styles from "./members.module.css";
 
 /**
- * A single roster row. Two shapes feed this:
+ * A single roster row, rendered from a unified `Participant` (AUDIT.md §3.1).
  *
- *   - kind === "agent": an AI teammate from GET /v1/agents. Carries presence
- *     (online/status/last_seen) and a human-readable alias.
- *   - kind === "human": a human membership from GET /v1/teams/{id}/members
- *     (admin-only). NO presence and NO display name — only `subject`/role/
- *     status exist, so we show a truncated subject + role.
+ * The human-vs-agent split is the AUTHORITATIVE `kind` — never guessed. Humans
+ * carry a real `display_name` and report offline (no live presence by design);
+ * agents carry presence (online/status/last_seen).
  */
-export type RosterEntry =
-  | { kind: "agent"; agent: Agent }
-  | { kind: "human"; member: Member };
+export type RosterEntry = { participant: Participant };
 
 /** Pick up to two initials for the avatar from a label. */
 function initials(label: string): string {
@@ -23,12 +19,6 @@ function initials(label: string): string {
   const parts = cleaned.split(/\s+/);
   if (parts.length === 1) return parts[0].slice(0, 2);
   return (parts[0][0] + parts[1][0]).slice(0, 2);
-}
-
-/** Truncate a long opaque id (e.g. Better Auth subject) for display. */
-function truncId(id: string): string {
-  if (id.length <= 14) return id;
-  return `${id.slice(0, 8)}…${id.slice(-4)}`;
 }
 
 /** Relative "last seen" label from an ISO timestamp. */
@@ -49,84 +39,64 @@ function relativeTime(iso: string | null): string | null {
   return new Date(iso).toLocaleDateString();
 }
 
-export function MemberRow({ entry }: { entry: RosterEntry }) {
-  if (entry.kind === "agent") {
-    const a = entry.agent;
-    const name = a.alias || a.agent_id;
-    const online = a.online;
-    // role_name is the friendly label; fall back to role slug.
-    const roleLabel = a.role_name || a.role;
-    // A short context line: human owner (if any) and where it runs.
-    const contextBits: string[] = [];
-    if (a.human_name) contextBits.push(a.human_name);
-    if (a.repo) contextBits.push(a.repo);
-    else if (a.workspace_type) contextBits.push(a.workspace_type);
-    const lastSeen = relativeTime(a.last_seen);
+export function MemberRow({ participant }: { participant: Participant }) {
+  const p = participant;
+  const isHuman = p.kind === "human";
+  const name = p.display_name || p.alias;
+  // Agents may carry live presence; humans are always offline by design.
+  const online = !isHuman && p.online;
+  const lastSeen = isHuman ? null : relativeTime(p.last_seen);
 
-    return (
-      <div className={styles.row}>
-        <div className={styles.avatarWrap}>
-          <span className={`${styles.avatar} ${styles.agent}`}>
-            {initials(name)}
-          </span>
+  return (
+    <div className={styles.row}>
+      <div className={styles.avatarWrap}>
+        <span
+          className={`${styles.avatar} ${isHuman ? styles.human : styles.agent}`}
+        >
+          {initials(name)}
+        </span>
+        {!isHuman ? (
           <span
             className={`${styles.dot} ${online ? styles.online : ""}`}
             aria-hidden="true"
           />
-        </div>
-
-        <div className={styles.identity}>
-          <div className={styles.nameLine}>
-            <span className={styles.name}>{name}</span>
-            <span className={`${styles.tag} ${styles.agent}`}>AI agent</span>
-            {roleLabel ? <span className={styles.role}>{roleLabel}</span> : null}
-          </div>
-          {contextBits.length > 0 ? (
-            <span className={styles.subline}>{contextBits.join(" · ")}</span>
-          ) : null}
-        </div>
-
-        <div className={styles.presence}>
-          <span
-            className={`${styles.statusBadge} ${online ? styles.online : ""}`}
-          >
-            <span
-              className={`${styles.statusDot} ${online ? styles.online : ""}`}
-              aria-hidden="true"
-            />
-            {online ? a.status || "online" : a.status || "offline"}
-          </span>
-          {!online && lastSeen ? (
-            <span className={styles.lastSeen}>seen {lastSeen}</span>
-          ) : null}
-        </div>
-      </div>
-    );
-  }
-
-  // Human membership — no presence, no display name.
-  const m = entry.member;
-  return (
-    <div className={styles.row}>
-      <div className={styles.avatarWrap}>
-        <span className={`${styles.avatar} ${styles.human}`}>
-          {initials(m.subject)}
-        </span>
+        ) : null}
       </div>
 
       <div className={styles.identity}>
         <div className={styles.nameLine}>
-          <span className={`${styles.name} ${styles.mono}`}>
-            {truncId(m.subject)}
+          <span className={styles.name}>{name}</span>
+          <span
+            className={`${styles.tag} ${isHuman ? styles.human : styles.agent}`}
+          >
+            {isHuman ? "Human" : "AI agent"}
           </span>
-          <span className={`${styles.tag} ${styles.human}`}>Human</span>
-          {m.role ? <span className={styles.role}>{m.role}</span> : null}
+          {p.role ? <span className={styles.role}>{p.role}</span> : null}
         </div>
-        <span className={styles.subline}>Membership · no live presence</span>
+        {p.address ? (
+          <span className={styles.subline}>{p.address}</span>
+        ) : null}
       </div>
 
       <div className={styles.presence}>
-        <span className={styles.statusBadge}>{m.status || "active"}</span>
+        {isHuman ? (
+          <span className={styles.statusBadge}>member</span>
+        ) : (
+          <>
+            <span
+              className={`${styles.statusBadge} ${online ? styles.online : ""}`}
+            >
+              <span
+                className={`${styles.statusDot} ${online ? styles.online : ""}`}
+                aria-hidden="true"
+              />
+              {online ? p.status || "online" : p.status || "offline"}
+            </span>
+            {!online && lastSeen ? (
+              <span className={styles.lastSeen}>seen {lastSeen}</span>
+            ) : null}
+          </>
+        )}
       </div>
     </div>
   );

@@ -14,7 +14,7 @@ import {
   type SessionListItem,
 } from "@/lib/api/chat";
 import { ApiError } from "@/lib/api/http";
-import { listAgents, type Agent } from "@/lib/api/members";
+import { listParticipants, type Participant } from "@/lib/api/participants";
 import { useTeam } from "@/components/team-context";
 import {
   ConversationList,
@@ -39,7 +39,7 @@ function errMessage(err: unknown, fallback: string): string {
 export function ChatView() {
   const { activeTeam } = useTeam();
 
-  const [agents, setAgents] = useState<Agent[]>([]);
+  const [participants, setParticipants] = useState<Participant[]>([]);
   const [sessions, setSessions] = useState<SessionListItem[]>([]);
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
   const [listError, setListError] = useState<string | null>(null);
@@ -57,12 +57,14 @@ export function ChatView() {
   const activeRef = useRef<string | null>(null);
   activeRef.current = activeSessionId;
 
-  // Aliases known to belong to agents — anything NOT an agent and not you we
-  // tag as a human sender in the thread.
-  const agentAliases = useMemo(
-    () => new Set(agents.map((a) => a.alias)),
-    [agents],
-  );
+  // Directory-backed alias -> authoritative kind map. Used only as a fallback
+  // when a message lacks the server-stamped `from_kind`; the thread keys on
+  // `from_kind` first (AUDIT.md §3.2).
+  const kindByAlias = useMemo(() => {
+    const m = new Map<string, "human" | "agent">();
+    for (const p of participants) m.set(p.alias, p.kind);
+    return m;
+  }, [participants]);
 
   // ---- Load the conversation list (sessions + enrichment) ----------------
   const loadList = useCallback(async () => {
@@ -85,19 +87,20 @@ export function ChatView() {
     }
   }, [activeTeam]);
 
-  // Load agents once per team (for the new-chat picker + human/agent tagging).
+  // Load the participant directory once per team (humans + agents) for the
+  // new-chat picker and for authoritative sender-kind tagging in the thread.
   useEffect(() => {
     if (!activeTeam) {
-      setAgents([]);
+      setParticipants([]);
       return;
     }
     let cancelled = false;
-    listAgents(activeTeam)
-      .then((a) => {
-        if (!cancelled) setAgents(a);
+    listParticipants(activeTeam)
+      .then((p) => {
+        if (!cancelled) setParticipants(p);
       })
       .catch(() => {
-        if (!cancelled) setAgents([]);
+        if (!cancelled) setParticipants([]);
       });
     return () => {
       cancelled = true;
@@ -229,12 +232,6 @@ export function ChatView() {
     () => new Set(activeRow?.peers ?? []),
     [activeRow],
   );
-  // Humans = peer senders in the thread who aren't agents.
-  const humanAliases = new Set(
-    messages
-      .map((m) => m.from_agent)
-      .filter((a) => a && peerAliases.has(a) && !agentAliases.has(a)),
-  );
 
   return (
     <div className={styles.layout}>
@@ -252,7 +249,7 @@ export function ChatView() {
 
         {showNew && (
           <NewConversation
-            agents={agents}
+            participants={participants}
             onStart={handleStart}
             onCancel={() => setShowNew(false)}
           />
@@ -287,7 +284,7 @@ export function ChatView() {
             <MessageThread
               messages={messages}
               peerAliases={peerAliases}
-              humanAliases={humanAliases}
+              kindByAlias={kindByAlias}
               loading={threadLoading}
             />
             <MessageComposer onSend={handleSend} />
