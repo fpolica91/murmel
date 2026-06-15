@@ -142,7 +142,84 @@ async def lookup_identity_agent_context(
     return dict(rows[0])
 
 
+def _jwt_synthetic_did_key(subject: str) -> str:
+    """Deterministic synthetic ``did:key`` for a Better-Auth JWT subject.
+
+    The chat/messaging subsystem routes everything by DID. Token (Better Auth
+    JWT) callers have no certificate DID, so we mint a stable per-subject
+    synthetic DID. It is purely a local routing key — it is never published to
+    AWID and never used for signature verification — so a plain, deterministic
+    encoding keyed by the subject is sufficient and idempotent.
+    """
+    return f"did:key:jwt-{subject}"
+
+
+async def _ensure_token_agent(
+    db,
+    *,
+    team_id: str,
+    subject: str,
+    alias: str,
+    did_key: str,
+) -> dict | None:
+    """Idempotently provision/refresh an ``agents`` row for a JWT subject.
+
+    Messaging (chat) resolves both the actor and recipients out of the
+    ``agents`` table. A token caller is a Better-Auth user with no agent row, so
+    without this nobody can chat over the JWT path. We create a local agent row
+    keyed by a deterministic synthetic ``did_key`` and keep its alias in sync
+    with the caller's display name.
+    """
+    aweb_db = _aweb_db(db)
+    address = f"{team_id}/{alias}" if alias else None
+    row = await aweb_db.fetch_one(
+        """
+        INSERT INTO {{tables.agents}} (team_id, did_key, alias, human_name, agent_type, identity_scope, address)
+        VALUES ($1, $2, $3, $4, 'human', 'local', $5)
+        ON CONFLICT (team_id, did_key) WHERE deleted_at IS NULL
+        DO UPDATE SET alias = EXCLUDED.alias, address = EXCLUDED.address
+        RETURNING agent_id, team_id, alias, did_key, address, identity_scope
+        """,
+        team_id,
+        did_key,
+        alias or subject,
+        alias or "",
+        address,
+    )
+    return dict(row) if row else None
+
+
 async def get_messaging_auth(request: Request, db=Depends(get_db)) -> MessagingAuth:
+    # Better Auth JWT (token) path: the rest of the server treats a bearer JWT
+    # as the primary auth, so messaging must too. Token callers have no cert
+    # DID, so we resolve them through the membership-scoped token identity and
+    # back them with an idempotently-provisioned local agent row.
+    from aweb.token_team_scope import resolve_token_team_identity
+
+    if not request.headers.get("X-AWID-Team-Certificate"):
+        token_identity = await resolve_token_team_identity(request, db)
+        if token_identity is not None:
+            subject = (token_identity.agent_id or "").strip()
+            alias = (token_identity.alias or "").strip() or subject
+            did_key = _jwt_synthetic_did_key(subject)
+            agent_row = await _ensure_token_agent(
+                db,
+                team_id=token_identity.team_id,
+                subject=subject,
+                alias=alias,
+                did_key=did_key,
+            )
+            return MessagingAuth(
+                did_key=did_key,
+                did_aw=None,
+                address=(agent_row or {}).get("address"),
+                team_id=token_identity.team_id,
+                alias=alias,
+                agent_id=str((agent_row or {}).get("agent_id")) if (agent_row or {}).get("agent_id") else None,
+                identity_scope="token",
+                verified_team_id=token_identity.team_id,
+            )
+
     if request.headers.get("X-AWID-Team-Certificate"):
         team_identity: TeamIdentity = await get_team_identity(request, db)
         aweb_db = _aweb_db(db)

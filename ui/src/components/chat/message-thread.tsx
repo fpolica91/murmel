@@ -18,13 +18,17 @@ function fmtTime(iso: string): string {
 
 export function MessageThread({
   messages,
-  selfAlias,
+  peerAliases,
   humanAliases,
   loading,
 }: {
   messages: ChatMessage[];
-  /** Current user's alias — messages from this alias render as "mine". */
-  selfAlias: string | null;
+  /**
+   * Aliases of the OTHER participants in this session (the server excludes the
+   * caller from the participant set). A message is "mine" when its sender is
+   * NOT one of these peers — reliable even for a 1:1 session.
+   */
+  peerAliases: Set<string>;
   /** Aliases known to be HUMAN senders (for the agent/human tag). */
   humanAliases: Set<string>;
   loading: boolean;
@@ -51,7 +55,7 @@ export function MessageThread({
   return (
     <div className={styles.messages}>
       {messages.map((m) => {
-        const mine = selfAlias != null && m.from_agent === selfAlias;
+        const mine = !peerAliases.has(m.from_agent);
         const isHuman = humanAliases.has(m.from_agent);
         return (
           <div

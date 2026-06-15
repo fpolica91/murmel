@@ -36,28 +36,6 @@ function errMessage(err: unknown, fallback: string): string {
   return fallback;
 }
 
-/**
- * Derive the current user's alias as the alias present in EVERY session's
- * participant set (you are always a participant). Falls back to null when it
- * can't be resolved (e.g. zero or one session); the thread then aligns by
- * sender alias only, which still reads correctly.
- */
-function deriveSelfAlias(sessions: SessionListItem[]): string | null {
-  if (sessions.length === 0) return null;
-  let common: Set<string> | null = null;
-  for (const s of sessions) {
-    const set = new Set<string>(s.participants.filter((p): p is string => !!p));
-    if (common === null) {
-      common = set;
-    } else {
-      const prev: Set<string> = common;
-      common = new Set([...prev].filter((x) => set.has(x)));
-    }
-  }
-  if (!common || common.size !== 1) return null;
-  return [...common][0];
-}
-
 export function ChatView() {
   const { activeTeam } = useTeam();
 
@@ -78,8 +56,6 @@ export function ChatView() {
   // without re-subscribing each time it changes.
   const activeRef = useRef<string | null>(null);
   activeRef.current = activeSessionId;
-
-  const selfAlias = useMemo(() => deriveSelfAlias(sessions), [sessions]);
 
   // Aliases known to belong to agents — anything NOT an agent and not you we
   // tag as a human sender in the thread.
@@ -152,8 +128,10 @@ export function ChatView() {
       .map<ConversationRow>((s) => {
         const enrich = byId.get(s.session_id);
         return {
+          // The server returns `participants` already excluding the caller, so
+          // they ARE the peers. (Passing null keeps every participant.)
           sessionId: s.session_id,
-          peers: sessionPeers(s, selfAlias),
+          peers: sessionPeers(s, null),
           lastActivity: enrich?.last_message_at ?? s.last_activity,
           preview: enrich?.last_message_preview ?? "",
           lastFrom: enrich?.last_message_from ?? "",
@@ -162,7 +140,7 @@ export function ChatView() {
         };
       })
       .sort((a, b) => b.lastActivity.localeCompare(a.lastActivity));
-  }, [sessions, conversations, selfAlias]);
+  }, [sessions, conversations]);
 
   // ---- Load messages for the active session (initial + poll) -------------
   const loadMessages = useCallback(
@@ -242,11 +220,20 @@ export function ChatView() {
   }
 
   const activeRow = rows.find((r) => r.sessionId === activeSessionId);
-  // Humans = senders in the thread who aren't agents and aren't you.
+  // The server excludes the caller from a session's participant list, so the
+  // active session's peers are exactly "everyone who isn't me". A message is
+  // therefore "mine" iff its sender is NOT one of those peers — this is robust
+  // even for a single 1:1 session (where a self-alias can't be inferred from
+  // the participant set alone).
+  const peerAliases = useMemo(
+    () => new Set(activeRow?.peers ?? []),
+    [activeRow],
+  );
+  // Humans = peer senders in the thread who aren't agents.
   const humanAliases = new Set(
     messages
       .map((m) => m.from_agent)
-      .filter((a) => a && a !== selfAlias && !agentAliases.has(a)),
+      .filter((a) => a && peerAliases.has(a) && !agentAliases.has(a)),
   );
 
   return (
@@ -299,7 +286,7 @@ export function ChatView() {
             {threadError && <div className={styles.error}>{threadError}</div>}
             <MessageThread
               messages={messages}
-              selfAlias={selfAlias}
+              peerAliases={peerAliases}
               humanAliases={humanAliases}
               loading={threadLoading}
             />
