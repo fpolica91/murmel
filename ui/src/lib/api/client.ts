@@ -83,6 +83,14 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   const headers: Record<string, string> = { accept: "application/json" };
   if (opts.body !== undefined) headers["content-type"] = "application/json";
   if (token) headers["authorization"] = `Bearer ${token}`;
+  // Scope the request to the active team so multi-team subjects hit the right
+  // team (single-team subjects work without it via the server's sole-membership
+  // fallback). Key mirrors TeamProvider's STORAGE_KEY ("aweb.activeTeam").
+  const activeTeam =
+    typeof window !== "undefined"
+      ? window.localStorage.getItem("aweb.activeTeam")
+      : null;
+  if (activeTeam) headers["x-aweb-team-id"] = activeTeam;
 
   const res = await fetch(url.toString(), {
     method: opts.method ?? "GET",
