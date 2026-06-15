@@ -92,6 +92,22 @@ func (c *Client) IssueCreate(ctx context.Context, req *IssueCreateRequest) (*Iss
 	return &out, nil
 }
 
+// IssueUpdateRequest patches an issue. Only set fields are sent.
+type IssueUpdateRequest struct {
+	Status       string `json:"status,omitempty"`
+	AssigneeType string `json:"assignee_type,omitempty"`
+	AssigneeID   string `json:"assignee_id,omitempty"`
+}
+
+// IssueUpdate patches an issue (status / assignee).
+func (c *Client) IssueUpdate(ctx context.Context, issueID string, req *IssueUpdateRequest) (*Issue, error) {
+	var out Issue
+	if err := c.Patch(ctx, "/v1/issues/"+urlPathEscape(issueID), req, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 // IssueGet fetches a single issue.
 func (c *Client) IssueGet(ctx context.Context, issueID string) (*Issue, error) {
 	var out Issue

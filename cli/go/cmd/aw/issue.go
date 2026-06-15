@@ -46,6 +46,20 @@ var issueCommentCmd = &cobra.Command{
 	RunE:  runIssueComment,
 }
 
+var issueStatusCmd = &cobra.Command{
+	Use:   "status <issue-id> <status>",
+	Short: "Set an issue's status (todo, in_progress, in_review, done)",
+	Args:  cobra.ExactArgs(2),
+	RunE:  runIssueStatus,
+}
+
+var issueAssignCmd = &cobra.Command{
+	Use:   "assign <issue-id> <assignee-id>",
+	Short: "Assign an issue to an agent or human",
+	Args:  cobra.ExactArgs(2),
+	RunE:  runIssueAssign,
+}
+
 func init() {
 	issueListCmd.Flags().String("status", "", "Filter by status (todo, in_progress, in_review, done)")
 	issueListCmd.Flags().String("assignee-type", "", "Filter by assignee type (human, agent)")
@@ -57,8 +71,53 @@ func init() {
 	issueCreateCmd.Flags().String("assignee-type", "", "Assignee type (human, agent)")
 	issueCreateCmd.Flags().String("assignee", "", "Assignee id")
 
-	issueCmd.AddCommand(issueListCmd, issueCreateCmd, issueShowCmd, issueCommentCmd)
+	issueAssignCmd.Flags().String("type", "agent", "Assignee type (agent or human)")
+
+	issueCmd.AddCommand(
+		issueListCmd, issueCreateCmd, issueShowCmd, issueCommentCmd,
+		issueStatusCmd, issueAssignCmd,
+	)
 	rootCmd.AddCommand(issueCmd)
+}
+
+func runIssueStatus(cmd *cobra.Command, args []string) error {
+	client, ctx, cancel, err := issueClient()
+	if err != nil {
+		return err
+	}
+	defer cancel()
+
+	issue, err := client.IssueUpdate(ctx, args[0], &aweb.IssueUpdateRequest{Status: args[1]})
+	if err != nil {
+		return fmt.Errorf("updating status: %w", err)
+	}
+	printOutput(issue, func(v any) string {
+		it := v.(*aweb.Issue)
+		return fmt.Sprintf("%s → %s\n", it.IssueID, strings.ToUpper(it.Status))
+	})
+	return nil
+}
+
+func runIssueAssign(cmd *cobra.Command, args []string) error {
+	client, ctx, cancel, err := issueClient()
+	if err != nil {
+		return err
+	}
+	defer cancel()
+
+	assigneeType, _ := cmd.Flags().GetString("type")
+	issue, err := client.IssueUpdate(ctx, args[0], &aweb.IssueUpdateRequest{
+		AssigneeType: assigneeType,
+		AssigneeID:   args[1],
+	})
+	if err != nil {
+		return fmt.Errorf("assigning issue: %w", err)
+	}
+	printOutput(issue, func(v any) string {
+		it := v.(*aweb.Issue)
+		return fmt.Sprintf("%s assigned to %s\n", it.IssueID, issueAssignee(it))
+	})
+	return nil
 }
 
 func issueClient() (*aweb.Client, context.Context, context.CancelFunc, error) {
