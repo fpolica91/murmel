@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { ApiError, workApi } from "@/lib/api/client";
-import type { Epic, Issue, Story } from "@/lib/api/types";
+import type { Epic, Issue, IssueStatus, Story } from "@/lib/api/types";
 import { BoardView } from "./board-view";
 import { ListView } from "./list-view";
+import { NewIssueForm } from "./new-issue-form";
 import { WorkFilters, type WorkFilterState } from "./work-filters";
 import styles from "./work.module.css";
 
@@ -63,6 +64,27 @@ export function WorkBoard() {
     void load(filters);
   }, [filters, load]);
 
+  const changeStatus = useCallback(
+    async (issueId: string, status: IssueStatus) => {
+      // Optimistic: reflect the move immediately, then persist + reload.
+      setIssues((prev) =>
+        prev.map((i) => (i.issue_id === issueId ? { ...i, status } : i)),
+      );
+      try {
+        await workApi.updateIssueStatus(issueId, { status });
+      } catch (err) {
+        setError(
+          err instanceof ApiError
+            ? `${err.message} (${err.status})`
+            : "Failed to update status.",
+        );
+      } finally {
+        void load(filters);
+      }
+    },
+    [filters, load],
+  );
+
   return (
     <div>
       <div className={styles.toolbar}>
@@ -96,12 +118,14 @@ export function WorkBoard() {
         </button>
       </div>
 
+      <NewIssueForm onCreated={() => void load(filters)} />
+
       {error && <div className={styles.error}>{error}</div>}
 
       {loading ? (
         <p className={styles.empty}>Loading work items…</p>
       ) : view === "board" ? (
-        <BoardView issues={issues} />
+        <BoardView issues={issues} onStatusChange={changeStatus} />
       ) : (
         <ListView issues={issues} epics={epics} stories={stories} />
       )}

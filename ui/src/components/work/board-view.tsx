@@ -4,6 +4,7 @@ import {
   ISSUE_STATUSES,
   ISSUE_STATUS_LABELS,
   type Issue,
+  type IssueStatus,
 } from "@/lib/api/types";
 import { IssueCard } from "./issue-card";
 import styles from "./work.module.css";
@@ -13,7 +14,13 @@ import styles from "./work.module.css";
  * Client-side bucketing keeps the board coherent even when the active status
  * filter is set (an empty column still renders so the workflow stays visible).
  */
-export function BoardView({ issues }: { issues: Issue[] }) {
+export function BoardView({
+  issues,
+  onStatusChange,
+}: {
+  issues: Issue[];
+  onStatusChange?: (issueId: string, status: IssueStatus) => void;
+}) {
   const byStatus = new Map<string, Issue[]>();
   for (const status of ISSUE_STATUSES) byStatus.set(status, []);
   for (const issue of issues) {
@@ -33,7 +40,11 @@ export function BoardView({ issues }: { issues: Issue[] }) {
             </header>
             <div className={styles.cardStack}>
               {column.map((issue) => (
-                <IssueCard key={issue.issue_id} issue={issue} />
+                <IssueCard
+                  key={issue.issue_id}
+                  issue={issue}
+                  onStatusChange={onStatusChange}
+                />
               ))}
               {column.length === 0 && (
                 <p className={styles.empty} style={{ padding: "0.75rem" }}>
