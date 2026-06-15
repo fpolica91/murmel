@@ -408,3 +408,10 @@ func jwtSubject(token string) (string, bool) {
 func JWTSubjectUnverified(token string) (string, bool) {
 	return jwtSubject(token)
 }
+
+// JWTExpiryUnverified returns the exp claim of a JWT as a time WITHOUT
+// verifying the signature. Display/cache convenience only (see the security
+// note on JWTSubjectUnverified).
+func JWTExpiryUnverified(token string) (time.Time, bool) {
+	return jwtExpiry(token)
+}

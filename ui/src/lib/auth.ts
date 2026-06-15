@@ -33,7 +33,7 @@
  * roles / agent_name via `definePayload`.
  */
 import { betterAuth } from "better-auth";
-import { jwt } from "better-auth/plugins";
+import { bearer, deviceAuthorization, jwt } from "better-auth/plugins";
 import { Pool } from "pg";
 
 import { resolveSubjectClaims } from "./claims";
@@ -93,6 +93,20 @@ function buildAuth() {
             };
           },
         },
+      }),
+      // Accept a session token via `Authorization: Bearer <token>` so the CLI
+      // can exchange its device-flow session for a JWT at /api/auth/token.
+      bearer(),
+      // RFC 8628 device flow for `aw login`. The public CLI client has no
+      // secret; we accept the known client id. The device flow yields a
+      // session (see bearer above); the CLI then mints a JWT from it.
+      deviceAuthorization({
+        expiresIn: "10m",
+        interval: "5s",
+        validateClient: async (clientId: string) => clientId === "aweb-cli",
+        // Required at runtime by this Better Auth version (zod non-optional);
+        // empty = use the default deviceCode table/fields.
+        schema: {},
       }),
     ],
   });

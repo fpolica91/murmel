@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -141,9 +142,17 @@ func runLogin(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	tok, err := pollForToken(ctx, issuer, clientID, device)
+	// The device flow yields a Better Auth *session* token (opaque). Exchange
+	// it for a JWKS-verifiable JWT at the issuer's token endpoint; the session
+	// becomes the refresh credential.
+	session, err := pollForToken(ctx, issuer, clientID, device)
 	if err != nil {
 		return err
+	}
+
+	tok, err := exchangeSessionForJWT(ctx, issuer, session)
+	if err != nil {
+		return fmt.Errorf("login: minting access token failed: %w", err)
 	}
 
 	if err := awconfig.SaveToken(tok); err != nil {
@@ -234,17 +243,20 @@ func resolveLoginClientID() string {
 }
 
 func requestDeviceCode(ctx context.Context, issuer, clientID, scope string) (*deviceAuthResponse, error) {
-	form := url.Values{}
-	form.Set("client_id", clientID)
+	payload := map[string]string{"client_id": clientID}
 	if strings.TrimSpace(scope) != "" {
-		form.Set("scope", scope)
+		payload["scope"] = scope
+	}
+	bodyBytes, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("device authorization: marshal request: %w", err)
 	}
 	endpoint := issuer + "/device/code"
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(form.Encode()))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(bodyBytes))
 	if err != nil {
 		return nil, fmt.Errorf("device authorization: build request: %w", err)
 	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 
 	resp, err := loginHTTPClient().Do(req)
@@ -266,7 +278,10 @@ func requestDeviceCode(ctx context.Context, issuer, clientID, scope string) (*de
 	return &out, nil
 }
 
-func pollForToken(ctx context.Context, issuer, clientID string, device *deviceAuthResponse) (*awconfig.CachedToken, error) {
+// pollForToken polls the device-token endpoint until the user approves and
+// returns the opaque Better Auth session token (the caller exchanges it for a
+// JWT).
+func pollForToken(ctx context.Context, issuer, clientID string, device *deviceAuthResponse) (string, error) {
 	interval := time.Duration(device.Interval) * time.Second
 	if interval <= 0 {
 		interval = 5 * time.Second
@@ -275,7 +290,7 @@ func pollForToken(ctx context.Context, issuer, clientID string, device *deviceAu
 		interval = loginPollOverride
 	}
 
-	tokenURL := issuer + "/token"
+	tokenURL := issuer + "/device/token"
 	deadline := time.Now().Add(loginTimeout)
 	if device.ExpiresIn > 0 {
 		issuerDeadline := time.Now().Add(time.Duration(device.ExpiresIn) * time.Second)
@@ -286,57 +301,62 @@ func pollForToken(ctx context.Context, issuer, clientID string, device *deviceAu
 
 	for {
 		if time.Now().After(deadline) {
-			return nil, fmt.Errorf("login timed out waiting for browser approval")
+			return "", fmt.Errorf("login timed out waiting for browser approval")
 		}
 
 		timer := time.NewTimer(interval)
 		select {
 		case <-ctx.Done():
 			timer.Stop()
-			return nil, ctx.Err()
+			return "", ctx.Err()
 		case <-timer.C:
 		}
 
 		body, err := requestDeviceToken(ctx, tokenURL, clientID, device.DeviceCode)
 		if err != nil {
-			return nil, err
+			return "", err
 		}
 		switch strings.TrimSpace(body.Error) {
 		case "":
 			if strings.TrimSpace(body.AccessToken) == "" {
-				return nil, fmt.Errorf("login: token endpoint returned no access_token")
+				return "", fmt.Errorf("login: token endpoint returned no access_token")
 			}
-			return cachedTokenFromDeviceResponse(tokenURL, body), nil
+			return strings.TrimSpace(body.AccessToken), nil
 		case "authorization_pending":
 			// keep polling at the current interval
 		case "slow_down":
 			// RFC 8628: increase the interval by 5 seconds on slow_down.
 			interval += 5 * time.Second
 		case "access_denied":
-			return nil, fmt.Errorf("login denied in the browser")
+			return "", fmt.Errorf("login denied in the browser")
 		case "expired_token":
-			return nil, fmt.Errorf("login code expired before approval; run aw login again")
+			return "", fmt.Errorf("login code expired before approval; run aw login again")
 		default:
 			desc := strings.TrimSpace(body.ErrorDescription)
 			if desc == "" {
 				desc = body.Error
 			}
-			return nil, fmt.Errorf("login failed: %s", desc)
+			return "", fmt.Errorf("login failed: %s", desc)
 		}
 	}
 }
 
 func requestDeviceToken(ctx context.Context, tokenURL, clientID, deviceCode string) (*deviceTokenResponse, error) {
-	form := url.Values{}
-	form.Set("grant_type", "urn:ietf:params:oauth:grant-type:device_code")
-	form.Set("device_code", deviceCode)
-	form.Set("client_id", clientID)
+	payload := map[string]string{
+		"grant_type":  "urn:ietf:params:oauth:grant-type:device_code",
+		"device_code": deviceCode,
+		"client_id":   clientID,
+	}
+	bodyBytes, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("token poll: marshal request: %w", err)
+	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenURL, strings.NewReader(form.Encode()))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenURL, bytes.NewReader(bodyBytes))
 	if err != nil {
 		return nil, fmt.Errorf("token poll: build request: %w", err)
 	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 
 	resp, err := loginHTTPClient().Do(req)
@@ -360,24 +380,55 @@ func requestDeviceToken(ctx context.Context, tokenURL, clientID, deviceCode stri
 	return &out, nil
 }
 
-func cachedTokenFromDeviceResponse(tokenURL string, body *deviceTokenResponse) *awconfig.CachedToken {
+// exchangeSessionForJWT trades a Better Auth session token for a short-lived
+// JWKS-verifiable JWT at the issuer's token endpoint (GET {issuer}/token with
+// the session as a Bearer credential — enabled by the bearer plugin). The
+// session is cached as the refresh credential: when the JWT expires, the same
+// GET mints a fresh one. This is the same exchange the SimpleAuth refresher
+// performs, so login and refresh stay symmetric.
+func exchangeSessionForJWT(ctx context.Context, issuer, sessionToken string) (*awconfig.CachedToken, error) {
+	tokenURL := issuer + "/token"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, tokenURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("build mint request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+sessionToken)
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := loginHTTPClient().Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		detail, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return nil, fmt.Errorf("mint failed (%d): %s", resp.StatusCode, strings.TrimSpace(string(detail)))
+	}
+
+	var out struct {
+		Token string `json:"token"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return nil, fmt.Errorf("decode mint response: %w", err)
+	}
+	jwt := strings.TrimSpace(out.Token)
+	if jwt == "" {
+		return nil, fmt.Errorf("token endpoint returned no token")
+	}
+
 	tok := &awconfig.CachedToken{
-		AccessToken:  body.AccessToken,
-		RefreshToken: body.RefreshToken,
-		TokenType:    body.TokenType,
+		AccessToken:  jwt,
+		RefreshToken: sessionToken,
+		TokenType:    "Bearer",
 		TokenURL:     tokenURL,
 	}
-	if body.ExpiresIn > 0 {
-		tok.ExpiresAt = time.Now().Add(time.Duration(body.ExpiresIn) * time.Second)
+	if exp, ok := awconfig.JWTExpiryUnverified(jwt); ok {
+		tok.ExpiresAt = exp
 	}
-	// Backfill subject from the JWT itself for display. LoadToken backfills
-	// expiry on read; doing subject here keeps the freshly written cache
-	// complete. This is display-only: the server remains the identity
-	// authority.
-	if sub, ok := awconfig.JWTSubjectUnverified(body.AccessToken); ok {
+	if sub, ok := awconfig.JWTSubjectUnverified(jwt); ok {
 		tok.Subject = sub
 	}
-	return tok
+	return tok, nil
 }
 
 func loginHTTPClient() *http.Client {

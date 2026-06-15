@@ -135,21 +135,22 @@ cd ui && npm run typecheck && npm run build
 
 ## Known remaining work
 
-- **`aw login` (CLI device flow).** The CLI implements RFC 8628 against an OAuth
-  issuer. Better Auth ships a `deviceAuthorization` plugin exposing
-  `/api/auth/device/code`, `/api/auth/device/token`, and a `/api/auth/device`
-  approval page. **Confirmed blocker:** the plugin's `/device/token` handler
-  calls `createSession` and returns an **opaque Better Auth session token**, not
-  a JWT — so it is NOT directly JWKS-verifiable by aweb. Completing `aw login`
-  therefore requires a two-step exchange: device flow → session token, then
-  exchange that session for a JWT via the jwt plugin's `/api/auth/token`
-  (which needs the `bearer` plugin so the session can be presented as a Bearer,
-  or the session cookie forwarded). Full scope: enable `deviceAuthorization`
-  (+ `bearer`) in `ui/src/lib/auth.ts` with a `validateClient` accepting the
-  `aweb-cli` client id; build the `/device` approval page; rework the CLI to
-  cache the session as the refresh credential and mint/refresh JWTs from
-  `/api/auth/token`; align endpoints. The browser UI is the primary surface and
-  is fully working; the CLI is a secondary effort.
+- **`aw login` (CLI device flow) — WORKING.** Implemented and verified
+  end-to-end. The UI enables the `deviceAuthorization` + `bearer` plugins and
+  serves a `/device` approval page; the CLI runs the RFC 8628 device flow
+  (JSON bodies), gets a Better Auth **session** token, then exchanges it for a
+  JWT via `GET /api/auth/token` (Bearer = session, enabled by the `bearer`
+  plugin) and caches the JWT (session kept as the refresh credential). Run:
+  ```bash
+  cd ui && npm run db:migrate    # adds the deviceCode table (one-time)
+  aw login --issuer http://localhost:3000/api/auth
+  # open the printed /device?user_code=... URL, approve while signed in
+  ```
+  The cached JWT at `~/.aw/token` authorizes against aweb (verified: created an
+  issue → 201). **Remaining:** wire `awconfig.AttachBearer` (+ a refresher that
+  re-mints from `/api/auth/token` using the cached session) into the shared
+  CLI HTTP client (`cli/go/client.go`) so every `aw` command auto-attaches and
+  auto-refreshes the token. `aw login` itself is complete.
 - **Multi-team `X-AWEB-Team-Id`.** The UI API client sends the bearer token but
   not the team header; single-team users work via the server's sole-membership
   fallback. Multi-team users need the active team threaded from the team-context
