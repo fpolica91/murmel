@@ -36,6 +36,8 @@ from aweb.mcp.tools.contacts import contacts_list as _contacts_list_impl
 from aweb.mcp.tools.contacts import list_contacts_tool as _list_contacts_tool_impl
 from aweb.mcp.tools.contacts import send_message_to_contact as _send_message_to_contact_impl
 from aweb.mcp.tools.contacts import read_messages_from_contact as _read_messages_from_contact_impl
+from aweb.mcp.tools.hierarchy import epics_create as _epics_create_impl
+from aweb.mcp.tools.hierarchy import epics_list as _epics_list_impl
 from aweb.mcp.tools.hierarchy import issues_claim as _issues_claim_impl
 from aweb.mcp.tools.hierarchy import issues_comment_add as _issues_comment_add_impl
 from aweb.mcp.tools.hierarchy import issues_comments_list as _issues_comments_list_impl
@@ -43,6 +45,8 @@ from aweb.mcp.tools.hierarchy import issues_create as _issues_create_impl
 from aweb.mcp.tools.hierarchy import issues_get as _issues_get_impl
 from aweb.mcp.tools.hierarchy import issues_list as _issues_list_impl
 from aweb.mcp.tools.hierarchy import issues_update_status as _issues_update_status_impl
+from aweb.mcp.tools.hierarchy import stories_create as _stories_create_impl
+from aweb.mcp.tools.hierarchy import stories_list as _stories_list_impl
 from aweb.mcp.tools.identity import whoami as _whoami_impl
 from aweb.mcp.tools.mail import check_inbox as _check_inbox_impl
 from aweb.mcp.tools.mail import send_mail as _send_mail_impl
@@ -549,6 +553,22 @@ def register_tools(
     )
     async def issues_comments_list(issue_id: str) -> str:
         return await _issues_comments_list_impl(db_infra, issue_id=issue_id)
+
+    @mcp.tool(name="epics_create", description="Create an epic (top of the work hierarchy).")
+    async def epics_create(title: str, status: str = "open") -> str:
+        return await _epics_create_impl(db_infra, title=title, status=status)
+
+    @mcp.tool(name="epics_list", description="List epics in the current team.")
+    async def epics_list(status: str = "") -> str:
+        return await _epics_list_impl(db_infra, status=status)
+
+    @mcp.tool(name="stories_create", description="Create a story, optionally under an epic.")
+    async def stories_create(title: str, epic_id: str = "", status: str = "open") -> str:
+        return await _stories_create_impl(db_infra, title=title, epic_id=epic_id, status=status)
+
+    @mcp.tool(name="stories_list", description="List stories in the current team, optionally by epic.")
+    async def stories_list(epic_id: str = "", status: str = "") -> str:
+        return await _stories_list_impl(db_infra, epic_id=epic_id, status=status)
 
     # -- Roles --
 

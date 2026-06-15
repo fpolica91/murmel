@@ -13,10 +13,14 @@ import json
 from aweb.coordination.hierarchy import (
     add_issue_comment,
     claim_issue,
+    create_epic,
     create_issue,
+    create_story,
     get_issue,
+    list_epics,
     list_issue_comments,
     list_issues,
+    list_stories,
     update_issue,
 )
 from aweb.mcp.tools._common import require_team_context
@@ -167,3 +171,51 @@ async def issues_comments_list(db_infra, *, issue_id: str) -> str:
     except (NotFoundError, ValidationError) as exc:
         return json.dumps({"error": exc.detail})
     return json.dumps({"issue_id": issue_id, "comments": result})
+
+
+async def epics_create(db_infra, *, title: str, status: str = "open") -> str:
+    """Create an epic (top of the Epic -> Story -> Issue hierarchy)."""
+    auth, error = require_team_context()
+    if auth is None:
+        return error or json.dumps({"error": "This tool requires team context."})
+    try:
+        result = await create_epic(db_infra, team_id=auth.team_id, title=title, status=status)
+    except (NotFoundError, ValidationError) as exc:
+        return json.dumps({"error": exc.detail})
+    return json.dumps(result)
+
+
+async def epics_list(db_infra, *, status: str = "") -> str:
+    """List epics in the authenticated team."""
+    auth, error = require_team_context()
+    if auth is None:
+        return error or json.dumps({"error": "This tool requires team context."})
+    result = await list_epics(db_infra, team_id=auth.team_id, status=status or None)
+    return json.dumps({"team_id": auth.team_id, "epics": result})
+
+
+async def stories_create(
+    db_infra, *, title: str, epic_id: str = "", status: str = "open"
+) -> str:
+    """Create a story, optionally under an epic."""
+    auth, error = require_team_context()
+    if auth is None:
+        return error or json.dumps({"error": "This tool requires team context."})
+    try:
+        result = await create_story(
+            db_infra, team_id=auth.team_id, title=title, epic_id=epic_id or None, status=status
+        )
+    except (NotFoundError, ValidationError) as exc:
+        return json.dumps({"error": exc.detail})
+    return json.dumps(result)
+
+
+async def stories_list(db_infra, *, epic_id: str = "", status: str = "") -> str:
+    """List stories in the authenticated team, optionally filtered by epic."""
+    auth, error = require_team_context()
+    if auth is None:
+        return error or json.dumps({"error": "This tool requires team context."})
+    result = await list_stories(
+        db_infra, team_id=auth.team_id, status=status or None, epic_id=epic_id or None
+    )
+    return json.dumps({"team_id": auth.team_id, "stories": result})
