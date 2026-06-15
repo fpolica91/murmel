@@ -98,6 +98,7 @@ class IssueView(BaseModel):
     assignee_id: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
+    comment_count: int = 0
 
 
 class CreateIssueRequest(BaseModel):

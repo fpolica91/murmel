@@ -219,6 +219,11 @@
   cursor: pointer;
 }
 
+.commentCount {
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
 .cardMeta {
   display: flex;
   flex-wrap: wrap;

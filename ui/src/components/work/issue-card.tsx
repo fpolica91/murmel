@@ -35,6 +35,11 @@ export function IssueCard({
           showLabel={false}
         />
         <span>{issue.assignee_id ?? "Unassigned"}</span>
+        {issue.comment_count ? (
+          <span className={styles.commentCount} title="Comments">
+            💬 {issue.comment_count}
+          </span>
+        ) : null}
         {onStatusChange ? (
           <select
             className={styles.statusSelect}

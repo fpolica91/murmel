@@ -56,6 +56,7 @@ export interface Issue {
   assignee_id: string | null;
   created_at: string;
   updated_at: string;
+  comment_count?: number;
 }
 
 /** Query filters accepted by `GET /v1/issues`. */

@@ -316,6 +316,8 @@ def _issue_view(row: Any) -> dict[str, Any]:
         "assignee_id": row["assignee_id"],
         "created_at": _iso(row["created_at"]),
         "updated_at": _iso(row.get("updated_at")),
+        # Present on list queries (correlated subquery); 0 elsewhere.
+        "comment_count": int(row.get("comment_count") or 0),
     }
 
 
@@ -437,8 +439,10 @@ async def list_issues(
     rows = await aweb_db.fetch_all(
         f"""
         SELECT issue_id, team_id, epic_id, story_id, title, description,
-               status, assignee_type, assignee_id, created_at, updated_at
-        FROM {{{{tables.issues}}}}
+               status, assignee_type, assignee_id, created_at, updated_at,
+               (SELECT COUNT(*) FROM {{{{tables.issue_comments}}}} c
+                WHERE c.issue_id = i.issue_id) AS comment_count
+        FROM {{{{tables.issues}}}} i
         WHERE {' AND '.join(conditions)}
         ORDER BY created_at ASC
         """,
