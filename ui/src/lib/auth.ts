@@ -107,7 +107,7 @@ type Auth = ReturnType<typeof buildAuth>;
 // "fail loudly when DATABASE_URL is missing" guarantee at runtime while letting
 // `next build` collect page data without the database connection string.
 let cached: Auth | undefined;
-function getAuth(): Auth {
+export function getAuth(): Auth {
   if (!cached) {
     cached = buildAuth();
   }
@@ -115,8 +115,14 @@ function getAuth(): Auth {
 }
 
 export const auth = new Proxy({} as Auth, {
-  get(_target, prop, receiver) {
-    return Reflect.get(getAuth() as object, prop, receiver);
+  get(_target, prop) {
+    // Resolve against the real instance and bind methods to it. Passing the
+    // proxy as the receiver (Reflect.get's 3rd arg) would make `this` the proxy
+    // inside Better Auth's methods and break internal calls ("a is not a
+    // function"); binding to the concrete instance keeps `this` correct.
+    const real = getAuth() as Record<string | symbol, unknown>;
+    const value = real[prop];
+    return typeof value === "function" ? value.bind(real) : value;
   },
 }) as Auth;
 

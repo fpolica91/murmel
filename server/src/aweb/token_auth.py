@@ -86,19 +86,22 @@ class TokenAuthConfig:
     jwks_url: str
     issuer: Optional[str] = None
     audience: Optional[str] = None
-    algorithms: tuple[str, ...] = ("RS256", "ES256")
+    # Better Auth's jwt plugin defaults to EdDSA (Ed25519); RS256/ES256 are also
+    # valid per deploy. We accept all three by default and let the JWK's `kid`
+    # select the actual key/alg, rather than hard-coding one on the verifier.
+    algorithms: tuple[str, ...] = ("RS256", "ES256", "EdDSA")
     jwks_cache_ttl: int = 300
     leeway: int = 30
 
     @classmethod
     def from_env(cls) -> "TokenAuthConfig":
-        algos_raw = os.getenv("AWEB_TOKEN_AUTH_ALGORITHMS", "RS256,ES256")
+        algos_raw = os.getenv("AWEB_TOKEN_AUTH_ALGORITHMS", "RS256,ES256,EdDSA")
         algorithms = tuple(a.strip() for a in algos_raw.split(",") if a.strip())
         return cls(
             jwks_url=(os.getenv("AWEB_TOKEN_AUTH_JWKS_URL", "") or "").strip(),
             issuer=(os.getenv("AWEB_TOKEN_AUTH_ISSUER") or "").strip() or None,
             audience=(os.getenv("AWEB_TOKEN_AUTH_AUDIENCE") or "").strip() or None,
-            algorithms=algorithms or ("RS256", "ES256"),
+            algorithms=algorithms or ("RS256", "ES256", "EdDSA"),
             jwks_cache_ttl=_env_int("AWEB_TOKEN_AUTH_JWKS_TTL", 300),
             leeway=_env_int("AWEB_TOKEN_AUTH_LEEWAY", 30),
         )

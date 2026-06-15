@@ -10,9 +10,18 @@
  */
 import { toNextJsHandler } from "better-auth/next-js";
 
-import { auth } from "@/lib/auth";
+import { getAuth } from "@/lib/auth";
 
 // Live auth endpoints (JWKS, token minting, sign-in) — always per-request.
 export const dynamic = "force-dynamic";
 
-export const { GET, POST } = toNextJsHandler(auth);
+// `toNextJsHandler` expects the Better Auth *handler function* (`auth.handler`),
+// not the auth object. Build it per request from the lazily-constructed
+// instance so `next build` never needs DATABASE_URL (getAuth() memoizes).
+export async function GET(request: Request) {
+  return toNextJsHandler(getAuth().handler).GET(request);
+}
+
+export async function POST(request: Request) {
+  return toNextJsHandler(getAuth().handler).POST(request);
+}
