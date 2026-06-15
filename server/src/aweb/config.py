@@ -38,6 +38,10 @@ class Settings:
     awid_registry_url: str
     public_origin: str
     dashboard_jwt_secret: str
+    # Simple-auth (Better Auth JWT) path. Additive alongside team certificates;
+    # when enabled, requests may authenticate with EITHER a team certificate OR
+    # a bearer JWT. Defaults on. See aweb.token_auth / aweb.token_team_scope.
+    enable_token_auth: bool
 
 
 def get_awid_registry_url() -> str:
@@ -110,4 +114,5 @@ def get_settings() -> Settings:
             os.getenv("AWEB_PUBLIC_ORIGIN") or f"http://localhost:{port}"
         ),
         dashboard_jwt_secret=os.getenv("AWEB_DASHBOARD_JWT_SECRET", ""),
+        enable_token_auth=_env_bool("AWEB_ENABLE_TOKEN_AUTH", default=True),
     )

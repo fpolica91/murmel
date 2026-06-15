@@ -28,6 +28,8 @@ from .routes.contacts import router as contacts_router
 from .routes.conversations import router as conversations_router
 from .routes.events import router as events_router
 from .routes.federation import router as federation_router
+from .routes.hierarchy import router as hierarchy_router
+from .routes.members import router as members_router
 from .routes.messages import router as messages_router
 from .routes.reservations import router as reservations_router
 from .routes.service_registration import router as service_registration_router
@@ -349,6 +351,11 @@ def create_app(
     app.include_router(tasks_router)
     app.include_router(workspaces_router)
     app.include_router(repos_router)
+    # Simple-auth (Better Auth JWT) additive routers. Membership admin and the
+    # Epic -> Story -> Issue hierarchy. See aweb.token_auth / aweb.routes.members
+    # / aweb.routes.hierarchy.
+    app.include_router(members_router)
+    app.include_router(hierarchy_router)
 
     return app
 

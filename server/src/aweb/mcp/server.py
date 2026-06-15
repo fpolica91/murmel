@@ -36,6 +36,11 @@ from aweb.mcp.tools.contacts import contacts_list as _contacts_list_impl
 from aweb.mcp.tools.contacts import list_contacts_tool as _list_contacts_tool_impl
 from aweb.mcp.tools.contacts import send_message_to_contact as _send_message_to_contact_impl
 from aweb.mcp.tools.contacts import read_messages_from_contact as _read_messages_from_contact_impl
+from aweb.mcp.tools.hierarchy import issues_claim as _issues_claim_impl
+from aweb.mcp.tools.hierarchy import issues_create as _issues_create_impl
+from aweb.mcp.tools.hierarchy import issues_get as _issues_get_impl
+from aweb.mcp.tools.hierarchy import issues_list as _issues_list_impl
+from aweb.mcp.tools.hierarchy import issues_update_status as _issues_update_status_impl
 from aweb.mcp.tools.identity import whoami as _whoami_impl
 from aweb.mcp.tools.mail import check_inbox as _check_inbox_impl
 from aweb.mcp.tools.mail import send_mail as _send_mail_impl
@@ -444,6 +449,86 @@ def register_tools(
     )
     async def task_comment_list(ref: str) -> str:
         return await _task_comment_list_impl(db_infra, ref=ref)
+
+    # -- Hierarchy (Epic -> Story -> Issue) --
+
+    @mcp.tool(
+        name="issues_create",
+        description="Create an issue in the current team, optionally under an epic and/or story.",
+    )
+    async def issues_create(
+        title: str,
+        description: str = "",
+        status: str = "todo",
+        epic_id: str = "",
+        story_id: str = "",
+        assignee_type: str = "",
+        assignee_id: str = "",
+    ) -> str:
+        return await _issues_create_impl(
+            db_infra,
+            title=title,
+            description=description,
+            status=status,
+            epic_id=epic_id,
+            story_id=story_id,
+            assignee_type=assignee_type,
+            assignee_id=assignee_id,
+        )
+
+    @mcp.tool(
+        name="issues_list",
+        description="List issues in the current team, filtered by status, assignee, epic, and/or story.",
+    )
+    async def issues_list(
+        status: str = "",
+        assignee_type: str = "",
+        assignee_id: str = "",
+        epic_id: str = "",
+        story_id: str = "",
+    ) -> str:
+        return await _issues_list_impl(
+            db_infra,
+            status=status,
+            assignee_type=assignee_type,
+            assignee_id=assignee_id,
+            epic_id=epic_id,
+            story_id=story_id,
+        )
+
+    @mcp.tool(
+        name="issues_get",
+        description="Get an issue by UUID in the current team.",
+    )
+    async def issues_get(issue_id: str) -> str:
+        return await _issues_get_impl(db_infra, issue_id=issue_id)
+
+    @mcp.tool(
+        name="issues_claim",
+        description="Claim an issue for the authenticated actor (defaults to the agent alias).",
+    )
+    async def issues_claim(
+        issue_id: str,
+        assignee_type: str = "agent",
+        assignee_id: str = "",
+    ) -> str:
+        return await _issues_claim_impl(
+            db_infra,
+            issue_id=issue_id,
+            assignee_type=assignee_type,
+            assignee_id=assignee_id,
+        )
+
+    @mcp.tool(
+        name="issues_update_status",
+        description="Update the status of an issue in the current team.",
+    )
+    async def issues_update_status(issue_id: str, status: str) -> str:
+        return await _issues_update_status_impl(
+            db_infra,
+            issue_id=issue_id,
+            status=status,
+        )
 
     # -- Roles --
 

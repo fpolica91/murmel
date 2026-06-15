@@ -230,7 +230,21 @@ async def get_team_identity(request: Request, db=Depends(get_db)) -> TeamIdentit
     request.body() blocks after FastAPI has already consumed the stream.
 
     Returns a TeamIdentity or raises HTTPException(401/403).
+
+    Additive simple-auth path: if the request presents a bearer JWT (and no
+    team certificate) and ``AWEB_ENABLE_TOKEN_AUTH`` is on, authenticate via
+    the token pipeline instead, scoping the identity to one of the subject's
+    active memberships. Certificate requests are unaffected. See
+    ``aweb.token_team_scope``.
     """
+    # Imported lazily to keep the token-auth path fully optional and to avoid
+    # any import cycle through the integration glue module.
+    from aweb.token_team_scope import resolve_token_team_identity
+
+    token_identity = await resolve_token_team_identity(request, db)
+    if token_identity is not None:
+        return token_identity
+
     cert_info = await verify_request_certificate(request, db)
 
     aweb_db = _aweb_db(db)

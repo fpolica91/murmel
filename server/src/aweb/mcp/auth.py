@@ -16,6 +16,14 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from aweb.internal_auth import parse_internal_auth_context
 from aweb.identity_auth_deps import lookup_identity_agent_context, resolve_identity_auth
 from aweb.team_auth_deps import _aweb_db, verify_request_certificate
+from aweb.token_auth import TokenAuthError, resolve_token_auth
+from aweb.token_team_scope import (
+    TEAM_ID_HEADER,
+    _select_team,
+    request_has_bearer_token,
+    request_has_team_certificate,
+    token_auth_enabled,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -109,6 +117,18 @@ class MCPAuthMiddleware:
         if internal is not None:
             return await self._resolve_proxy_auth(internal)
 
+        # Additive bearer-JWT (Better Auth) path. Engages only when the simple
+        # auth feature is on, no team certificate is present (cert always wins),
+        # and the request carries an ``Authorization: Bearer <jwt>`` header. The
+        # certificate path below is left byte-for-byte unchanged: a DIDKey or
+        # cert request never reaches this branch.
+        if (
+            not request_has_team_certificate(request)
+            and request_has_bearer_token(request)
+            and token_auth_enabled()
+        ):
+            return await self._resolve_token_auth(request)
+
         auth_header = request.headers.get("authorization", "")
         if not auth_header.startswith("DIDKey "):
             return None
@@ -165,6 +185,40 @@ class MCPAuthMiddleware:
             did_key=cert_info["did_key"],
             did_aw=(cert_info.get("member_did_aw") or row.get("did_aw") or "").strip() or None,
             address=(cert_info.get("member_address") or row.get("address") or "").strip() or None,
+        )
+
+    async def _resolve_token_auth(self, request: Request) -> AuthContext:
+        """Resolve a Better Auth bearer JWT onto the MCP ``AuthContext`` shape.
+
+        Reuses the REST token pipeline (:func:`resolve_token_auth` plus the
+        ``token_team_scope`` team-selection helper) so authorization stays
+        identical across transports: the JWT is verified against JWKS, checked
+        for revocation, and scoped to one of the subject's *active* memberships
+        (the authoritative set from the ``memberships`` table).
+
+        Token subjects are not team-certificate agents, so the cert-specific
+        fields (``did_key``, ``did_aw``, ``address``, ``workspace_id``) are left
+        empty and ``alias``/``agent_id`` carry the subject (or ``agent_name``
+        claim), mirroring :func:`aweb.token_team_scope.token_identity`.
+        """
+        authorization = request.headers.get("authorization") or ""
+        token = authorization.split(None, 1)[1].strip()
+        try:
+            auth = await resolve_token_auth(token, self.db_infra)
+        except TokenAuthError as exc:
+            raise HTTPException(status_code=401, detail=str(exc)) from exc
+
+        team_id = _select_team(auth, request.headers.get(TEAM_ID_HEADER))
+        alias = (auth.agent_name or auth.subject or "").strip() or None
+
+        return AuthContext(
+            team_id=team_id,
+            agent_id=auth.subject,
+            workspace_id=None,
+            alias=alias,
+            did_key="",
+            did_aw=None,
+            address=None,
         )
 
     async def _resolve_proxy_auth(self, internal: dict[str, str]) -> AuthContext:
