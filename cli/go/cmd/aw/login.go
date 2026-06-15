@@ -387,48 +387,7 @@ func requestDeviceToken(ctx context.Context, tokenURL, clientID, deviceCode stri
 // GET mints a fresh one. This is the same exchange the SimpleAuth refresher
 // performs, so login and refresh stay symmetric.
 func exchangeSessionForJWT(ctx context.Context, issuer, sessionToken string) (*awconfig.CachedToken, error) {
-	tokenURL := issuer + "/token"
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, tokenURL, nil)
-	if err != nil {
-		return nil, fmt.Errorf("build mint request: %w", err)
-	}
-	req.Header.Set("Authorization", "Bearer "+sessionToken)
-	req.Header.Set("Accept", "application/json")
-
-	resp, err := loginHTTPClient().Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		detail, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		return nil, fmt.Errorf("mint failed (%d): %s", resp.StatusCode, strings.TrimSpace(string(detail)))
-	}
-
-	var out struct {
-		Token string `json:"token"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-		return nil, fmt.Errorf("decode mint response: %w", err)
-	}
-	jwt := strings.TrimSpace(out.Token)
-	if jwt == "" {
-		return nil, fmt.Errorf("token endpoint returned no token")
-	}
-
-	tok := &awconfig.CachedToken{
-		AccessToken:  jwt,
-		RefreshToken: sessionToken,
-		TokenType:    "Bearer",
-		TokenURL:     tokenURL,
-	}
-	if exp, ok := awconfig.JWTExpiryUnverified(jwt); ok {
-		tok.ExpiresAt = exp
-	}
-	if sub, ok := awconfig.JWTSubjectUnverified(jwt); ok {
-		tok.Subject = sub
-	}
-	return tok, nil
+	return mintJWTFromSession(ctx, issuer+"/token", sessionToken)
 }
 
 func loginHTTPClient() *http.Client {

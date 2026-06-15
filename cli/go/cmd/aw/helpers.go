@@ -235,7 +235,17 @@ func resolveClientSelectionForDirWithTeamOverride(workingDir, teamIDOverride str
 		return nil, nil, err
 	}
 	if c == nil {
-		return nil, nil, errors.New("current workspace is not certificate-authenticated; accept a team invite and run `aw init` here")
+		// SimpleAuth fallback: the workspace is not certificate-authenticated,
+		// but the user may have run `aw login`. Use the cached bearer token if
+		// present; otherwise surface the original cert-auth error.
+		if bc, berr := bearerClientIfAvailable(baseURL, strings.TrimSpace(sel.TeamID)); berr == nil && bc != nil {
+			if err := configureResolvedClient(bc, sel, baseURL); err != nil {
+				return nil, nil, err
+			}
+			lastClient = bc
+			return bc, sel, nil
+		}
+		return nil, nil, errors.New("current workspace is not certificate-authenticated; accept a team invite and run `aw init` here, or run `aw login`")
 	}
 	if err := configureResolvedClient(c, sel, baseURL); err != nil {
 		return nil, nil, err

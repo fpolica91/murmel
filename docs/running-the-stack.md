@@ -147,10 +147,15 @@ cd ui && npm run typecheck && npm run build
   # open the printed /device?user_code=... URL, approve while signed in
   ```
   The cached JWT at `~/.aw/token` authorizes against aweb (verified: created an
-  issue → 201). **Remaining:** wire `awconfig.AttachBearer` (+ a refresher that
-  re-mints from `/api/auth/token` using the cached session) into the shared
-  CLI HTTP client (`cli/go/client.go`) so every `aw` command auto-attaches and
-  auto-refreshes the token. `aw login` itself is complete.
+  issue → 201). **Auto-attach is wired:** the awid client takes an injected
+  bearer provider (`SetBearerProvider`); the command layer installs one
+  (`bearerTokenProvider` → `LoadValidToken` + a refresher that re-mints from the
+  cached session at `/api/auth/token`). When a workspace resolves but has no
+  team certificate, `resolveClientSelection` falls back to a bearer client, so
+  `aw` commands auto-attach + auto-refresh the token (and send `X-AWEB-Team-Id`).
+  The cert path is unchanged. The remaining edge is a *workspace-less* bearer
+  user (no `.aw/`): they'd need a base URL from `--server`/`AWEB_URL` and a
+  top-level bearer fallback in `resolveClient`.
 - **Multi-team `X-AWEB-Team-Id`.** The UI API client sends the bearer token but
   not the team header; single-team users work via the server's sole-membership
   fallback. Multi-team users need the active team threaded from the team-context

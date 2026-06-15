@@ -205,6 +205,19 @@ type Client struct {
 	pinStorePath            string           // disk path for persisting pin store
 	metaCache               sync.Map         // address → *agentMeta; cached resolver results
 	latestClientVersion     atomic.Value     // last seen X-Latest-Client-Version header (string)
+	// bearerProvider, when set and no certificate/identity key is present,
+	// supplies a SimpleAuth (Better Auth JWT) bearer token per request. It is
+	// expected to refresh the token as needed. Injected by the command layer so
+	// this transport package stays independent of the token cache.
+	bearerProvider func(context.Context) (string, error)
+}
+
+// SetBearerProvider installs a per-request bearer-token provider used when the
+// client has no certificate/identity signing key. The provider should return a
+// fresh (auto-refreshed) token; returning an empty string or error leaves the
+// request unauthenticated (the caller may then fall back / surface a 401).
+func (c *Client) SetBearerProvider(provider func(context.Context) (string, error)) {
+	c.bearerProvider = provider
 }
 
 // New creates a new client.
@@ -317,6 +330,11 @@ func (c *Client) Address() string { return c.address }
 // SetAddress sets the client's agent address (namespace/alias) for use in
 // signed message envelopes.
 func (c *Client) SetAddress(address string) { c.address = address }
+
+// SetTeamID sets the team identifier. For the bearer (SimpleAuth) path it is
+// sent as the X-AWEB-Team-Id header so the server scopes the request to that
+// team; the certificate path sets it from the certificate instead.
+func (c *Client) SetTeamID(teamID string) { c.teamID = strings.TrimSpace(teamID) }
 
 // SetE2EESenderAddress sets the address to place in E2EE sender metadata.
 // Use an explicit address from identity/certificate state, not a display
@@ -944,6 +962,16 @@ func (c *Client) DoRawWithHeaders(ctx context.Context, method, path, accept stri
 		req.Header.Set("X-AWEB-Timestamp", timestamp)
 		if c.stableID != "" {
 			req.Header.Set("X-AWEB-DID-AW", c.stableID)
+		}
+	} else if c.bearerProvider != nil {
+		// SimpleAuth (Better Auth JWT) path: no certificate/identity key, so
+		// attach the cached bearer token (the provider refreshes it as needed).
+		// Additive — cert/identity requests above never reach here.
+		if token, err := c.bearerProvider(ctx); err == nil && token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+			if c.teamID != "" {
+				req.Header.Set("X-AWEB-Team-Id", c.teamID)
+			}
 		}
 	}
 
