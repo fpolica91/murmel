@@ -71,6 +71,12 @@ services:
       AWEB_LOG_JSON: ${AWEB_LOG_JSON:-true}
       AWID_REGISTRY_URL: ${AWID_REGISTRY_URL:-http://awid:8010}
       AWID_PUBLIC_REGISTRY_URL: ${AWID_PUBLIC_REGISTRY_URL:-${AWID_REGISTRY_URL:-http://awid:8010}}
+      # Simplified token auth (Better Auth JWT verified via JWKS). Off-path
+      # unless a bearer token is presented; cert auth is unaffected.
+      AWEB_ENABLE_TOKEN_AUTH: ${AWEB_ENABLE_TOKEN_AUTH:-true}
+      AWEB_TOKEN_AUTH_JWKS_URL: ${AWEB_TOKEN_AUTH_JWKS_URL:-}
+      AWEB_TOKEN_AUTH_ISSUER: ${AWEB_TOKEN_AUTH_ISSUER:-}
+      AWEB_TOKEN_AUTH_AUDIENCE: ${AWEB_TOKEN_AUTH_AUDIENCE:-}
     depends_on:
       redis:
         condition: service_healthy
