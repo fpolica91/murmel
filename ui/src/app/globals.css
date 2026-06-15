@@ -94,6 +94,31 @@ body {
   font-weight: 600;
 }
 
+.topnav {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.topnav-link {
+  color: var(--muted);
+  font-size: 0.9rem;
+  text-decoration: none;
+  padding: 0.35rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid transparent;
+}
+
+.topnav-link:hover {
+  color: var(--text);
+}
+
+.topnav-link.active {
+  color: var(--text);
+  border-color: var(--border);
+  background: #1d2027;
+}
+
 .team-switcher select {
   background: #1d2027;
   color: var(--text);
