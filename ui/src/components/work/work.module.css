@@ -126,6 +126,32 @@
   color: var(--accent);
 }
 
+/* ---- Hierarchy bar (create epics / stories) ---------------------------- */
+.hierarchyBar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+  padding: 0.9rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.hierarchyRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.hierarchyLabel {
+  min-width: 3.5rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
 /* ---- New issue form + inline status select ----------------------------- */
 .newIssue {
   display: flex;

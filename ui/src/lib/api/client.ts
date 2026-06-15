@@ -13,7 +13,9 @@
  */
 
 import type {
+  CreateEpicInput,
   CreateIssueInput,
+  CreateStoryInput,
   Epic,
   EpicListResponse,
   Issue,
@@ -135,6 +137,10 @@ export const workApi = {
     return request<Epic>(`/v1/epics/${encodeURIComponent(epicId)}`);
   },
 
+  async createEpic(input: CreateEpicInput): Promise<Epic> {
+    return request<Epic>("/v1/epics", { method: "POST", body: input });
+  },
+
   // ----- Stories ---------------------------------------------------------
   async listStories(
     filters: { status?: string; epic_id?: string } = {},
@@ -147,6 +153,10 @@ export const workApi = {
 
   async getStory(storyId: string): Promise<Story> {
     return request<Story>(`/v1/stories/${encodeURIComponent(storyId)}`);
+  },
+
+  async createStory(input: CreateStoryInput): Promise<Story> {
+    return request<Story>("/v1/stories", { method: "POST", body: input });
   },
 
   // ----- Issues ----------------------------------------------------------

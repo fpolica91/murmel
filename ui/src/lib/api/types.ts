@@ -77,6 +77,17 @@ export interface CreateIssueInput {
   assignee_id?: string | null;
 }
 
+export interface CreateEpicInput {
+  title: string;
+  status?: string;
+}
+
+export interface CreateStoryInput {
+  title: string;
+  status?: string;
+  epic_id?: string | null;
+}
+
 export interface UpdateIssueStatusInput {
   status: IssueStatus;
 }

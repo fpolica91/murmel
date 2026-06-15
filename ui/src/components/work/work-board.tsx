@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ApiError, workApi } from "@/lib/api/client";
 import type { Epic, Issue, IssueStatus, Story } from "@/lib/api/types";
 import { BoardView } from "./board-view";
+import { HierarchyBar } from "./hierarchy-bar";
 import { ListView } from "./list-view";
 import { NewIssueForm } from "./new-issue-form";
 import { WorkFilters, type WorkFilterState } from "./work-filters";
@@ -118,7 +119,13 @@ export function WorkBoard() {
         </button>
       </div>
 
-      <NewIssueForm onCreated={() => void load(filters)} />
+      <HierarchyBar epics={epics} onChanged={() => void load(filters)} />
+
+      <NewIssueForm
+        epics={epics}
+        stories={stories}
+        onCreated={() => void load(filters)}
+      />
 
       {error && <div className={styles.error}>{error}</div>}
 
