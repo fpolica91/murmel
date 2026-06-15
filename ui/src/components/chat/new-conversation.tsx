@@ -65,7 +65,7 @@ export function NewConversation({
             {sorted.map((p) => {
               const label = p.display_name || p.alias;
               const kindLabel = p.kind === "human" ? "human" : "agent";
-              const presence = p.kind === "agent" && p.online ? " · online" : "";
+              const presence = p.online ? " · online" : "";
               return (
                 <option key={p.alias} value={p.alias}>
                   {label} · {kindLabel}

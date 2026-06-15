@@ -59,9 +59,9 @@ async def list_participants(
 ) -> ListParticipantsResponse:
     """List ALL participants (humans + agents) in the current team.
 
-    Non-admin: any active team member may call this. Humans report
-    ``online=False``, ``status="offline"``, ``last_seen=None`` (no presence by
-    design); agents carry live presence exactly as ``GET /v1/agents`` does.
+    Non-admin: any active team member may call this. Presence applies to any
+    participant that heartbeats: humans via ``POST /v1/presence/heartbeat`` and
+    agents via ``POST /v1/agents/heartbeat`` carry live presence the same way.
     """
     aweb_db = db.get_manager("aweb")
 
@@ -76,7 +76,8 @@ async def list_participants(
         identity.team_id,
     )
 
-    # Presence from Redis (agents only; humans have no live presence).
+    # Presence from Redis — applies to any participant that heartbeats
+    # (humans via /v1/presence/heartbeat as well as agents).
     agent_ids = [str(r["agent_id"]) for r in rows]
     presences = (
         await list_agent_presences_by_workspace_ids(redis, agent_ids)
@@ -97,8 +98,9 @@ async def list_participants(
         status = "offline"
         last_seen = None
         role = r.get("role") or None
-        # Humans never have presence; only join presence for agents.
-        presence = presence_by_id.get(agent_id) if kind == "agent" else None
+        # Presence applies to any participant that heartbeats — humans (via
+        # POST /v1/presence/heartbeat) as well as agents.
+        presence = presence_by_id.get(agent_id)
         if presence:
             online = True
             status = presence.get("status") or "active"

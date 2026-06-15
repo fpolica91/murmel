@@ -7,8 +7,8 @@ import styles from "./members.module.css";
  * A single roster row, rendered from a unified `Participant` (AUDIT.md §3.1).
  *
  * The human-vs-agent split is the AUTHORITATIVE `kind` — never guessed. Humans
- * carry a real `display_name` and report offline (no live presence by design);
- * agents carry presence (online/status/last_seen).
+ * carry a real `display_name`; presence (online/status/last_seen) applies to
+ * any participant that heartbeats — a signed-in human or a live agent.
  */
 export type RosterEntry = { participant: Participant };
 
@@ -43,9 +43,9 @@ export function MemberRow({ participant }: { participant: Participant }) {
   const p = participant;
   const isHuman = p.kind === "human";
   const name = p.display_name || p.alias;
-  // Agents may carry live presence; humans are always offline by design.
-  const online = !isHuman && p.online;
-  const lastSeen = isHuman ? null : relativeTime(p.last_seen);
+  // Presence applies to any participant that heartbeats (human or agent).
+  const online = p.online;
+  const lastSeen = relativeTime(p.last_seen);
 
   return (
     <div className={styles.row}>
@@ -55,12 +55,10 @@ export function MemberRow({ participant }: { participant: Participant }) {
         >
           {initials(name)}
         </span>
-        {!isHuman ? (
-          <span
-            className={`${styles.dot} ${online ? styles.online : ""}`}
-            aria-hidden="true"
-          />
-        ) : null}
+        <span
+          className={`${styles.dot} ${online ? styles.online : ""}`}
+          aria-hidden="true"
+        />
       </div>
 
       <div className={styles.identity}>
@@ -79,24 +77,18 @@ export function MemberRow({ participant }: { participant: Participant }) {
       </div>
 
       <div className={styles.presence}>
-        {isHuman ? (
-          <span className={styles.statusBadge}>member</span>
-        ) : (
-          <>
-            <span
-              className={`${styles.statusBadge} ${online ? styles.online : ""}`}
-            >
-              <span
-                className={`${styles.statusDot} ${online ? styles.online : ""}`}
-                aria-hidden="true"
-              />
-              {online ? p.status || "online" : p.status || "offline"}
-            </span>
-            {!online && lastSeen ? (
-              <span className={styles.lastSeen}>seen {lastSeen}</span>
-            ) : null}
-          </>
-        )}
+        <span
+          className={`${styles.statusBadge} ${online ? styles.online : ""}`}
+        >
+          <span
+            className={`${styles.statusDot} ${online ? styles.online : ""}`}
+            aria-hidden="true"
+          />
+          {online ? p.status || "online" : p.status || "offline"}
+        </span>
+        {!online && lastSeen ? (
+          <span className={styles.lastSeen}>seen {lastSeen}</span>
+        ) : null}
       </div>
     </div>
   );

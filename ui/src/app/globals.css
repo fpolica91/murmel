@@ -81,42 +81,121 @@ body {
   color: #fff;
 }
 
-.topbar {
+/* ---- App shell: left sidebar + content column ----------------------- */
+.dashboard-shell {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.85rem 1.25rem;
-  border-bottom: 1px solid var(--border);
+  min-height: 100vh;
+}
+
+.sidebar {
+  width: 240px;
+  flex: 0 0 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 1rem 0.75rem;
+  border-right: 1px solid var(--border);
   background: var(--panel);
 }
 
-.topbar .brand {
+.sidebar-brand {
   font-weight: 600;
+  font-size: 1.05rem;
+  padding: 0.25rem 0.5rem 0.75rem;
 }
 
-.topnav {
+.sidebar-team {
+  padding: 0 0.25rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.5rem;
+}
+
+/* The switcher fills the rail; its label sits above the full-width select. */
+.sidebar-team .team-switcher {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  align-items: stretch;
+}
+
+.sidebar-team .team-switcher label {
+  margin-right: 0;
+}
+
+.sidebar-team select {
+  width: 100%;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.sidebar-link {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
-}
-
-.topnav-link {
-  color: var(--muted);
-  font-size: 0.9rem;
-  text-decoration: none;
-  padding: 0.35rem 0.6rem;
+  gap: 0.6rem;
+  padding: 0.5rem 0.6rem;
   border-radius: 8px;
+  color: var(--muted);
+  text-decoration: none;
   border: 1px solid transparent;
+  font-size: 0.92rem;
 }
 
-.topnav-link:hover {
+.sidebar-link:hover {
   color: var(--text);
+  background: #1a1d24;
 }
 
-.topnav-link.active {
+.sidebar-link.active {
   color: var(--text);
-  border-color: var(--border);
   background: #1d2027;
+  border-color: var(--border);
+}
+
+.sidebar-link svg {
+  flex: 0 0 16px;
+}
+
+.sidebar-spacer {
+  flex: 1;
+}
+
+.sidebar-footer {
+  border-top: 1px solid var(--border);
+  padding-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.user-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.25rem;
+  font-size: 0.9rem;
+}
+
+.user-badge-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.online-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex: 0 0 8px;
+}
+
+.online-dot.online {
+  background: #3fb950;
+  box-shadow: 0 0 0 2px rgba(63, 185, 80, 0.18);
 }
 
 .team-switcher select {
@@ -130,7 +209,8 @@ body {
 
 .content {
   flex: 1;
-  padding: 1.5rem;
+  padding: 1.75rem 2rem;
+  overflow: auto;
 }
 
 .row {

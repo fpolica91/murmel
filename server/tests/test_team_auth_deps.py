@@ -1,57 +1,16 @@
-"""Tests for the team certificate FastAPI auth dependency."""
+"""Tests for the team (token) FastAPI auth dependency + messaging auth."""
 
 from __future__ import annotations
 
-import base64
-import hashlib
-import json
 import uuid
-from datetime import datetime, timezone
-from types import SimpleNamespace
 
 import pytest
 from fastapi import HTTPException
 from starlette.requests import Request
 
-from nacl.signing import SigningKey
-
 import aweb.identity_auth_deps as _identity_auth_mod
-import aweb.team_auth_deps as _team_auth_mod
-from awid.did import did_from_public_key
-from awid.signing import canonical_json_bytes, sign_message
 from aweb.identity_auth_deps import IdentityAuth, get_messaging_auth
-from aweb.team_auth_envelope import compact_team_auth_payload
 from aweb.team_auth_deps import TeamIdentity
-
-
-def _make_keypair():
-    sk = SigningKey.generate()
-    pk = bytes(sk.verify_key)
-    did_key = did_from_public_key(pk)
-    return bytes(sk), pk, did_key
-
-
-def _make_certificate(team_sk, team_did_key, member_did_key, **kwargs):
-    cert = {
-        "version": 1,
-        "certificate_id": kwargs.get("certificate_id", "cert-001"),
-        "team_id": kwargs.get("team_id", "backend:acme.com"),
-        "team_did_key": team_did_key,
-        "member_did_key": member_did_key,
-        "member_did_aw": "",
-        "member_address": "",
-        "alias": kwargs.get("alias", "alice"),
-        "identity_scope": kwargs.get("identity_scope", "global"),
-        "issued_at": datetime.now(timezone.utc).isoformat(),
-    }
-    payload = canonical_json_bytes(cert)
-    sig = sign_message(team_sk, payload)
-    cert["signature"] = sig
-    return cert
-
-
-def _encode_certificate(cert):
-    return base64.b64encode(json.dumps(cert).encode()).decode()
 
 
 def _request_with_headers(headers: dict[str, str]) -> Request:
@@ -66,30 +25,6 @@ def _request_with_headers(headers: dict[str, str]) -> Request:
             "server": ("testserver", 80),
             "client": ("127.0.0.1", 12345),
             "http_version": "1.1",
-        }
-    )
-
-
-def _request_with_app_state(
-    headers: dict[str, str],
-    *,
-    public_origin: str = "https://local.example",
-    body_sha256: str | None = None,
-) -> Request:
-    return Request(
-        {
-            "type": "http",
-            "method": "GET",
-            "path": "/v1/tasks",
-            "raw_path": b"/v1/tasks",
-            "query_string": b"",
-            "headers": [(key.lower().encode(), value.encode()) for key, value in headers.items()],
-            "scheme": "https",
-            "server": ("local.example", 443),
-            "client": ("127.0.0.1", 12345),
-            "http_version": "1.1",
-            "app": SimpleNamespace(state=SimpleNamespace(public_origin=public_origin)),
-            "state": {"body_sha256": body_sha256 or hashlib.sha256(b"").hexdigest()},
         }
     )
 
