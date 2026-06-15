@@ -66,6 +66,20 @@ npm run build && npm run start    # production on :3000
 # or: npm run dev                 # dev on :3000
 ```
 
+**Deploy as a container.** `ui/Dockerfile` builds a lean Next.js standalone
+image (no secrets needed at build time). Supply the runtime env at `docker run`:
+
+```bash
+docker build -t aweb-ui ui
+docker run -p 3000:3000 \
+  -e BETTER_AUTH_URL=https://your-ui-host \
+  -e BETTER_AUTH_SECRET=... -e DATABASE_URL=postgres://... \
+  -e AWEB_JWT_AUDIENCE=https://your-aweb-host \
+  -e AWEB_MEMBERSHIPS_URL=https://your-aweb-host/v1/memberships \
+  -e AWEB_MEMBERSHIPS_HINT_KEY=... \
+  aweb-ui
+```
+
 **Gotcha — stale `.next`.** Running `npm run build` (production) and then
 `npm run dev` (or vice versa) leaves a `.next` whose chunks the other mode
 404s → the page renders but **never hydrates** (forms do native submits). If
