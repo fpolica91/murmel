@@ -43,9 +43,14 @@ export async function resolveSubjectClaims(
   const membershipsUrl = process.env.AWEB_MEMBERSHIPS_URL;
   if (membershipsUrl) {
     try {
+      const headers: Record<string, string> = { accept: "application/json" };
+      // Shared secret for the server-to-server hint endpoint (must match the
+      // aweb server's AWEB_MEMBERSHIPS_HINT_KEY).
+      const hintKey = process.env.AWEB_MEMBERSHIPS_HINT_KEY;
+      if (hintKey) headers["x-aweb-internal-key"] = hintKey;
       const res = await fetch(
         `${membershipsUrl}?subject=${encodeURIComponent(subjectId)}`,
-        { headers: { accept: "application/json" } },
+        { headers, cache: "no-store" },
       );
       if (res.ok) {
         const data = (await res.json()) as {

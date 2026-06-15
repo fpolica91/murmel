@@ -20,9 +20,11 @@ Wiring (done in the integration step, NOT here)::
 
 from __future__ import annotations
 
+import hmac
+import os
 from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Path
+from fastapi import APIRouter, Depends, Header, HTTPException, Path
 from pydantic import BaseModel, Field, field_validator
 
 from aweb.deps import get_db
@@ -322,3 +324,50 @@ async def remove_member(
     if deleted is None:
         raise HTTPException(status_code=404, detail="Member not found")
     return None
+
+
+# ---------------------------------------------------------------------------
+# Membership hint endpoint (server-to-server; populates the UI team switcher)
+# ---------------------------------------------------------------------------
+
+# Separate router because the hint lives at /v1/memberships, not under
+# /v1/teams. The memberships table stays the authoritative authorization source
+# for every request; this endpoint only feeds the UI's switcher with a hint and
+# is guarded by a shared secret so memberships cannot be enumerated publicly.
+hint_router = APIRouter(prefix="/v1", tags=["memberships-hint"])
+
+
+@hint_router.get("/memberships")
+async def memberships_hint(
+    subject: str,
+    db: Any = Depends(get_db),
+    x_aweb_internal_key: Optional[str] = Header(default=None, alias="X-AWEB-Internal-Key"),
+) -> dict:
+    """Return a subject's active teams + roles for the UI team switcher.
+
+    The Next UI calls this server-side during SSR (it has no aweb user token at
+    that point). Disabled unless ``AWEB_MEMBERSHIPS_HINT_KEY`` is set; when set,
+    the caller must present the matching ``X-AWEB-Internal-Key`` header.
+    """
+    expected = (os.getenv("AWEB_MEMBERSHIPS_HINT_KEY") or "").strip()
+    if not expected:
+        raise HTTPException(status_code=404, detail="memberships hint endpoint disabled")
+    if not x_aweb_internal_key or not hmac.compare_digest(
+        x_aweb_internal_key, expected
+    ):
+        raise HTTPException(status_code=401, detail="invalid internal key")
+
+    manager = _aweb_db(db)
+    rows = await manager.fetch_all(
+        """
+        SELECT team_id, role
+        FROM {{tables.memberships}}
+        WHERE subject = $1 AND status = 'active'
+        ORDER BY team_id
+        """,
+        subject,
+    )
+    return {
+        "team_ids": [str(r["team_id"]) for r in rows],
+        "roles": sorted({str(r["role"]) for r in rows if r["role"]}),
+    }

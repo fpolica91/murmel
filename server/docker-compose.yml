@@ -79,6 +79,10 @@ services:
       AWEB_TOKEN_AUTH_AUDIENCE: ${AWEB_TOKEN_AUTH_AUDIENCE:-}
       # Browser CORS for the web UI. Comma-separated allowed origins.
       AWEB_CORS_ORIGINS: ${AWEB_CORS_ORIGINS:-}
+      # Shared secret for the server-to-server memberships hint endpoint
+      # (/v1/memberships) the UI uses to populate its team switcher. Disabled
+      # when empty.
+      AWEB_MEMBERSHIPS_HINT_KEY: ${AWEB_MEMBERSHIPS_HINT_KEY:-}
     depends_on:
       redis:
         condition: service_healthy
