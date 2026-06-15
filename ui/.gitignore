@@ -26,3 +26,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts.bak
+e2e/artifacts/
+e2e/.trace/
+test-results/
+playwright-report/
