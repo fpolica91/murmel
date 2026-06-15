@@ -67,13 +67,16 @@ async def get_agent_by_id(db, *, agent_id: str, team_id: str | None = None) -> d
 
 
 async def get_agent_by_alias(db, *, team_id: str, alias: str) -> dict[str, Any] | None:
+    # Resolves ANY non-deleted participant in the team by alias — human OR agent.
+    # Humans are first-class chat recipients: a human's ``agents`` row (provisioned
+    # on first auth, agent_type='human') must be reachable by alias just like an
+    # agent's, so the previous ``agent_type != 'human'`` exclusion is gone.
     aweb_db = db.get_manager("aweb")
     row = await aweb_db.fetch_one(
         """
         SELECT agent_id, team_id, alias, did_key, did_aw, address, inbound_mode, deleted_at
         FROM {{tables.agents}}
         WHERE team_id = $1 AND alias = $2 AND deleted_at IS NULL
-          AND COALESCE(agent_type, 'agent') != 'human'
         """,
         team_id,
         alias,
@@ -84,18 +87,73 @@ async def get_agent_by_alias(db, *, team_id: str, alias: str) -> dict[str, Any] 
 async def get_agents_by_aliases(db, *, team_id: str, aliases: list[str]) -> list[dict[str, Any]]:
     if not aliases:
         return []
+    # See get_agent_by_alias: humans are valid chat recipients, so no agent_type
+    # filter — any non-deleted participant in the team resolves by alias.
     aweb_db = db.get_manager("aweb")
     rows = await aweb_db.fetch_all(
         """
         SELECT agent_id, team_id, alias, did_key, did_aw, address, inbound_mode, deleted_at
         FROM {{tables.agents}}
         WHERE team_id = $1 AND alias = ANY($2::text[]) AND deleted_at IS NULL
-          AND COALESCE(agent_type, 'agent') != 'human'
         """,
         team_id,
         aliases,
     )
     return [dict(row) for row in rows]
+
+
+async def resolve_participant_kinds(
+    db,
+    *,
+    team_id: str | None,
+    dids: list[str] | None = None,
+    aliases: list[str] | None = None,
+) -> dict[str, str]:
+    """Map participant DIDs and aliases -> authoritative ``kind`` for a team.
+
+    ``kind`` is derived from ``agents.agent_type`` (``'human'`` iff
+    ``agent_type='human'``, else ``'agent'``). The returned dict is keyed by
+    both ``did_key``/``did_aw`` and ``alias`` so a caller can resolve a message
+    sender by whichever reference it has. Unknown references are simply absent;
+    callers default those to ``'agent'`` so a missing/legacy row never errors.
+    """
+    did_list = [d for d in {(d or "").strip() for d in (dids or [])} if d]
+    alias_list = [a for a in {(a or "").strip() for a in (aliases or [])} if a]
+    if not did_list and not alias_list:
+        return {}
+    aweb_db = db.get_manager("aweb")
+    conditions = ["deleted_at IS NULL"]
+    params: list[Any] = []
+    idx = 1
+    if team_id is not None:
+        conditions.append(f"team_id = ${idx}")
+        params.append(team_id)
+        idx += 1
+    ref_clauses = []
+    if did_list:
+        ref_clauses.append(f"(did_key = ANY(${idx}::text[]) OR did_aw = ANY(${idx}::text[]))")
+        params.append(did_list)
+        idx += 1
+    if alias_list:
+        ref_clauses.append(f"alias = ANY(${idx}::text[])")
+        params.append(alias_list)
+        idx += 1
+    conditions.append("(" + " OR ".join(ref_clauses) + ")")
+    rows = await aweb_db.fetch_all(
+        f"""
+        SELECT alias, did_key, did_aw, agent_type
+        FROM {{{{tables.agents}}}}
+        WHERE {' AND '.join(conditions)}
+        """,
+        *params,
+    )
+    result: dict[str, str] = {}
+    for row in rows:
+        kind = "human" if (row.get("agent_type") or "agent") == "human" else "agent"
+        for ref in ((row.get("did_key") or "").strip(), (row.get("did_aw") or "").strip(), (row.get("alias") or "").strip()):
+            if ref:
+                result[ref] = kind
+    return result
 
 
 async def resolve_agent_by_did(db, did: str) -> dict[str, Any] | None:

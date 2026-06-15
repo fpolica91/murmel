@@ -154,6 +154,61 @@ def _jwt_synthetic_did_key(subject: str) -> str:
     return f"did:key:jwt-{subject}"
 
 
+async def provision_human_participant(
+    db,
+    *,
+    team_id: str,
+    subject: str,
+    name: str | None = None,
+    agent_name: str | None = None,
+) -> dict | None:
+    """Idempotently provision/refresh a human ``agents`` row for a JWT subject.
+
+    A human becomes a first-class chat/comment/assignee participant simply by
+    having a row in the ``agents`` (participant directory) table with
+    ``agent_type='human'``. This is the single funnel every token-authenticated
+    request goes through (chat, issues, comments, roster), so the human row
+    exists before the first call and the human is immediately reachable and
+    selectable.
+
+    The row is keyed by a deterministic synthetic ``did_key``
+    (``did:key:jwt-<subject>``), a local-only routing key that is never
+    published to AWID. The upsert is idempotent on ``(team_id, did_key)`` and
+    keeps ``alias``, ``human_name``, and ``address`` in sync with the caller's
+    verified claims on every request.
+
+    - ``alias`` = name claim || agent_name || subject (the team-unique selector
+      used as chat ``to_aliases`` and issue ``assignee_id``).
+    - ``human_name`` = name claim (falls back to alias when no name claim), so
+      the roster shows a real display name rather than the raw auth subject.
+    """
+    aweb_db = _aweb_db(db)
+    subject = (subject or "").strip()
+    name = (name or "").strip()
+    agent_name = (agent_name or "").strip()
+    alias = name or agent_name or subject
+    human_name = name or alias
+    did_key = _jwt_synthetic_did_key(subject)
+    address = f"{team_id}/{alias}" if alias else None
+    row = await aweb_db.fetch_one(
+        """
+        INSERT INTO {{tables.agents}} (team_id, did_key, alias, human_name, agent_type, identity_scope, address)
+        VALUES ($1, $2, $3, $4, 'human', 'local', $5)
+        ON CONFLICT (team_id, did_key) WHERE deleted_at IS NULL
+        DO UPDATE SET alias = EXCLUDED.alias,
+                      human_name = EXCLUDED.human_name,
+                      address = EXCLUDED.address
+        RETURNING agent_id, team_id, alias, human_name, did_key, address, identity_scope
+        """,
+        team_id,
+        did_key,
+        alias or subject,
+        human_name,
+        address,
+    )
+    return dict(row) if row else None
+
+
 async def _ensure_token_agent(
     db,
     *,
@@ -162,31 +217,19 @@ async def _ensure_token_agent(
     alias: str,
     did_key: str,
 ) -> dict | None:
-    """Idempotently provision/refresh an ``agents`` row for a JWT subject.
+    """Backward-compatible shim over :func:`provision_human_participant`.
 
-    Messaging (chat) resolves both the actor and recipients out of the
-    ``agents`` table. A token caller is a Better-Auth user with no agent row, so
-    without this nobody can chat over the JWT path. We create a local agent row
-    keyed by a deterministic synthetic ``did_key`` and keep its alias in sync
-    with the caller's display name.
+    Retained for the messaging path's existing call shape. ``alias`` here is
+    already resolved to ``name || agent_name || subject`` by the caller, so we
+    pass it through as the name claim to keep ``human_name`` populated.
     """
-    aweb_db = _aweb_db(db)
-    address = f"{team_id}/{alias}" if alias else None
-    row = await aweb_db.fetch_one(
-        """
-        INSERT INTO {{tables.agents}} (team_id, did_key, alias, human_name, agent_type, identity_scope, address)
-        VALUES ($1, $2, $3, $4, 'human', 'local', $5)
-        ON CONFLICT (team_id, did_key) WHERE deleted_at IS NULL
-        DO UPDATE SET alias = EXCLUDED.alias, address = EXCLUDED.address
-        RETURNING agent_id, team_id, alias, did_key, address, identity_scope
-        """,
-        team_id,
-        did_key,
-        alias or subject,
-        alias or "",
-        address,
+    del did_key  # derived deterministically from the subject inside the helper
+    return await provision_human_participant(
+        db,
+        team_id=team_id,
+        subject=subject,
+        name=alias,
     )
-    return dict(row) if row else None
 
 
 async def get_messaging_auth(request: Request, db=Depends(get_db)) -> MessagingAuth:

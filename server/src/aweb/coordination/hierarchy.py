@@ -20,6 +20,42 @@ ISSUE_STATUSES = ("todo", "in_progress", "in_review", "done")
 ASSIGNEE_TYPES = ("human", "agent")
 
 
+async def _resolve_participant_directory(
+    db, *, team_id: str, aliases: list[str]
+) -> dict[str, dict[str, str]]:
+    """Look up ``alias -> {kind, display_name}`` from the participant directory.
+
+    ``kind`` is authoritative from ``agents.agent_type`` ("human" iff
+    ``agent_type='human'``, else "agent"). ``display_name`` is ``human_name``
+    for humans (falling back to alias), else alias. Aliases not found are simply
+    absent; callers default unresolved authors/assignees to "agent" and never
+    error (legacy rows / deleted participants must not break the view).
+    """
+    wanted = [a for a in {(a or "").strip() for a in aliases} if a]
+    if not wanted:
+        return {}
+    aweb_db = db.get_manager("aweb")
+    rows = await aweb_db.fetch_all(
+        """
+        SELECT alias, human_name, agent_type
+        FROM {{tables.agents}}
+        WHERE team_id = $1 AND alias = ANY($2::text[]) AND deleted_at IS NULL
+        """,
+        team_id,
+        wanted,
+    )
+    directory: dict[str, dict[str, str]] = {}
+    for row in rows:
+        alias = (row.get("alias") or "").strip()
+        if not alias:
+            continue
+        kind = "human" if (row.get("agent_type") or "agent") == "human" else "agent"
+        human_name = (row.get("human_name") or "").strip()
+        display_name = human_name if (kind == "human" and human_name) else alias
+        directory[alias] = {"kind": kind, "display_name": display_name}
+    return directory
+
+
 def _coerce_uuid(value: str | UUID, *, label: str) -> UUID:
     if isinstance(value, UUID):
         return value
@@ -392,7 +428,22 @@ async def get_issue(db, *, team_id: str, issue_id: str | UUID) -> dict[str, Any]
     )
     if not row:
         raise NotFoundError("Issue not found")
-    return _issue_view(row)
+    view = _issue_view(row)
+    # Resolve assignee kind + display name from the participant directory so the
+    # UI renders the assignee without a second lookup. Falls back to the stored
+    # assignee_type / assignee_id when the assignee alias does not resolve.
+    assignee_id = view.get("assignee_id")
+    if assignee_id:
+        directory = await _resolve_participant_directory(
+            db, team_id=team_id, aliases=[assignee_id]
+        )
+        entry = directory.get(str(assignee_id).strip())
+        view["assignee_kind"] = (entry or {}).get("kind") or view.get("assignee_type")
+        view["assignee_display_name"] = (entry or {}).get("display_name") or assignee_id
+    else:
+        view["assignee_kind"] = view.get("assignee_type")
+        view["assignee_display_name"] = None
+    return view
 
 
 async def list_issues(
@@ -601,7 +652,17 @@ async def list_issue_comments(
         resolved,
         team_id,
     )
-    return [_comment_view(r) for r in rows]
+    comments = [_comment_view(r) for r in rows]
+    # Authoritative author kind (human vs agent) resolved from the participant
+    # directory by author alias. Legacy / unresolved authors default to "agent"
+    # so the view never errors.
+    directory = await _resolve_participant_directory(
+        db, team_id=team_id, aliases=[c["author"] for c in comments]
+    )
+    for comment in comments:
+        entry = directory.get((comment["author"] or "").strip())
+        comment["author_kind"] = (entry or {}).get("kind") or "agent"
+    return comments
 
 
 def _comment_view(row: Any) -> dict[str, Any]:

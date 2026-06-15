@@ -55,6 +55,7 @@ from aweb.messaging.chat import (
     get_pending_conversations,
     mark_messages_read,
     resolve_agent_by_did,
+    resolve_participant_kinds,
     send_in_session,
 )
 from aweb.messaging.conversations import close_conversation
@@ -1730,10 +1731,21 @@ async def history(
         db,
         [m["from_did"] for m in messages if m.get("from_did")],
     )
+    # Authoritative sender kind (human vs agent) resolved from the participant
+    # directory by from_did/from_alias. The UI keys on from_kind rather than
+    # alias-matching; unresolved/legacy senders default to "agent".
+    kind_map = await resolve_participant_kinds(
+        db,
+        team_id=auth.team_id,
+        dids=[m["from_did"] for m in messages if m.get("from_did")],
+        aliases=[m["from_alias"] for m in messages if m.get("from_alias")],
+    )
 
     history_items: list[dict[str, Any]] = []
     for msg in messages:
         from_did = (msg.get("from_did") or "").strip()
+        from_alias = (msg.get("from_alias") or "").strip()
+        from_kind = kind_map.get(from_did) or kind_map.get(from_alias) or "agent"
         from_address = msg.get("from_address") or routable_chat_address(
             identity_map.get(from_did, {}),
             auth.team_id,
@@ -1744,6 +1756,7 @@ async def history(
                 "conversation_id": str(session_uuid),
                 "message_id": msg["message_id"],
                 "from_agent": msg["from_alias"],
+                "from_kind": from_kind,
                 "from_address": from_address,
                 "body": msg["body"],
                 "content_mode": msg.get("content_mode") or "legacy_plaintext_v1",

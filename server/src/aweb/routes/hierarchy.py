@@ -96,6 +96,9 @@ class IssueView(BaseModel):
     status: str
     assignee_type: Optional[str] = None
     assignee_id: Optional[str] = None
+    # Directory-resolved on GET /v1/issues/{id}; absent on list views.
+    assignee_kind: Optional[str] = None
+    assignee_display_name: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
     comment_count: int = 0
@@ -508,6 +511,9 @@ class CommentView(BaseModel):
     comment_id: str
     issue_id: str
     author: str
+    # Authoritative author kind ("human" | "agent"); defaults to "agent" for
+    # the create response (single comment) and legacy/unresolved authors.
+    author_kind: str = "agent"
     body: str
     created_at: Optional[str] = None
 

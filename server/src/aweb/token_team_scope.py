@@ -23,18 +23,22 @@ teams.
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Optional
 
 from fastapi import HTTPException, Request
 
 from aweb.config import get_settings
 from aweb.deps import get_db
+from aweb.identity_auth_deps import provision_human_participant
 from aweb.team_auth_deps import TeamIdentity
 from aweb.token_auth import (
     TokenAuthContext,
     TokenAuthError,
     resolve_token_auth,
 )
+
+logger = logging.getLogger(__name__)
 
 # Header a token-authenticated caller uses to pick which of their active teams
 # this request acts in. Mirrors the cert path, where the team is bound by the
@@ -155,7 +159,33 @@ async def resolve_token_team_identity(
         raise HTTPException(status_code=401, detail=str(exc)) from exc
 
     team_id = _select_team(auth, request.headers.get(TEAM_ID_HEADER))
-    return token_identity(auth, team_id)
+    identity = token_identity(auth, team_id)
+
+    # Lift human-participant provisioning out of the messaging-only path: every
+    # token-authenticated request (chat, issues, comments, roster, assignment)
+    # funnels through here, so idempotently upsert the caller's human ``agents``
+    # row now. This guarantees the human is a first-class participant (reachable
+    # by alias, listable in the roster, assignable) before their first call —
+    # not just after they happen to touch chat. Keyed on a deterministic
+    # synthetic did:key, so re-auth never duplicates.
+    name = ""
+    if isinstance(auth.claims, dict):
+        name = (auth.claims.get("name") or "").strip()
+    try:
+        await provision_human_participant(
+            db,
+            team_id=team_id,
+            subject=auth.subject,
+            name=name,
+            agent_name=auth.agent_name,
+        )
+    except Exception:  # pragma: no cover - provisioning must never block auth
+        logger.warning(
+            "human participant provisioning failed for subject in team %s",
+            team_id,
+            exc_info=True,
+        )
+    return identity
 
 
 __all__ = [
