@@ -1,0 +1,179 @@
+/* Co-located styles for the issue conversation thread + assignee picker.
+   Reuses the theme CSS vars from globals.css; never hardcodes theme colors. */
+
+/* ---- Thread ------------------------------------------------------------ */
+.thread {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.comment {
+  display: flex;
+  gap: 0.7rem;
+  align-items: flex-start;
+}
+
+.avatar {
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #fff;
+  margin-top: 0.15rem;
+}
+
+.avatarHuman {
+  background: var(--accent);
+}
+
+.avatarAgent {
+  background: #7b61ff;
+}
+
+.commentBubble {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: #1d2027;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.7rem 0.9rem;
+}
+
+.commentMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.commentAuthor {
+  font-weight: 600;
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
+.commentTime {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.commentBody {
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ---- Agent vs human badge --------------------------------------------- */
+.kindBadge {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 0.02rem 0.45rem;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border: 1px solid var(--border);
+}
+
+.kindHuman {
+  color: #8fb6ff;
+  border-color: var(--accent);
+}
+
+.kindAgent {
+  color: #c0b1ff;
+  border-color: #7b61ff;
+}
+
+/* ---- Composer ---------------------------------------------------------- */
+.composer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.composerInput {
+  width: 100%;
+  min-height: 4.5rem;
+  resize: vertical;
+  background: #1d2027;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 0.6rem 0.75rem;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  font-family: inherit;
+}
+
+.composerInput:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.composerActions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+/* ---- Empty / error states --------------------------------------------- */
+.empty {
+  color: var(--muted);
+  font-size: 0.9rem;
+  padding: 1rem 0;
+}
+
+.emptyThread {
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  padding: 1.5rem;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  text-align: center;
+}
+
+.errorInline {
+  color: #f0a0a0;
+  font-size: 0.82rem;
+}
+
+/* ---- Assignee picker --------------------------------------------------- */
+.assignBox {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.assignSelect {
+  background: #1d2027;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 0.4rem 0.5rem;
+  font-size: 0.82rem;
+  width: 100%;
+}
+
+.assignSelect:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.assignNote {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
