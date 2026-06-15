@@ -5,22 +5,21 @@ import { useCallback, useEffect, useState } from "react";
 import { ApiError } from "@/lib/api/http";
 import { addComment, listComments } from "@/lib/api/comments";
 import type { IssueComment } from "@/lib/api/comments";
-import { listAgents } from "@/lib/api/members";
 import styles from "./issue-thread.module.css";
 
 /**
- * Issue conversation thread + composer (CONTRACTS.md §3a/3b).
+ * Issue conversation thread + composer (AUDIT.md §3.4).
  *
  * This is the human<->agent discussion surface on an issue: a comment posted
  * here and a comment posted by an agent (via the `issues_comment_add` MCP tool)
  * land in the same thread. We render each comment with the author alias, body,
  * and time, and visually distinguish agents from humans.
  *
- * Agent vs human: comments only carry an `author` alias. We classify an author
- * as an *agent* when its alias is present in `listAgents(teamId)` (the agents
- * roster); everyone else is rendered as a human. Agents have no flag on the
- * comment payload itself, so the roster is the only signal available without
- * the admin-only members endpoint.
+ * Agent vs human: each comment carries an AUTHORITATIVE `author_kind`
+ * ("human" | "agent") resolved server-side from the author alias against the
+ * participant directory. The UI keys on `author_kind` and NEVER guesses by
+ * matching the alias against a roster. Legacy/unresolved comments may omit
+ * `author_kind`; we fall back to "agent" (the server's own default).
  */
 export function IssueThread({
   issueId,
@@ -30,7 +29,6 @@ export function IssueThread({
   teamId: string | null;
 }) {
   const [comments, setComments] = useState<IssueComment[]>([]);
-  const [agentAliases, setAgentAliases] = useState<Set<string>>(new Set());
   const [body, setBody] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -60,26 +58,6 @@ export function IssueThread({
   useEffect(() => {
     void load();
   }, [load]);
-
-  // Roster of agent aliases, used purely to tag a comment author as an agent.
-  // Failure here is non-fatal — authors just render as humans.
-  useEffect(() => {
-    let cancelled = false;
-    if (!teamId) return;
-    void (async () => {
-      try {
-        const agents = await listAgents(teamId);
-        if (!cancelled) {
-          setAgentAliases(new Set(agents.map((a) => a.alias)));
-        }
-      } catch {
-        if (!cancelled) setAgentAliases(new Set());
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [teamId]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -123,11 +101,7 @@ export function IssueThread({
       ) : (
         <ul className={styles.thread}>
           {comments.map((c) => (
-            <CommentRow
-              key={c.comment_id}
-              comment={c}
-              isAgent={agentAliases.has(c.author)}
-            />
+            <CommentRow key={c.comment_id} comment={c} />
           ))}
         </ul>
       )}
@@ -157,13 +131,9 @@ export function IssueThread({
   );
 }
 
-function CommentRow({
-  comment,
-  isAgent,
-}: {
-  comment: IssueComment;
-  isAgent: boolean;
-}) {
+function CommentRow({ comment }: { comment: IssueComment }) {
+  // Authoritative author kind from the server; default "agent" for legacy rows.
+  const isAgent = (comment.author_kind ?? "agent") === "agent";
   const initial = comment.author.trim().slice(0, 1).toUpperCase() || "?";
   return (
     <li className={styles.comment}>

@@ -15,6 +15,7 @@
  */
 
 import { authedRequest } from "./http";
+import type { ParticipantKind } from "./participants";
 
 /** A single comment on an issue. `created_at` is ISO-8601 (or null). */
 export interface IssueComment {
@@ -22,6 +23,13 @@ export interface IssueComment {
   issue_id: string;
   /** Alias of the author (human or agent). */
   author: string;
+  /**
+   * AUTHORITATIVE author kind, resolved server-side from the author alias
+   * against the participant directory (AUDIT.md §3.4). Defaults to "agent" for
+   * legacy/unresolved authors; the server never errors. May be absent on older
+   * server builds, in which case the UI falls back to "agent".
+   */
+  author_kind?: ParticipantKind;
   body: string;
   created_at: string | null;
 }
