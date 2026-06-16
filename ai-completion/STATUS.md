@@ -15,7 +15,8 @@ _Last full E2E validation: 2026-06-15. No code changes were needed — every sce
 | Humans + agents first-class — **A/D** | Both humans + both agents in roster with type badges | `complete.spec` MEMBERS; live UI Members page screenshot |
 | Tasks | Epic→Story→Issue; assign to human OR agent; status; comments | `complete.spec` TASKS/COMMENTS |
 | Chat (UI) | human↔human, human↔agent, agent↔agent render with badges | `complete.spec`, `demo.spec` |
-| **Full Playwright suite — A** | 14/14 tests passed (login, demo, collab, complete) | `npx playwright test` → `14 passed (26.8s)` |
+| Console home (UI) | Real `/dashboard` overview: team composition + presence, work status counts + recent issues, recent chat activity, quick links — replaces the placeholder | `login.spec` "Console home" test; live Chrome screenshot |
+| **Full Playwright suite — A** | 15/15 tests passed (login, demo, collab, complete + new Console home) | `npx playwright test` → `15 passed (28.1s)` |
 | CLI port | `aw` token-only; cert/DID/bootstrap cluster removed; onboarding via token | `aw init` (4 identities) + mail/chat bearer e2e |
 | E2E keys — all 4 identities | Founder, Mia, **Ada, Bob** all publish self-custodial key after `aw init` | live `/v1/agents`: all `custody=self` |
 | Encrypted mail human↔human — **B** | Founder↔Mia, BOTH dirs: `encrypted_v2`, ciphertext-in-transit (0 plaintext rows), decrypt OK | transcripts below |
@@ -26,9 +27,10 @@ _Last full E2E validation: 2026-06-15. No code changes were needed — every sce
 ## Validation transcripts (2026-06-15)
 
 ### A — LOGIN / web Playwright
-`cd ui && npx playwright test` → **14 passed (26.8s)**, 0 failed.
-Includes: `login.spec` (3: redirect, wrong-password reject, login→dashboard→create issue),
+`cd ui && npx playwright test` → **15 passed (28.1s)**, 0 failed.
+Includes: `login.spec` (4: redirect, wrong-password reject, login→dashboard→create issue, **Console home shows real team overview + work snapshot**),
 `demo.spec` (3: sidebar, appear-online, chat), `collab.spec` (3), `complete.spec` (5: chat HH/HA, tasks, comments, members roster).
+Console home (`/dashboard`) now renders a real at-a-glance overview (team counts + presence from `/v1/participants`, status counts + recent issues from `/v1/issues`, recent chat from `/v1/conversations`, quick links) instead of the old "Team console" placeholder.
 (The `[e2e setup] sign-up → HTTP 403` lines are idempotent setup; users already exist. All tests pass.)
 
 ### B — Messaging (CLI encrypted, human↔human, both directions)

@@ -46,14 +46,26 @@ test.describe("aweb token-only auth — automated browser E2E", () => {
     await page.screenshot({ path: `${ART}/02-login-filled.png` });
     await page.getByRole("button", { name: "Sign in" }).click();
 
-    // --- team dashboard ---
+    // --- team dashboard: the real Console home (not the old placeholder) ---
     await expect(page).toHaveURL(/\/dashboard/, { timeout: 15_000 });
     await expect(
-      page.getByRole("heading", { name: "Team console" }),
+      page.getByRole("heading", { name: "Console", exact: true }),
     ).toBeVisible();
-    // Team scope is live: the switcher is set to our team and the body echoes it.
+    // The Console renders real, team-scoped overview content: the work snapshot
+    // and team panels are present (sourced from /v1/issues + /v1/participants).
+    await expect(
+      page.getByRole("heading", { name: "Work snapshot" }),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(
+      page.getByRole("heading", { name: "Team", exact: true }),
+    ).toBeVisible();
+    // Team scope is live: the switcher is set to our team and the Console echoes
+    // it in the header subtitle (a visible <strong>, distinct from the hidden
+    // <option> inside the switcher).
     await expect(page.getByRole("combobox")).toHaveValue("default:local");
-    await expect(page.getByText(/Active team:/)).toBeVisible();
+    await expect(
+      page.getByText("At-a-glance overview for"),
+    ).toBeVisible();
     await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
     await page.screenshot({ path: `${ART}/03-dashboard.png` });
 
@@ -67,5 +79,55 @@ test.describe("aweb token-only auth — automated browser E2E", () => {
     // the new issue must render back on the board (round-trips through the server)
     await expect(page.getByText(title)).toBeVisible({ timeout: 15_000 });
     await page.screenshot({ path: `${ART}/04-work-board-issue.png`, fullPage: true });
+  });
+
+  test("Console home shows real team overview + work snapshot", async ({
+    page,
+  }) => {
+    // Log in and land on the Console (the dashboard home).
+    await page.goto("/login");
+    await page.getByPlaceholder("you@example.com").fill(EMAIL);
+    await page.getByPlaceholder("Password").fill(PASSWORD);
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page).toHaveURL(/\/dashboard$/, { timeout: 15_000 });
+
+    // It is the REAL Console, not the old "Team console" placeholder.
+    await expect(
+      page.getByRole("heading", { name: "Console", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Team console" }),
+    ).toHaveCount(0);
+
+    // Team overview: a "Teammates" stat sourced from /v1/participants, and the
+    // "Online now" presence stat — both are real, team-scoped counts.
+    await expect(page.getByText("Teammates")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("Online now")).toBeVisible();
+
+    // Work snapshot: the four real status columns from /v1/issues are present,
+    // each labelled, with the most-recent issues listed below.
+    await expect(
+      page.getByRole("heading", { name: "Work snapshot" }),
+    ).toBeVisible();
+    for (const status of ["To do", "In progress", "In review", "Done"]) {
+      await expect(page.getByText(status, { exact: true }).first()).toBeVisible();
+    }
+
+    // Quick actions link out to the other team surfaces (exact names avoid the
+    // panel "Open chat →" header link).
+    await expect(
+      page.getByRole("link", { name: "View work board", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Open chat", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Manage members", exact: true }),
+    ).toBeVisible();
+
+    await page.screenshot({
+      path: `${ART}/05-console-home.png`,
+      fullPage: true,
+    });
   });
 });

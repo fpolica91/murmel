@@ -1,29 +1,14 @@
-"use client";
-
-import { useTeam } from "@/components/team-context";
+import { ConsoleHome } from "@/components/console/console-home";
 
 /**
- * Placeholder dashboard content scoped to the active team. The team switcher in
- * the top bar drives `useTeam()`. Real team views (work, mail, roles) are
- * layered on top of this shell by later stories.
+ * Console — the dashboard home. An at-a-glance overview scoped to the active
+ * team: team composition + presence (GET /v1/participants), a work snapshot
+ * with status counts and the most-recent issues (GET /v1/issues), recent chat
+ * activity (GET /v1/conversations), and quick links into Work / Chat / Members.
+ *
+ * The team switcher in the sidebar drives `useTeam()` inside <ConsoleHome />;
+ * the auth guard + team context live in the dashboard layout.
  */
 export default function DashboardPage() {
-  const { activeTeam, teams } = useTeam();
-
-  return (
-    <div className="panel" style={{ maxWidth: "none" }}>
-      <h1>Team console</h1>
-      {teams.length === 0 ? (
-        <p className="muted">
-          You are not a member of any team yet. Ask an owner to add you, then
-          reload.
-        </p>
-      ) : (
-        <p className="muted">
-          Active team: <strong>{activeTeam ?? "—"}</strong> (
-          {teams.length} total). Use the switcher above to change context.
-        </p>
-      )}
-    </div>
-  );
+  return <ConsoleHome />;
 }
