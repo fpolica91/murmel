@@ -14,6 +14,14 @@ export interface APIClientAuth {
   signingKey: Uint8Array;
   teamID: string;
   teamCertificateHeader: string;
+  /**
+   * Better Auth bearer JWT for token-only workspaces. When set, every request
+   * authenticates with `Authorization: Bearer <token>` + `X-AWEB-Team-Id`
+   * instead of the legacy DIDKey/team-certificate signing scheme. The cert
+   * fields above are ignored in this mode (they are empty for token-only
+   * workspaces). Leave undefined for legacy cert workspaces.
+   */
+  bearerToken?: string;
 }
 
 export class APIClient {
@@ -78,10 +86,25 @@ export class APIClient {
   }
 
   private authHeaders(path: string, bodyText: string): Record<string, string> {
+    // Token-only workspaces authenticate with a single bearer header on every
+    // route (mail, chat, events). The server resolves the team from the JWT
+    // subject's membership scoped by X-AWEB-Team-Id, so there is no per-route
+    // DIDKey signing in this mode.
+    const bearer = (this.auth.bearerToken || "").trim();
+    if (bearer) {
+      return this.bearerAuthHeaders(bearer);
+    }
     if (this.usesIdentityMessagingAuth(path)) {
       return this.identityAuthHeaders(bodyText);
     }
     return this.teamAuthHeaders(bodyText);
+  }
+
+  private bearerAuthHeaders(bearer: string): Record<string, string> {
+    return {
+      Authorization: `Bearer ${bearer}`,
+      "X-AWEB-Team-Id": this.auth.teamID,
+    };
   }
 
   private usesIdentityMessagingAuth(path: string): boolean {

@@ -35,9 +35,45 @@ This file lists every place still referencing that removed surface, split into
 
 ## Deferred — needs real work (documented, intentionally NOT half-fixed)
 
-### 1. `channel/` and `channel-core/` have NO token-auth path — cross-product regression
+### 1. `channel/` and `channel-core/` token-auth path — ✅ DONE
 
-**This is the most important gap.** The channel product authenticates ONLY by
+**Status (2026-06-16):** Landed on `feature/simple-auth-ui`. The channel now
+authenticates token-only workspaces with a bearer JWT.
+
+- `channel-core/src/config.ts` + `channel/src/config.ts` `resolveConfig()` now
+  detect mode: a cert-less binding (empty `cert_path` and no matching
+  `.aw/team-certs/` entry) resolves to `authMode: "token"` and sources the JWT
+  from `AW_TOKEN` then `~/.aw/token` (`access_token` field), mirroring the Go
+  CLI's bearer precedence. The active team comes from `teams.yaml`
+  `active_team` (unchanged), so no cert is needed to discover the team. The
+  legacy cert path is preserved (`authMode: "cert"`); the "no cert AND no
+  token" case still errors clearly.
+- `channel-core/src/api/client.ts` + `channel/src/api/client.ts` send
+  `Authorization: Bearer <jwt>` + `X-AWEB-Team-Id: <team>` on every route in
+  token mode (mail/chat/events), skipping the DIDKey/`X-AWID-Team-Certificate`
+  signing. `createChannelClient` threads `bearerToken` through; `index.ts`
+  exports `AuthMode` + `resolveBearerToken`.
+- Tests: `channel/test/config.test.ts` gains token-mode detection + bearer
+  sourcing tests; `channel/test/client.test.ts` gains bearer header
+  construction tests (Bearer + team header, no DIDKey/timestamp/cert headers).
+  Cert back-compat tests retained. `npm test` = **110 passing** (was 105).
+- Server already accepts the bearer path on these routes: `/v1/events/stream`
+  via `get_team_identity` (bearer-only) and `/v1/messages/*` + `/v1/chat/*`
+  via `get_messaging_auth` (token path when no cert header).
+- **Live proof:** against aweb :8088 with a token-only workspace created by
+  `AW_TOKEN=$JWT aw init --aweb-url http://localhost:8088 --team default:local`,
+  channel-core's client fetched `GET /v1/messages/inbox` → **2xx** from both
+  `AW_TOKEN` and `~/.aw/token` sources; a bogus token → 401 (bearer is really
+  verified). **Residual:** a full event-delivery-into-a-live-Claude-session
+  wake demo was not run headlessly — it would additionally exercise the SSE
+  `/v1/events/stream` consumer + MCP notification path end-to-end, but the auth
+  (the regression) and an authenticated aweb API call are proven.
+
+---
+
+#### Original report (kept for context)
+
+The channel product authenticated ONLY by
 team certificate:
 
 - `channel/src/config.ts` / `channel-core/src/config.ts`:

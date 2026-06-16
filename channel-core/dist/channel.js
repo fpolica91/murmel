@@ -99,6 +99,7 @@ export function createChannelClient(config) {
         signingKey: config.signingKey,
         teamID: config.teamID,
         teamCertificateHeader: config.teamCertificateHeader,
+        bearerToken: config.bearerToken,
     });
 }
 export async function startChannelLoop(options) {

@@ -2,7 +2,7 @@ export { APIClient, APIError, type APIClientAuth } from "./api/client.js";
 export { streamAgentEvents, parseAgentEvent, type AgentEvent, type AgentEventType } from "./api/events.js";
 export { ackMessage, fetchInbox, type InboxMessage } from "./api/mail.js";
 export { fetchHistory, markRead, type ChatMessage } from "./api/chat.js";
-export { resolveConfig, type AgentConfig } from "./config.js";
+export { resolveConfig, resolveBearerToken, type AgentConfig, type AuthMode } from "./config.js";
 export { PinStore, type IdentityScope, type Pin, type PinResult } from "./identity/pinstore.js";
 export { RegistryResolver, DEFAULT_AWID_REGISTRY_URL, type StableIdentityVerification } from "./identity/registry.js";
 export { SenderTrustManager, normalizeIdentityScope, type TrustResult, type RotationAnnouncement, type ReplacementAnnouncement } from "./identity/trust.js";

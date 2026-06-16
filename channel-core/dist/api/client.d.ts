@@ -4,6 +4,14 @@ export interface APIClientAuth {
     signingKey: Uint8Array;
     teamID: string;
     teamCertificateHeader: string;
+    /**
+     * Better Auth bearer JWT for token-only workspaces. When set, every request
+     * authenticates with `Authorization: Bearer <token>` + `X-AWEB-Team-Id`
+     * instead of the legacy DIDKey/team-certificate signing scheme. The cert
+     * fields above are ignored in this mode (they are empty for token-only
+     * workspaces). Leave undefined for legacy cert workspaces.
+     */
+    bearerToken?: string;
 }
 export declare class APIClient {
     private baseURL;
@@ -15,6 +23,7 @@ export declare class APIClient {
     /** Open an SSE stream. Returns the raw Response for streaming. */
     openSSE(path: string, signal?: AbortSignal): Promise<Response>;
     private authHeaders;
+    private bearerAuthHeaders;
     private usesIdentityMessagingAuth;
     private identityAuthHeaders;
     private teamAuthHeaders;

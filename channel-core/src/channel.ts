@@ -141,6 +141,7 @@ export function createChannelClient(config: {
   signingKey: Uint8Array;
   teamID: string;
   teamCertificateHeader: string;
+  bearerToken?: string;
 }): APIClient {
   return new APIClient(config.baseURL, {
     did: config.did,
@@ -148,6 +149,7 @@ export function createChannelClient(config: {
     signingKey: config.signingKey,
     teamID: config.teamID,
     teamCertificateHeader: config.teamCertificateHeader,
+    bearerToken: config.bearerToken,
   });
 }
 

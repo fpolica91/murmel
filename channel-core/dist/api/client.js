@@ -55,10 +55,24 @@ export class APIClient {
         return resp;
     }
     authHeaders(path, bodyText) {
+        // Token-only workspaces authenticate with a single bearer header on every
+        // route (mail, chat, events). The server resolves the team from the JWT
+        // subject's membership scoped by X-AWEB-Team-Id, so there is no per-route
+        // DIDKey signing in this mode.
+        const bearer = (this.auth.bearerToken || "").trim();
+        if (bearer) {
+            return this.bearerAuthHeaders(bearer);
+        }
         if (this.usesIdentityMessagingAuth(path)) {
             return this.identityAuthHeaders(bodyText);
         }
         return this.teamAuthHeaders(bodyText);
+    }
+    bearerAuthHeaders(bearer) {
+        return {
+            Authorization: `Bearer ${bearer}`,
+            "X-AWEB-Team-Id": this.auth.teamID,
+        };
     }
     usesIdentityMessagingAuth(path) {
         const cleanPath = path.split("?", 1)[0] ?? path;

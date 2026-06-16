@@ -111,3 +111,85 @@ describe("APIClient URL construction", () => {
     );
   });
 });
+
+describe("APIClient bearer-token auth (token-only workspaces)", () => {
+  const fetchMock = vi.fn<typeof fetch>();
+  const bearerAuth = {
+    did: "did:key:z6Mktoken",
+    stableID: "did:aw:token",
+    signingKey: new Uint8Array(32).fill(2),
+    teamID: "default:local",
+    teamCertificateHeader: "",
+    bearerToken: "header.payload.sig",
+  };
+
+  beforeEach(() => {
+    fetchMock.mockReset();
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function bearerHeaderExpectations() {
+    return {
+      Authorization: "Bearer header.payload.sig",
+      "X-AWEB-Team-Id": "default:local",
+    };
+  }
+
+  test("get() on a messaging route sends Bearer + X-AWEB-Team-Id and no DIDKey", async () => {
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ messages: [] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    const client = new APIClient("http://localhost:8088", bearerAuth);
+    await client.get("/v1/messages/inbox?limit=10");
+
+    const [, init] = fetchMock.mock.calls[0]!;
+    const headers = (init as RequestInit).headers as Record<string, string>;
+    expect(headers).toMatchObject(bearerHeaderExpectations());
+    expect(headers.Authorization).not.toMatch(/^DIDKey/);
+    expect(headers["X-AWEB-Timestamp"]).toBeUndefined();
+    expect(headers["X-AWID-Team-Certificate"]).toBeUndefined();
+    expect(headers["X-AWEB-DID-AW"]).toBeUndefined();
+  });
+
+  test("post() (ack) sends Bearer + X-AWEB-Team-Id", async () => {
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({}), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    const client = new APIClient("http://localhost:8088", bearerAuth);
+    await client.post("/v1/messages/m-1/ack");
+
+    const [, init] = fetchMock.mock.calls[0]!;
+    const headers = (init as RequestInit).headers as Record<string, string>;
+    expect(headers).toMatchObject(bearerHeaderExpectations());
+    expect(headers.Authorization).not.toMatch(/^DIDKey/);
+  });
+
+  test("openSSE() on the event stream sends Bearer + X-AWEB-Team-Id", async () => {
+    fetchMock.mockResolvedValue(new Response(null, { status: 200 }));
+    const controller = new AbortController();
+
+    const client = new APIClient("http://localhost:8088", bearerAuth);
+    await client.openSSE("/v1/events/stream", controller.signal);
+
+    const [, init] = fetchMock.mock.calls[0]!;
+    const headers = (init as RequestInit).headers as Record<string, string>;
+    expect(headers).toMatchObject({
+      ...bearerHeaderExpectations(),
+      Accept: "text/event-stream",
+    });
+    expect(headers.Authorization).not.toMatch(/^DIDKey/);
+    expect(headers["X-AWID-Team-Certificate"]).toBeUndefined();
+  });
+});

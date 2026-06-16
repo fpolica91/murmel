@@ -69,6 +69,87 @@ function writeTeamState(awDir: string, teamID: string, alias: string, certPath: 
   ].join("\n"));
 }
 
+function writeTokenWorkspaceBinding(awDir: string, teamID: string, alias: string): void {
+  // Cert-less binding, the shape `aw init` writes after the token-only pivot.
+  writeFileSync(join(awDir, "workspace.yaml"), [
+    "aweb_url: http://localhost:8088",
+    "memberships:",
+    `  - team_id: ${teamID}`,
+    `    alias: ${alias}`,
+    "",
+  ].join("\n"));
+}
+
+function writeTokenTeamState(awDir: string, teamID: string, alias: string): void {
+  writeFileSync(join(awDir, "teams.yaml"), [
+    `active_team: ${teamID}`,
+    "memberships:",
+    `  - team_id: ${teamID}`,
+    `    alias: ${alias}`,
+    "",
+  ].join("\n"));
+}
+
+describe("resolveConfig — token mode (cert-less workspaces)", () => {
+  test("detects token mode and sources the bearer from AW_TOKEN", async () => {
+    const previous = process.env.AW_TOKEN;
+    process.env.AW_TOKEN = "header.payload.sig";
+    try {
+      const dir = mkdtempSync(join(tmpdir(), "channel-token-"));
+      const awDir = join(dir, ".aw");
+      mkdirSync(awDir, { recursive: true });
+      const seed = new Uint8Array(32).fill(5);
+      const did = computeDIDKey(ed.getPublicKey(seed));
+      writeSigningKey(join(awDir, "signing.key"), seed);
+      writeTokenWorkspaceBinding(awDir, "default:local", "agent");
+      writeTokenTeamState(awDir, "default:local", "agent");
+      writeFileSync(join(awDir, "identity.yaml"), [
+        `did: ${did}`,
+        "stable_id: did:aw:local-agent",
+        "address: local/agent",
+        "",
+      ].join("\n"));
+
+      const config = await resolveConfig(dir);
+      expect(config.authMode).toBe("token");
+      expect(config.bearerToken).toBe("header.payload.sig");
+      expect(config.teamCertificateHeader).toBe("");
+      expect(config.baseURL).toBe("http://localhost:8088");
+      expect(config.teamID).toBe("default:local");
+      expect(config.alias).toBe("agent");
+      expect(config.did).toBe(did);
+      expect(config.stableID).toBe("did:aw:local-agent");
+      expect(config.address).toBe("local/agent");
+    } finally {
+      if (previous === undefined) delete process.env.AW_TOKEN;
+      else process.env.AW_TOKEN = previous;
+    }
+  });
+
+  test("token mode works without identity.yaml stable_id/address", async () => {
+    const previous = process.env.AW_TOKEN;
+    process.env.AW_TOKEN = "tok-jwt";
+    try {
+      const dir = mkdtempSync(join(tmpdir(), "channel-token-"));
+      const awDir = join(dir, ".aw");
+      mkdirSync(awDir, { recursive: true });
+      const seed = new Uint8Array(32).fill(6);
+      writeSigningKey(join(awDir, "signing.key"), seed);
+      writeTokenWorkspaceBinding(awDir, "default:local", "agent");
+      writeTokenTeamState(awDir, "default:local", "agent");
+
+      const config = await resolveConfig(dir);
+      expect(config.authMode).toBe("token");
+      expect(config.bearerToken).toBe("tok-jwt");
+      expect(config.stableID).toBe("");
+      expect(config.address).toBe("");
+    } finally {
+      if (previous === undefined) delete process.env.AW_TOKEN;
+      else process.env.AW_TOKEN = previous;
+    }
+  });
+});
+
 describe("resolveConfig", () => {
   test("loads channel config when workspace omits active_team and teams.yaml selects the team", async () => {
     const dir = mkdtempSync(join(tmpdir(), "channel-config-"));
@@ -215,17 +296,35 @@ describe("resolveConfig", () => {
     expect(config.registryURL).toBe("");
   });
 
-  test("errors clearly when the team-certs directory is missing", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "channel-config-"));
-    const awDir = join(dir, ".aw");
-    mkdirSync(awDir, { recursive: true });
-    const seed = new Uint8Array(32).fill(11);
-    writeSigningKey(join(awDir, "signing.key"), seed);
+  test("errors clearly when no cert and no token are available", async () => {
+    const prevToken = process.env.AW_TOKEN;
+    const prevHome = process.env.HOME;
+    const prevProfile = process.env.USERPROFILE;
+    delete process.env.AW_TOKEN;
+    // Point HOME at an empty temp dir so the cached ~/.aw/token on the dev box
+    // does not leak into the test and silently flip this to token mode.
+    const emptyHome = mkdtempSync(join(tmpdir(), "channel-home-"));
+    process.env.HOME = emptyHome;
+    process.env.USERPROFILE = emptyHome;
+    try {
+      const dir = mkdtempSync(join(tmpdir(), "channel-config-"));
+      const awDir = join(dir, ".aw");
+      mkdirSync(awDir, { recursive: true });
+      const seed = new Uint8Array(32).fill(11);
+      writeSigningKey(join(awDir, "signing.key"), seed);
 
-    writeWorkspaceBinding(awDir, "backend:acme.com", "alice", "team-certs/backend__acme.com.pem");
-    writeTeamState(awDir, "backend:acme.com", "alice", "team-certs/backend__acme.com.pem");
+      writeWorkspaceBinding(awDir, "backend:acme.com", "alice", "team-certs/backend__acme.com.pem");
+      writeTeamState(awDir, "backend:acme.com", "alice", "team-certs/backend__acme.com.pem");
 
-    await expect(resolveConfig(dir)).rejects.toThrow(/migrate-multi-team/);
+      await expect(resolveConfig(dir)).rejects.toThrow(/no bearer token available/);
+    } finally {
+      if (prevToken === undefined) delete process.env.AW_TOKEN;
+      else process.env.AW_TOKEN = prevToken;
+      if (prevHome === undefined) delete process.env.HOME;
+      else process.env.HOME = prevHome;
+      if (prevProfile === undefined) delete process.env.USERPROFILE;
+      else process.env.USERPROFILE = prevProfile;
+    }
   });
 
   test("errors clearly when teams.yaml is missing", async () => {

@@ -55,6 +55,7 @@ export declare function createChannelClient(config: {
     signingKey: Uint8Array;
     teamID: string;
     teamCertificateHeader: string;
+    bearerToken?: string;
 }): APIClient;
 export declare function startChannelLoop(options: ChannelLoopOptions): Promise<void>;
 export declare function dispatchAgentEvent(options: Omit<ChannelLoopOptions, "signal" | "log">, dispatched: Set<string>, event: AgentEvent): Promise<void>;
