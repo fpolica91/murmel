@@ -222,6 +222,31 @@ async def test_happy_path_vouched_delivery_succeeds(aweb_cloud_db):
     assert row["signature"] == payload["signature"]
 
 
+@pytest.mark.asyncio
+async def test_peer_cannot_vouch_for_foreign_domain_sender(aweb_cloud_db):
+    # The allowlisted peer's addressing_domain is alpha.example. Even when the
+    # assertion and envelope agree on the sender and every signature verifies, a
+    # peer must NOT be able to vouch for a sender in another domain — otherwise a
+    # single allowlisted/compromised peer impersonates any global identity.
+    db = aweb_cloud_db.aweb_db
+    alice_sk, alice_did = _keypair()
+    _, bob_did = _keypair()
+    await _insert_bob(db, bob_did)
+    app = _build_app(db)
+    payload = _vouch(
+        _mail_envelope(
+            sender_sk=alice_sk,
+            sender_did_key=alice_did,
+            bob_did_key=bob_did,
+            sender_address="gamma.example/finance-bot",
+        )
+    )
+
+    resp = await _post(app, payload)
+    assert resp.status_code == 403, resp.text
+    assert "sender address domain" in resp.text.lower()
+
+
 # --------------------------------------------------------------------------- #
 # Negative 1 — un-allowlisted origin (403 at step 3, before any crypto)
 # --------------------------------------------------------------------------- #

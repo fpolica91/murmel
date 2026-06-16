@@ -175,6 +175,17 @@ def _verify_server_assertion(
         )
     except Exception as exc:
         raise HTTPException(status_code=403, detail="Federation server signature invalid") from exc
+
+    # Step 6: scope the peer to its own domain. An allowlisted peer may only
+    # vouch for senders in its addressing_domain — it must never relay a
+    # foreign-domain identity (cross-domain sender impersonation / confused
+    # deputy). sender_address is already bound to the signed inner envelope.
+    sender_domain = assertion.sender_address.split("/", 1)[0].strip().lower()
+    if not sender_domain or sender_domain != peer.addressing_domain:
+        raise HTTPException(
+            status_code=403,
+            detail="Federation peer not authorized for sender address domain",
+        )
     return peer
 
 
