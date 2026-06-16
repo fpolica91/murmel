@@ -35,13 +35,13 @@
 }
 
 .avatarAgent {
-  background: #7b61ff;
+  background: var(--agent);
 }
 
 .commentBubble {
   flex: 1 1 auto;
   min-width: 0;
-  background: #1d2027;
+  background: var(--control);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 0.7rem 0.9rem;
@@ -91,8 +91,8 @@
 }
 
 .kindAgent {
-  color: #c0b1ff;
-  border-color: #7b61ff;
+  color: var(--agent-text);
+  border-color: var(--agent);
 }
 
 /* ---- Composer ---------------------------------------------------------- */
@@ -106,7 +106,7 @@
   width: 100%;
   min-height: 4.5rem;
   resize: vertical;
-  background: #1d2027;
+  background: var(--control);
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text);
@@ -145,7 +145,7 @@
 }
 
 .errorInline {
-  color: #f0a0a0;
+  color: var(--danger-text);
   font-size: 0.82rem;
 }
 
@@ -157,7 +157,7 @@
 }
 
 .assignSelect {
-  background: #1d2027;
+  background: var(--control);
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text);

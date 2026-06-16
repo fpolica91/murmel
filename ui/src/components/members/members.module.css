@@ -15,7 +15,7 @@
 }
 
 .countPill {
-  background: #1d2027;
+  background: var(--control);
   border: 1px solid var(--border);
   border-radius: 999px;
   padding: 0.1rem 0.6rem;
@@ -41,7 +41,7 @@
 }
 
 .sectionLabel .count {
-  background: #1d2027;
+  background: var(--control);
   border: 1px solid var(--border);
   border-radius: 999px;
   padding: 0.02rem 0.45rem;
@@ -54,7 +54,7 @@
   color: var(--muted);
   margin: 0 0 1rem;
   padding: 0.6rem 0.8rem;
-  background: #14161b;
+  background: var(--panel);
   border: 1px dashed var(--border);
   border-radius: 8px;
 }
@@ -99,7 +99,7 @@
 }
 
 .avatar.agent {
-  background: #7b61ff;
+  background: var(--agent);
 }
 
 .avatar.human {
@@ -119,7 +119,7 @@
 }
 
 .dot.online {
-  background: #3fae6b;
+  background: var(--good);
 }
 
 /* ---- Identity block -------------------------------------------------- */
@@ -170,12 +170,12 @@
   text-transform: uppercase;
   letter-spacing: 0.03em;
   border: 1px solid var(--border);
-  background: #1d2027;
+  background: var(--control);
 }
 
 .tag.agent {
-  border-color: #5a4bd1;
-  color: #b3a6ff;
+  border-color: var(--agent-border);
+  color: var(--agent-text);
 }
 
 .tag.human {
@@ -189,7 +189,7 @@
   padding: 0.08rem 0.5rem;
   font-size: 0.68rem;
   border: 1px solid var(--border);
-  background: #1d2027;
+  background: var(--control);
   color: var(--muted);
 }
 
@@ -211,13 +211,13 @@
   padding: 0.1rem 0.55rem;
   font-size: 0.72rem;
   border: 1px solid var(--border);
-  background: #1d2027;
+  background: var(--control);
   color: var(--muted);
 }
 
 .statusBadge.online {
-  border-color: #2f6b48;
-  color: #74d79a;
+  border-color: var(--good-border);
+  color: var(--good-text);
 }
 
 .statusDot {
@@ -228,7 +228,7 @@
 }
 
 .statusDot.online {
-  background: #3fae6b;
+  background: var(--good);
 }
 
 .lastSeen {
@@ -254,10 +254,10 @@
 }
 
 .error {
-  color: #f0a0a0;
+  color: var(--danger-text);
   font-size: 0.9rem;
   padding: 1rem;
-  border: 1px solid #5a2a2a;
+  border: 1px solid var(--danger-border);
   border-radius: 10px;
-  background: #2a1717;
+  background: var(--danger-bg);
 }

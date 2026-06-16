@@ -44,7 +44,7 @@
 }
 
 .avatarAgent {
-  background: #7b61ff;
+  background: var(--agent);
 }
 
 .avatarUnassigned {
@@ -65,7 +65,7 @@
 }
 
 .presenceOnline {
-  background: #3fae6b;
+  background: var(--good);
 }
 
 /* ---- Kind badge (Human / AI agent) ------------------------------------ */
@@ -78,13 +78,13 @@
   text-transform: uppercase;
   letter-spacing: 0.03em;
   border: 1px solid var(--border);
-  background: #1d2027;
+  background: var(--control);
   white-space: nowrap;
 }
 
 .kindAgent {
-  border-color: #5a4bd1;
-  color: #b3a6ff;
+  border-color: var(--agent-border);
+  color: var(--agent-text);
 }
 
 .kindHuman {
@@ -155,7 +155,7 @@
 }
 
 .msgBubble {
-  background: #1d2027;
+  background: var(--control);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 0.6rem 0.85rem;

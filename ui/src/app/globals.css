@@ -8,14 +8,58 @@
   --border-strong: #2f333d;
   --text: #eceef2;
   --muted: #939aa6;
-  --faint: #6b727e;
+  --faint: #7e8694; /* lifted to ~4:1 on panels (was #6b727e ≈ 3.2:1) */
   --accent: #5b8cff;
   --accent-weak: rgba(91, 140, 255, 0.14);
+  /* Elevated control surface (inputs, selects, chips, bubbles). */
+  --control: #1d2027;
+
+  /* Semantic colors — base + text/border tints, one source per role. */
   --good: #3fb950;
+  --good-text: #74d79a;
+  --good-border: #2f6b48;
   --warn: #e3b341;
+  --warn-text: #f0c074;
   --danger: #f0686b;
+  --danger-text: #f0a0a0;
+  --danger-border: #5a2a2a;
+  --danger-bg: #2a1717;
+
+  /* Identity colors (agent vs human) — carry semantic meaning. */
+  --agent: #7b61ff;
+  --agent-border: #5a4bd1;
+  --agent-text: #b3a6ff;
+  --human: var(--accent);
+  --human-border: #355fb0;
+  --human-text: #9fc0ff;
+
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-md: 0 8px 24px -8px rgba(0, 0, 0, 0.55);
+
+  /* Spacing scale (0.25rem grid). */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+
+  /* Radius scale. */
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-pill: 999px;
+
+  /* Type scale. */
+  --fs-3xs: 0.6875rem; /* 11px — badges/micro-labels */
+  --fs-2xs: 0.75rem; /* 12px — uppercase eyebrows */
+  --fs-xs: 0.8125rem; /* 13px — captions/hints/previews */
+  --fs-sm: 0.875rem; /* 14px — controls/inputs/list cells */
+  --fs-base: 0.9375rem; /* 15px — body/bubbles/buttons */
+  --lh-normal: 1.5;
+  --lh-relaxed: 1.55;
+
   --font-sans: var(--font-sans, ui-sans-serif), system-ui, sans-serif;
   --font-display: var(--font-display, var(--font-sans));
   --font-mono: var(--font-mono, ui-monospace), "SFMono-Regular", monospace;
@@ -337,12 +381,12 @@ h3,
 }
 
 .online-dot.online {
-  background: #3fb950;
+  background: var(--good);
   box-shadow: 0 0 0 2px rgba(63, 185, 80, 0.18);
 }
 
 .team-switcher select {
-  background: #1d2027;
+  background: var(--control);
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -445,7 +489,12 @@ h3,
 
   .sidebar-link {
     white-space: nowrap;
-    padding: 0.42rem 0.7rem;
+    min-height: 44px; /* comfortable touch target */
+    padding: 0 0.8rem;
+  }
+
+  .sidebar-footer .btn {
+    min-height: 40px;
   }
 
   .sidebar-spacer {

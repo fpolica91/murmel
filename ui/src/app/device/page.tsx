@@ -155,7 +155,7 @@ export default function DevicePage() {
           Deny
         </button>
         {error ? (
-          <p className="muted" style={{ color: "#ff6b6b" }}>
+          <p className="muted" style={{ color: "var(--danger)" }}>
             {error}
           </p>
         ) : null}

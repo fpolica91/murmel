@@ -185,10 +185,10 @@
   background: #4f8cff;
 }
 .statusDot.in_review {
-  background: #e2a23b;
+  background: var(--warn);
 }
 .statusDot.done {
-  background: #3fae6b;
+  background: var(--good);
 }
 
 .statusCount {
@@ -339,7 +339,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 0.65rem 0.85rem;
-  background: #1d2027;
+  background: var(--control);
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--text);
@@ -379,10 +379,10 @@
 
 .errorPanel,
 .errorBanner {
-  color: #f0a0a0;
+  color: var(--danger-text);
   font-size: 0.9rem;
   padding: 1rem;
-  border: 1px solid #5a2a2a;
+  border: 1px solid var(--danger-border);
   border-radius: 10px;
-  background: #2a1717;
+  background: var(--danger-bg);
 }

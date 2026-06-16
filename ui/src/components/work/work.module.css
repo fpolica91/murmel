@@ -21,7 +21,7 @@
 }
 
 .viewToggle button {
-  background: #1d2027;
+  background: var(--control);
   color: var(--muted);
   border: none;
   padding: 0.45rem 0.9rem;
@@ -38,7 +38,7 @@
 }
 
 .filterSelect {
-  background: #1d2027;
+  background: var(--control);
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -47,7 +47,7 @@
 }
 
 .filterInput {
-  background: #1d2027;
+  background: var(--control);
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -169,7 +169,7 @@
 }
 
 .comment {
-  background: #1d2027;
+  background: var(--control);
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 0.7rem 0.85rem;
@@ -245,7 +245,7 @@
 .newIssueInput {
   flex: 1;
   max-width: 420px;
-  background: #1d2027;
+  background: var(--control);
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -254,7 +254,7 @@
 }
 
 .statusSelect {
-  background: #14161b;
+  background: var(--panel);
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -288,7 +288,7 @@
 
 .moveControl:hover {
   color: var(--text);
-  background: #14161b;
+  background: var(--panel);
 }
 
 .moveSelect {
@@ -337,7 +337,7 @@
 }
 
 .avatar.agent {
-  background: #7b61ff;
+  background: var(--agent);
 }
 
 .avatar.unassigned {
@@ -352,7 +352,7 @@
   padding: 0.1rem 0.5rem;
   font-size: 0.7rem;
   border: 1px solid var(--border);
-  background: #1d2027;
+  background: var(--control);
   color: var(--muted);
 }
 
@@ -364,19 +364,26 @@
   color: #8fb6ff;
 }
 .badge.in_review {
-  border-color: #e2a23b;
-  color: #f0c074;
+  border-color: var(--warn);
+  color: var(--warn-text);
 }
 .badge.done {
-  border-color: #3fae6b;
-  color: #74d79a;
+  border-color: var(--good);
+  color: var(--good-text);
 }
 
 /* ---- List -------------------------------------------------------------- */
+/* Horizontal scroll container so the 3-column table stays legible on phones. */
+.listScroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .list {
   width: 100%;
+  min-width: 32rem;
   border-collapse: collapse;
-  font-size: 0.88rem;
+  font-size: var(--fs-sm);
 }
 
 .list th {
@@ -404,7 +411,7 @@
 }
 
 .groupRow td {
-  background: #14161b;
+  background: var(--panel);
   color: var(--muted);
   font-size: 0.78rem;
   font-weight: 600;
@@ -506,10 +513,10 @@
 }
 
 .error {
-  color: #f0a0a0;
+  color: var(--danger-text);
   font-size: 0.9rem;
   padding: 1rem;
-  border: 1px solid #5a2a2a;
+  border: 1px solid var(--danger-border);
   border-radius: 10px;
-  background: #2a1717;
+  background: var(--danger-bg);
 }

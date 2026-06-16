@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import {
   Bricolage_Grotesque,
@@ -32,6 +32,12 @@ const mono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "aweb",
   description: "aweb — coordination for humans and AI agents",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

@@ -45,6 +45,7 @@ export function ListView({
   }
 
   return (
+    <div className={styles.listScroll}>
     <table className={styles.list}>
       <thead>
         <tr>
@@ -99,5 +100,6 @@ export function ListView({
         ))}
       </tbody>
     </table>
+    </div>
   );
 }
