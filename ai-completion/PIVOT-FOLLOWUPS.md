@@ -169,6 +169,22 @@ reason, rather than driving removed commands or pretending to pass:
   headless way to stand up two federated, cross-server-routable identities, so
   the journey cannot be made green by a script rewrite — it needs a **product
   decision** on whether/how federation onboarding survives the pivot.
+  - **Scoped (2026-06-16):** full file/function breakdown of what breaks, the
+    design options (server-vouching / key directory / awid-for-addressing-only),
+    a recommendation (**Option A.2** — per-server signing key + peer allowlist +
+    server-vouched delivery assertion wrapping the existing participant-signed
+    envelope, reusing the `a07fd564` server-anchored-trust model across a
+    configured peer edge), the v2 implementation plan, and the two-full-stack
+    test harness it needs are in
+    [FEDERATION-TOKEN-ONLY.md](FEDERATION-TOKEN-ONLY.md).
+  - **Honest verdict:** federation under token-only is a **deliberate v2
+    re-architecture**, not a patchable bug. The existing inbound verification is
+    internally consistent and correctly **fails closed** for token senders
+    (synthetic `did:key:jwt-` → 422; no did:aw → no registry match). **No
+    bounded, safe piece was landable** — every candidate (accepting synthetic
+    keys, populating a fake `delivery_origin`, adding an unverified outer
+    server-signature field) is a half-built trust mechanism. **Nothing was
+    implemented; server suite stays at 629.**
 - **A2A gateway:** the load-bearing **Go blocker is now RESOLVED**; the script
   stays quarantined only for the remaining **bash/Docker** rewrite.
   - **DONE (Go):** the OSS gateway's `workspaceMailClient` previously
