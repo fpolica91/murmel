@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -74,7 +76,8 @@ func initTokenWorkspace(ctx context.Context, opts tokenInitOptions) (tokenInitOu
 	}
 
 	// Require a usable token before mutating anything on disk.
-	if _, err := bearerTokenProvider(ctx); err != nil {
+	token, err := bearerTokenProvider(ctx)
+	if err != nil {
 		if os.IsNotExist(err) {
 			return tokenInitOutput{}, usageError("no token available: run `aw login` or pass --token / set AW_TOKEN")
 		}
@@ -85,8 +88,14 @@ func initTokenWorkspace(ctx context.Context, opts tokenInitOptions) (tokenInitOu
 		return tokenInitOutput{}, err
 	}
 
-	// Create the local self-custodial signing key + identity (for E2EE only).
-	did, err := ensureLocalSelfIdentity(workingDir)
+	// Create the local self-custodial signing key + identity (for E2EE +
+	// envelope signing). The signing key is keyed to the token identity (its
+	// JWT subject) and cached globally so re-onboarding the SAME human in a new
+	// workspace ("second device") reuses the same did:key. Without this, every
+	// `aw init` would mint a fresh key whose messages render [IDENTITY MISMATCH]
+	// to recipients who already pinned the human's earlier published key.
+	tokenSubject, _ := awconfig.JWTSubjectUnverified(token)
+	did, err := ensureLocalSelfIdentity(workingDir, tokenSubject)
 	if err != nil {
 		return tokenInitOutput{}, err
 	}
@@ -165,14 +174,17 @@ func initTokenWorkspace(ctx context.Context, opts tokenInitOptions) (tokenInitOu
 
 // ensureLocalSelfIdentity guarantees a local self-custodial signing key and a
 // minimal `.aw/identity.yaml` exist for workingDir, returning the did:key. If a
-// valid identity is already present it is reused; otherwise a fresh ed25519
-// signing key is generated and persisted. This key authenticates E2EE messages
-// only — it is never used for server auth (that is the bearer token).
-func ensureLocalSelfIdentity(workingDir string) (string, error) {
+// valid identity is already present in the workspace it is reused; otherwise the
+// per-identity signing key cached globally for tokenSubject is reused (so the
+// SAME human re-onboarding in a fresh workspace keeps a stable did:key across
+// devices); only when neither exists is a fresh ed25519 key generated. The key
+// signs E2EE/plaintext envelopes — it is never used for server auth (that is the
+// bearer token).
+func ensureLocalSelfIdentity(workingDir string, tokenSubject string) (string, error) {
 	signingKeyPath := awconfig.WorktreeSigningKeyPath(workingDir)
 	identityPath := filepath.Join(workingDir, awconfig.DefaultWorktreeIdentityRelativePath())
 
-	// Reuse an existing valid self-custody identity when present.
+	// Reuse an existing valid self-custody identity when present in this workspace.
 	if existing, err := awconfig.LoadWorktreeIdentityFrom(identityPath); err == nil {
 		if key, kerr := awid.LoadSigningKey(signingKeyPath); kerr == nil {
 			did := awid.ComputeDIDKey(key.Public().(ed25519.PublicKey))
@@ -182,10 +194,11 @@ func ensureLocalSelfIdentity(workingDir string) (string, error) {
 		}
 	}
 
-	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	priv, err := loadOrCreateIdentitySigningKey(tokenSubject)
 	if err != nil {
-		return "", fmt.Errorf("generate signing key: %w", err)
+		return "", err
 	}
+	pub := priv.Public().(ed25519.PublicKey)
 	if err := awid.SaveSigningKey(signingKeyPath, priv); err != nil {
 		return "", fmt.Errorf("save signing key: %w", err)
 	}
@@ -199,6 +212,42 @@ func ensureLocalSelfIdentity(workingDir string) (string, error) {
 		return "", fmt.Errorf("save identity: %w", err)
 	}
 	return did, nil
+}
+
+// loadOrCreateIdentitySigningKey returns the ed25519 signing key for the token
+// identity identified by tokenSubject. The key is cached globally under the user
+// state dir (~/.config/aw/identities/<hash>/signing.key) so every workspace the
+// same human onboards reuses one stable did:key — keeping their published key
+// and recipients' TOFU pins consistent across re-onboarding and multiple
+// devices on this machine. When tokenSubject is empty (no JWT subject), a fresh
+// ephemeral key is minted and not cached.
+func loadOrCreateIdentitySigningKey(tokenSubject string) (ed25519.PrivateKey, error) {
+	subject := strings.TrimSpace(tokenSubject)
+	cachePath := ""
+	if subject != "" {
+		sum := sha256.Sum256([]byte(subject))
+		dir := hex.EncodeToString(sum[:])
+		p, err := awconfig.PathInUserState("identities", dir, "signing.key")
+		if err == nil {
+			cachePath = p
+		}
+		if cachePath != "" {
+			if key, err := awid.LoadSigningKey(cachePath); err == nil {
+				return key, nil
+			}
+		}
+	}
+
+	_, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return nil, fmt.Errorf("generate signing key: %w", err)
+	}
+	if cachePath != "" {
+		if err := awid.SaveSigningKey(cachePath, priv); err != nil {
+			return nil, fmt.Errorf("cache identity signing key: %w", err)
+		}
+	}
+	return priv, nil
 }
 
 // upsertTokenWorkspaceMembership inserts or replaces the membership for the

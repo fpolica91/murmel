@@ -59,7 +59,11 @@ export function LoginForm() {
       </div>
 
       <form onSubmit={onCredentials}>
+        <label htmlFor="login-email" className="field-label">
+          Email
+        </label>
         <input
+          id="login-email"
           className="btn"
           style={{ textAlign: "left", cursor: "text" }}
           type="email"
@@ -69,7 +73,11 @@ export function LoginForm() {
           autoComplete="email"
           required
         />
+        <label htmlFor="login-password" className="field-label">
+          Password
+        </label>
         <input
+          id="login-password"
           className="btn"
           style={{ textAlign: "left", cursor: "text" }}
           type="password"

@@ -4,6 +4,37 @@ _Branch: `feature/simple-auth-ui`. Local stack: UI :3030, aweb :8088, Postgres :
 _Updated as work lands. "Validated" = independently re-run, not just self-reported._
 _Last full E2E validation: 2026-06-15. No code changes were needed — every scenario passed against the existing stack._
 
+## Multi-device key consistency (2026-06-16)
+
+**Fix:** `aw init` (token-only onboarding) now reuses a **stable per-identity
+signing key** instead of minting a fresh ed25519 key per workspace. The key is
+cached globally under `~/.config/aw/identities/<sha256(jwt-sub)>/signing.key`,
+keyed by the Better-Auth JWT subject. Every workspace the same human onboards
+(re-onboard, "second device" on the same machine) reuses one stable `did:key`,
+so their published encryption-key `identity_did` and recipients' TOFU pins stay
+consistent. **CLI-only change** — no server edits; the server's active-key
+selection (`agent_encryption_keys ORDER BY assertion_created_at DESC LIMIT 1`,
+in `routes/agents.py` LATERAL join + `messages.active_encryption_identity_did`)
+already prefers the most-recent published key, so a republished key supersedes
+the old one correctly.
+
+- **Root cause:** before this, each `aw init` generated a random signing key +
+  `did:key`; a re-onboarded identity signed chat/mail with a NEW key that did
+  not match the `did:key` already pinned by recipients (TOFU) → `PinMismatch` →
+  `[IDENTITY MISMATCH]`. (Surfaced by signature-verification commit `7c505135`.)
+- **File:** `cli/go/cmd/aw/init_token.go` — `ensureLocalSelfIdentity` now takes
+  the token subject and reuses/persists the global key via
+  `loadOrCreateIdentitySigningKey`.
+- **Gates:** `go build ./...` exit 0; `go test -c ./cmd/aw/` compiles;
+  `cmd/aw` suite = 116 failures (all sandbox-DNS baseline, zero new); `make fmt`
+  clean.
+- **Live proof (founder re-onboard, token humans):** DID stable across two fresh
+  workspaces (`z6Mkn4Jo…` in both); re-onboarded founder's chat to Ada renders
+  `verification_status: verified` (was `[IDENTITY MISMATCH]` before the fix).
+- **UI (N2 polish):** login email/password inputs now have visible `<label>`s
+  (placeholders preserved so Playwright selectors are unaffected). typecheck +
+  `playwright test` (15) green.
+
 ## Demo seed (2026-06-16)
 
 The live app is now **demo-pristine**: a reusable, idempotent seed script
