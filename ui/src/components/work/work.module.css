@@ -90,11 +90,12 @@
 }
 
 .count {
-  background: #1d2027;
+  background: var(--bg-elev);
   border: 1px solid var(--border);
   border-radius: 999px;
   padding: 0.05rem 0.5rem;
   font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .cardStack {
@@ -121,17 +122,26 @@
 /* ---- Issue card -------------------------------------------------------- */
 .card {
   display: block;
-  background: #1d2027;
+  background: var(--bg-elev);
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 0.7rem 0.8rem;
   color: var(--text);
   text-decoration: none;
   cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    transform 0.12s ease,
+    box-shadow 0.15s ease;
 }
 
 .card:hover {
-  border-color: var(--accent);
+  border-color: var(--border-strong);
+  background: var(--panel-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
 }
 
 .cardTitle {

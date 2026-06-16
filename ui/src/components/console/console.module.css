@@ -48,10 +48,11 @@
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
-  background: var(--panel);
+  background: linear-gradient(180deg, var(--panel-hover), var(--panel));
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 1.1rem 1.25rem;
+  box-shadow: var(--shadow-sm);
 }
 
 .statOnline {
@@ -70,9 +71,12 @@
 }
 
 .statValue {
-  font-size: 1.9rem;
+  font-family: var(--font-display);
+  font-size: 2.1rem;
   font-weight: 600;
-  line-height: 1.1;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
 }
 
 .statHint {
@@ -152,15 +156,19 @@
   flex-direction: column;
   gap: 0.15rem;
   padding: 0.6rem 0.7rem;
-  background: #1d2027;
+  background: var(--bg-elev);
   border: 1px solid var(--border);
   border-radius: 10px;
   text-decoration: none;
   color: var(--text);
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
 }
 
 .statusChip:hover {
-  border-color: var(--accent);
+  border-color: var(--border-strong);
+  background: var(--panel-hover);
 }
 
 .statusDot {
@@ -184,9 +192,11 @@
 }
 
 .statusCount {
-  font-size: 1.25rem;
+  font-family: var(--font-display);
+  font-size: 1.4rem;
   font-weight: 600;
   line-height: 1.1;
+  font-variant-numeric: tabular-nums;
 }
 
 .statusLabel {

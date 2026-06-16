@@ -61,21 +61,25 @@
   display: block;
   width: 100%;
   text-align: left;
-  background: #1d2027;
+  background: var(--bg-elev);
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 0.65rem 0.75rem;
   color: var(--text);
   cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
 }
 
 .convItem:hover {
-  border-color: var(--accent);
+  border-color: var(--border-strong);
+  background: var(--panel-hover);
 }
 
 .convItem.active {
-  border-color: var(--accent);
-  background: #1b2230;
+  border-color: rgba(91, 140, 255, 0.4);
+  background: var(--accent-weak);
 }
 
 .convRow {
