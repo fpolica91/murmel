@@ -393,23 +393,46 @@ async def _load_current_agent_inbound_mode(
     identity: TeamIdentity,
 ) -> AgentInboundModeResponse:
     aweb_db = db.get_manager("aweb")
-    row = await aweb_db.fetch_one(
-        """
-        SELECT agent_id, team_id, alias, identity_scope, inbound_mode
-        FROM {{tables.agents}}
-        WHERE team_id = $1
-          AND agent_id = $2::UUID
-          AND deleted_at IS NULL
-        """,
-        identity.team_id,
-        identity.agent_id,
-    )
+    # Token (Better Auth JWT) callers have no server-side did:key and their
+    # identity.agent_id is the JWT *subject* string, not a UUID — casting it with
+    # $2::UUID raises and 500s. Their participant row is keyed by the synthetic
+    # routing DID did:key:jwt-<subject> (mirrors publish_my_encryption_key).
+    is_token_identity = (identity.identity_scope or "").strip() == "token" or not (identity.did_key or "").strip()
+    if is_token_identity:
+        row = await aweb_db.fetch_one(
+            """
+            SELECT agent_id, team_id, alias, identity_scope, inbound_mode
+            FROM {{tables.agents}}
+            WHERE team_id = $1
+              AND did_key = $2
+              AND deleted_at IS NULL
+            """,
+            identity.team_id,
+            f"did:key:jwt-{identity.agent_id}",
+        )
+    else:
+        row = await aweb_db.fetch_one(
+            """
+            SELECT agent_id, team_id, alias, identity_scope, inbound_mode
+            FROM {{tables.agents}}
+            WHERE team_id = $1
+              AND agent_id = $2::UUID
+              AND deleted_at IS NULL
+            """,
+            identity.team_id,
+            identity.agent_id,
+        )
     if row is None:
         raise HTTPException(status_code=404, detail="Agent not found")
     identity_scope = str(row.get("identity_scope") or "local")
     inbound_mode = str(row.get("inbound_mode") or "").strip().lower()
     if inbound_mode == "contacts_only":
         inbound_mode = "team_and_contacts"
+    if not inbound_mode:
+        # Token-provisioned participants (humans/agents onboarded via JWT) have no
+        # inbound_mode set on their row; default to the permissive "open" rather
+        # than reporting a spurious migration error.
+        inbound_mode = "open"
     if inbound_mode not in {"open", "team_and_contacts"}:
         raise HTTPException(status_code=409, detail="Agent inbound_mode migration required")
     return AgentInboundModeResponse(
