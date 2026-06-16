@@ -75,9 +75,17 @@ test-a2a:
 	cd awid && uv run pytest tests/test_a2a_publication_route.py -q
 	./scripts/check-a2a-copy-guardrails.sh
 
+# test-e2e: token-only OSS user journey (rewritten for the Better Auth JWT
+# pivot). Stands up the full stack (UI issuer + aweb + awid + pg + redis) on
+# isolated safe ports and exercises token-only onboarding + coordination.
 test-e2e:
 	./scripts/e2e-oss-user-journey.sh
 
+# test-federation-e2e / test-a2a-gateway-e2e: QUARANTINED by the token-only
+# pivot. Both scripts now exit 1 with an explanation. Federation onboarding has
+# no token-only path; the A2A gateway's OSS mail transport is still cert-only
+# (a Go change, not a script fix). See ai-completion/PIVOT-FOLLOWUPS.md §2. They
+# are kept as failing gates (not silently green) so the gap stays visible.
 test-federation-e2e:
 	./scripts/e2e-oss-federation.sh
 
@@ -334,11 +342,15 @@ ship: release-all-check
 	@echo "=== Running awid release check ==="
 	$(MAKE) release-awid-check
 	@echo ""
-	@echo "=== Running federation e2e journey ==="
-	$(MAKE) test-federation-e2e
-	@echo ""
-	@echo "=== Running e2e user journey ==="
+	@echo "=== Running e2e user journey (token-only) ==="
 	$(MAKE) test-e2e
+	@echo ""
+	@echo "=== Running federation e2e journey ==="
+	@echo "    NOTE: federation + A2A-gateway journeys are QUARANTINED by the"
+	@echo "    token-only pivot and exit 1 by design (see PIVOT-FOLLOWUPS.md §2)."
+	@echo "    They will fail this gate until the underlying onboarding/transport"
+	@echo "    gaps are closed; this is intentional, not a regression to hide."
+	$(MAKE) test-federation-e2e
 	@echo ""
 	@echo "=== ship: ALL pre-release checks passed ==="
 	@echo "    server:  $(SERVER_VERSION)"

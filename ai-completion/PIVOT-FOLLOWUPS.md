@@ -103,30 +103,89 @@ isolation; it does not cover token onboarding.
 leave it until the token path lands, then add token coverage alongside (don't
 delete the back-compat tests while the server still honors the cert header).
 
-### 2. The three e2e scripts are built on the removed cert/team CLI — need token-bootstrap rewrites
+### 2. The three e2e scripts were built on the removed cert/team CLI — ✅ primary REWRITTEN + RUN GREEN; federation + A2A-gateway QUARANTINED (honest)
 
-All three invoke removed commands and will fail immediately:
+**Status (2026-06-16):** Reconciled on `feature/simple-auth-ui`.
 
-- `scripts/e2e-oss-user-journey.sh` (3110 lines) — `aw id namespace
-  prepare-controller/resolve/assign-address/set-delivery-origin`, `aw id team
-  request/add-member/fetch-cert`, reads `.aw/team-certs/`, asserts awid
-  `/certificates` counts, `aw init --awid-registry`. The entire team-creation
-  and cross-machine-join spine is gone.
-- `scripts/e2e-oss-federation.sh` (870 lines) — `aw id namespace
-  set-delivery-origin` and the same cert-bootstrap assumptions.
-- `scripts/e2e-a2a-gateway-docker.sh` (495 lines) — `aw id team
-  create/invite/accept-invite` plus `aw init --url` (now `--aweb-url`).
+#### `scripts/e2e-oss-user-journey.sh` — rewritten to token-only, RAN GREEN
 
-**Why deferred:** each needs a real rewrite to the token-bootstrap model: stand
-up the UI (Better Auth issuer) in the compose stack, sign up + mint JWTs for
-each test identity (or seed memberships directly in Postgres the way
-`ui/e2e/global-setup.ts` does), wire `AW_TOKEN` per identity, and drop the
-namespace/cert/registry assertions. That is the same shape as the working
-Playwright `global-setup.ts`, but for the bash CLI journeys. `make test-e2e`,
-the federation journey, and `make test-a2a-gateway-e2e` (`make ship`'s e2e gate)
-will not pass until these are rewritten. **They were left intact, not
-half-edited**, so the breakage is honest (they fail loudly on the first removed
-command) rather than silently mid-script.
+The 3110-line cert/DID/team/namespace/bootstrap journey was replaced with a
+focused, hermetic **token-only** journey that actually exercises the pivoted
+product:
+
+- **Ports / isolation:** starts the FULL stack (UI Better-Auth issuer + aweb +
+  awid + Postgres + Redis) under a distinct compose project (`aweb-oss-e2e-$$`)
+  via the committed `docker-compose.yml` + `docker-compose.ui.yml` + a generated
+  parameterizing overlay. Host ports are safe and non-forbidden: UI `3035`,
+  aweb `8090`, awid `8011`. Postgres/Redis are **internal-only** (seeded via
+  `docker compose exec`), so the run never binds 5432/6379 and never collides
+  with the dev stack on 5544/6390/5433. The overlay sets iss (`= UI host URL`),
+  aud (`= aweb host URL`), and JWKS (`http://ui:3000/...`, internal) so JWTs
+  minted through the published UI port verify against aweb.
+- **Auth bootstrap (headless, mirrors `ui/e2e/global-setup.ts`):** for each
+  identity it POSTs Better Auth `sign-up/email`, resolves the user id from
+  `aweb."user"`, seeds an active `memberships` row, then signs in + GETs
+  `/api/auth/token` to mint a bearer JWT. No browser.
+- **Onboarding:** `AW_TOKEN=$JWT aw init --aweb-url … --team default:local`
+  (cert-less). Asserts the workspace has **no** `.aw/team-certs/` and is bound
+  to the team. A no-token `aw init` is asserted to fail closed.
+- **Coordination over the bearer token:** `whoami`, a 401-on-bogus-token /
+  200-on-valid-token check, `work ready`, `task create` + `task list`, and
+  `mail send` → peer `mail inbox` (recipient addressed by its resolvable
+  namespace address, see quirk below). Chat is a NON-FATAL probe.
+- **RUN LEDGER (honest):** executed end-to-end against Docker on this machine
+  on 2026-06-16 → **`ALL PASSED: 28 tests`**. The full stack built and came up
+  on the safe ports, all health checks passed, JWTs minted, both identities
+  onboarded cert-less, mail delivered + read over the token, and cleanup
+  (`compose down -v`) left no lingering containers/volumes and did not disturb
+  the dev stack.
+
+**Two server-side token-path quirks surfaced (NOT auth/journey bugs; flagged
+here, fixed nowhere — they need server work):**
+
+1. **`mail/chat --to <bare-alias>` 404s on the token path.** `POST /v1/messages`
+   with `to_alias` returns 404 "Recipient agent not found" even though the row
+   exists (`to_agent_id` and `to_address` both deliver 200). The journey routes
+   mail by the **namespace** address `"<team-namespace>/<alias>"` (e.g.
+   `local/Ada (agent)`) instead. Note the related inconsistency: the
+   `/v1/participants` directory advertises a *team-id*-scoped `address`
+   (`default:local/<alias>`), but `_local_recipient_from_address` →
+   `get_agent_by_namespace_alias` matches on the team **namespace** (`local`),
+   so the advertised address does not resolve as-is. Worth a server fix
+   (align the directory's advertised address with the resolver, and make the
+   bare-alias token path resolve).
+2. **CLI chat over the token path fails signing** with `422 signed_payload
+   recipient must match the chat target` / `[unverified]` (consistent with the
+   STATUS.md chat note). The journey reports it non-fatally.
+
+#### `scripts/e2e-oss-federation.sh` + `scripts/e2e-a2a-gateway-docker.sh` — QUARANTINED (cannot pass; not faked)
+
+Both were replaced with short, self-documenting scripts that **exit 1** with the
+reason, rather than driving removed commands or pretending to pass:
+
+- **Federation:** cross-server delivery needs awid global addresses + namespace
+  delivery-origins, all provisioned by the removed `aw id create` / `aw id team`
+  / `aw id namespace set-delivery-origin` cluster. Token-only onboarding has no
+  headless way to stand up two federated, cross-server-routable identities, so
+  the journey cannot be made green by a script rewrite — it needs a **product
+  decision** on whether/how federation onboarding survives the pivot.
+- **A2A gateway:** two blockers, the load-bearing one in **Go, not bash**: the
+  OSS gateway's `cli/go/cmd/aweb-a2a-gw/main.go:workspaceMailClient` hard-requires
+  a team certificate (`missing cert_path`, `LoadTeamCertificate`,
+  `NewWithCertificate`, awid resolver). Token-only `aw init` writes a cert-less
+  workspace, so the gateway literally cannot build a mail client from it. The
+  awid Go client already has a bearer path (`SetBearerProvider`) and the
+  channel product was ported (follow-up 1) — porting the gateway is the same
+  shape, but it is a feature change out of scope for a bash rewrite. The gateway
+  health gate also still asserts awid-registry reachability + an active global
+  `gateway_identity`. Reliable A2A signal post-pivot stays `make test-a2a`.
+
+**Makefile:** `test-e2e` now runs the green token-only journey;
+`test-federation-e2e` / `test-a2a-gateway-e2e` are documented as quarantined
+(exit 1 by design). `make ship` runs the green journey first (so its proof is
+captured) and prints a NOTE before the federation gate that it is expected to
+fail until the gaps above are closed — the breakage stays **visible**, not
+hidden.
 
 ### 3. Resource-pack / codex-plugin skills duplicate the removed surface — ✅ DONE
 

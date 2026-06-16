@@ -214,13 +214,22 @@ test user via Better Auth (idempotent), resolves its id, and ensures an active
 admin membership directly in Postgres — no manual fixture step. It targets
 `E2E_UI_URL` (default `http://localhost:3030`) and `PGPORT` (default `5544`).
 
-### End-to-end bash journeys — currently broken by the pivot
+### End-to-end bash journeys — primary rewritten + green; others quarantined
 
-`scripts/e2e-oss-user-journey.sh`, `scripts/e2e-oss-federation.sh`, and
-`scripts/e2e-a2a-gateway-docker.sh` (and the `make test-e2e` /
-`make test-a2a-gateway-e2e` targets that wrap them) still drive the **removed**
-cert/team/namespace CLI and will fail on the first removed command. They need a
-token-bootstrap rewrite before they pass again — see
-[PIVOT-FOLLOWUPS.md](PIVOT-FOLLOWUPS.md) §2. The Go-level A2A gates
-(`make test-a2a`: conformance/a2a/a2agw/awid packages + the awid a2a-publication
-pytest + copy guardrails) **do** pass and are the reliable A2A signal locally.
+`scripts/e2e-oss-user-journey.sh` (and `make test-e2e`) was **rewritten to the
+token-only flow and runs green** end-to-end: it stands up the full stack
+(UI issuer + aweb + awid + pg + redis) on isolated safe ports (UI `3035`, aweb
+`8090`, awid `8011`; pg/redis internal), mints Better Auth JWTs headlessly the
+same way `ui/e2e/global-setup.ts` does, onboards token-only via
+`AW_TOKEN=$JWT aw init --aweb-url … --team default:local`, and exercises
+whoami / work / task / mail over the bearer token (`ALL PASSED: 28 tests` on
+2026-06-16).
+
+`scripts/e2e-oss-federation.sh` and `scripts/e2e-a2a-gateway-docker.sh` are
+**quarantined** (they exit 1 with an explanation): federation onboarding has no
+token-only path, and the A2A gateway's OSS mail transport is still cert-only (a
+Go change). See [PIVOT-FOLLOWUPS.md](PIVOT-FOLLOWUPS.md) §2 for the full ledger
+(including two server-side token-path quirks the journey surfaced). The Go-level
+A2A gates (`make test-a2a`: conformance/a2a/a2agw/awid packages + the awid
+a2a-publication pytest + copy guardrails) **do** pass and are the reliable A2A
+signal locally.
