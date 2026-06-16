@@ -742,6 +742,12 @@ func (c *Client) ChatHistory(ctx context.Context, p ChatHistoryParams) (*ChatHis
 		}
 		if m.ContentMode == ContentModeEncryptedV2 {
 			// The v2 envelope signature was verified before decrypting above.
+		} else if IsServerAttributedDID(m.FromDID) {
+			// Server-attributed token identity: no client signing key exists for
+			// a did:key:jwt-<subject> DID, so the home server's JWT verification
+			// is the attribution. Surface it as server-vouched (distinct from a
+			// cryptographically Verified message) instead of "unverified".
+			m.VerificationStatus = VerifiedServer
 		} else if m.SignedPayload != "" {
 			m.VerificationStatus, _ = VerifySignedPayload(m.SignedPayload, m.Signature, m.FromDID, m.SigningKeyID)
 			if m.VerificationStatus == Verified {

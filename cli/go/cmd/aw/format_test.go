@@ -523,3 +523,19 @@ func TestFormatChatSendPendingTreatsAliasTargetStableReplyAsIncoming(t *testing.
 		t.Fatalf("pending chat send output should not misclassify stable-id reply to alias target as outgoing:\n%s", out)
 	}
 }
+
+func TestFormatVerificationTagServerAttributed(t *testing.T) {
+	cases := map[awid.VerificationStatus]string{
+		awid.Verified:         "",
+		awid.VerifiedLegacy:   "",
+		awid.VerifiedServer:   " [verified (server)]",
+		awid.Unverified:       " [unverified]",
+		awid.Failed:           " [VERIFICATION FAILED]",
+		awid.IdentityMismatch: " [IDENTITY MISMATCH]",
+	}
+	for status, want := range cases {
+		if got := formatVerificationTag(status); got != want {
+			t.Errorf("formatVerificationTag(%q) = %q, want %q", status, got, want)
+		}
+	}
+}

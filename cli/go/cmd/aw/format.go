@@ -21,6 +21,11 @@ func formatVerificationTag(status awid.VerificationStatus) string {
 		return " [IDENTITY MISMATCH]"
 	case awid.Unverified:
 		return " [unverified]"
+	case awid.VerifiedServer:
+		// Server-vouched (token identity authenticated by the home server via
+		// JWT; no client signature exists to verify). Informational, not a
+		// warning — distinct from a cryptographically verified message.
+		return " [verified (server)]"
 	default:
 		return ""
 	}

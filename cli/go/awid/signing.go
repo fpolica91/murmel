@@ -36,10 +36,25 @@ const (
 	Verified          VerificationStatus = "verified"
 	VerifiedLegacy    VerificationStatus = "verified_legacy"
 	VerifiedCustodial VerificationStatus = "verified_custodial"
+	VerifiedServer    VerificationStatus = "verified_server"
 	Unverified        VerificationStatus = "unverified"
 	Failed            VerificationStatus = "failed"
 	IdentityMismatch  VerificationStatus = "identity_mismatch"
 )
+
+// serverAttributedDIDPrefix is the synthetic routing-DID prefix the aweb server
+// stamps on messages from Better Auth token identities (did:key:jwt-<subject>).
+// A token subject holds no self-custodial signing key, so these messages carry
+// no client signature: the home server verified the bearer JWT and set this DID
+// at write time. The prefix is therefore a server-vouched attribution marker,
+// distinct from a cryptographically Verified (signed) message.
+const serverAttributedDIDPrefix = "did:key:jwt-"
+
+// IsServerAttributedDID reports whether a from_did is a server-attributed token
+// routing DID (see serverAttributedDIDPrefix).
+func IsServerAttributedDID(did string) bool {
+	return strings.HasPrefix(strings.TrimSpace(did), serverAttributedDIDPrefix)
+}
 
 func SignedPayloadConversationStatus(signedPayload, conversationID string) VerificationStatus {
 	conversationID = strings.TrimSpace(conversationID)

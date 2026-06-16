@@ -634,3 +634,19 @@ func TestIsTimestampFresh(t *testing.T) {
 		t.Fatal("empty timestamp should not be fresh")
 	}
 }
+
+func TestIsServerAttributedDID(t *testing.T) {
+	cases := map[string]bool{
+		"did:key:jwt-ULxKUSOPtj7yZT3qWUySVfe4kVI9akcv": true,
+		"  did:key:jwt-abc  ":                          true, // trims whitespace
+		"did:key:z6MkRealEd25519Key":                   false,
+		"did:aw:alice-stable":                          false,
+		"":                                             false,
+		"jwt-not-a-did":                                false,
+	}
+	for did, want := range cases {
+		if got := IsServerAttributedDID(did); got != want {
+			t.Errorf("IsServerAttributedDID(%q) = %v, want %v", did, got, want)
+		}
+	}
+}
