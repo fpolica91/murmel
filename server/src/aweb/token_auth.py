@@ -250,6 +250,47 @@ def reset_verifier_cache() -> None:
         _verifier_config = None
 
 
+_DEV_LIKE_ENVS = {"dev", "development", "local", "test", "testing"}
+
+
+def validate_token_auth_config() -> None:
+    """Fail closed when token auth is enabled but audience/issuer are unset.
+
+    Without them, ``verify()`` skips ``aud``/``iss`` checks, so a token minted
+    for a *different* service that shares the issuer's JWKS would be accepted.
+    Enforced at startup. Dev/test environments only warn so local setups and the
+    test suite (which omit aud/iss) still run.
+    """
+    from aweb.token_team_scope import token_auth_enabled  # avoid import cycle
+
+    if not token_auth_enabled():
+        return
+    cfg = TokenAuthConfig.from_env()
+    missing = [
+        name
+        for name, value in (
+            ("AWEB_TOKEN_AUTH_AUDIENCE", cfg.audience),
+            ("AWEB_TOKEN_AUTH_ISSUER", cfg.issuer),
+        )
+        if not value
+    ]
+    if not missing:
+        return
+    env = ""
+    for name in ("ENVIRONMENT", "APP_ENV"):
+        env = (os.getenv(name) or "").strip().lower()
+        if env:
+            break
+    detail = (
+        f"token auth is enabled but {', '.join(missing)} not set; "
+        "aud/iss claims will not be validated"
+    )
+    if env in _DEV_LIKE_ENVS:
+        logger.warning("Token auth config: %s", detail)
+        return
+    raise RuntimeError(f"Refusing to start: {detail}")
+
+
 # ---------------------------------------------------------------------------
 # Revocation check (revoked_tokens table)
 # ---------------------------------------------------------------------------

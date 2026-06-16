@@ -169,6 +169,11 @@ def _make_standalone_lifespan():
         configure_logging(log_level=settings.log_level, json_format=json_format)
         logger.info("Starting aweb coordination server (standalone mode)")
 
+        # Fail closed if token auth is on without aud/iss configured.
+        from aweb.token_auth import validate_token_auth_config
+
+        validate_token_auth_config()
+
         redis: Redis | None = None
         redis_connected = False
         db_initialized = False

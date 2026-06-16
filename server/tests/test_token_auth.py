@@ -235,3 +235,55 @@ async def test_resolve_token_auth_rejects_wrong_key(rsa_keys):
     db = FakeManager(memberships=[("sub-1", "team-a", "member", "active")])
     with pytest.raises(TokenAuthError, match="Invalid token"):
         await resolve_token_auth(token, db, verifier=verifier)
+
+
+# --------------------------------------------------------------------------
+# Startup config validation (audience/issuer fail-closed)
+# --------------------------------------------------------------------------
+
+
+def _force_token_auth(monkeypatch, enabled: bool) -> None:
+    import aweb.token_team_scope as scope
+
+    monkeypatch.setattr(scope, "token_auth_enabled", lambda: enabled)
+
+
+def test_validate_token_auth_config_noop_when_disabled(monkeypatch):
+    from aweb.token_auth import validate_token_auth_config
+
+    _force_token_auth(monkeypatch, False)
+    monkeypatch.delenv("AWEB_TOKEN_AUTH_AUDIENCE", raising=False)
+    monkeypatch.delenv("AWEB_TOKEN_AUTH_ISSUER", raising=False)
+    validate_token_auth_config()  # no raise
+
+
+def test_validate_token_auth_config_prod_missing_aud_iss_raises(monkeypatch):
+    from aweb.token_auth import validate_token_auth_config
+
+    _force_token_auth(monkeypatch, True)
+    monkeypatch.delenv("AWEB_TOKEN_AUTH_AUDIENCE", raising=False)
+    monkeypatch.delenv("AWEB_TOKEN_AUTH_ISSUER", raising=False)
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    monkeypatch.setenv("APP_ENV", "production")
+    with pytest.raises(RuntimeError, match="aud/iss"):
+        validate_token_auth_config()
+
+
+def test_validate_token_auth_config_dev_missing_only_warns(monkeypatch):
+    from aweb.token_auth import validate_token_auth_config
+
+    _force_token_auth(monkeypatch, True)
+    monkeypatch.delenv("AWEB_TOKEN_AUTH_AUDIENCE", raising=False)
+    monkeypatch.delenv("AWEB_TOKEN_AUTH_ISSUER", raising=False)
+    monkeypatch.setenv("ENVIRONMENT", "development")
+    validate_token_auth_config()  # warns, no raise
+
+
+def test_validate_token_auth_config_ok_when_aud_iss_set(monkeypatch):
+    from aweb.token_auth import validate_token_auth_config
+
+    _force_token_auth(monkeypatch, True)
+    monkeypatch.setenv("AWEB_TOKEN_AUTH_AUDIENCE", "http://localhost:8088")
+    monkeypatch.setenv("AWEB_TOKEN_AUTH_ISSUER", "http://localhost:3030")
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    validate_token_auth_config()  # no raise
