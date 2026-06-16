@@ -53,3 +53,52 @@ def test_message_verification_uses_signed_payload_did_when_row_has_stable_did():
     )
 
     assert status == "verified"
+
+
+def test_server_attributed_token_message_is_verified_server():
+    # A Better Auth token caller has no client signing key: the server verifies
+    # the bearer JWT and writes the message under the synthetic routing DID with
+    # no signature. That must read as server-vouched, not "unverified".
+    status = message_verification_status(
+        {
+            "message_id": str(uuid4()),
+            "conversation_id": str(uuid4()),
+            "from_did": "did:key:jwt-ULxKUSOPtj7yZT3qWUySVfe4kVI9akcv",
+            "from_alias": "Ada (agent)",
+            "content_mode": "legacy_plaintext_v1",
+            "signature": None,
+            "signed_payload": None,
+        }
+    )
+    assert status == "verified_server"
+
+
+def test_server_attributed_takes_precedence_over_stray_signature():
+    # Even if a (meaningless) signature/payload is present, a did:key:jwt- row is
+    # server-authenticated — there is no key to verify a jwt DID against, so the
+    # server's JWT check is the attribution. It must not fall through to "failed".
+    status = message_verification_status(
+        {
+            "message_id": str(uuid4()),
+            "conversation_id": str(uuid4()),
+            "from_did": "did:key:jwt-rrJJ8ZLIj65sL8ZecCalBEBWTUXhiCya",
+            "signature": "not-a-real-signature",
+            "signed_payload": "{}",
+        }
+    )
+    assert status == "verified_server"
+
+
+def test_plaintext_without_token_did_stays_unverified():
+    # Regression guard: a genuinely unsigned message that is NOT a server-
+    # attributed token identity must still read as "unverified".
+    status = message_verification_status(
+        {
+            "message_id": str(uuid4()),
+            "conversation_id": str(uuid4()),
+            "from_did": "did:key:z6MkSomeRealClientKey",
+            "signature": None,
+            "signed_payload": None,
+        }
+    )
+    assert status == "unverified"

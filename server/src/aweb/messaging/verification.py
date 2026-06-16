@@ -7,7 +7,15 @@ from awid.signing import VerifyResult, verify_signature
 
 from aweb.service_errors import ForbiddenError
 
-VerificationStatus = Literal["verified", "verified_legacy", "unverified", "failed"]
+VerificationStatus = Literal[
+    "verified", "verified_legacy", "verified_server", "unverified", "failed"
+]
+
+# Synthetic routing-DID prefix for Better Auth token identities (see
+# aweb.identity_auth_deps.provision_human_participant). The server stamps this
+# DID at write time *after* verifying the bearer JWT, so a persisted row whose
+# from_did carries this prefix was authenticated by the server.
+_JWT_DID_PREFIX = "did:key:jwt-"
 
 LEGACY_CONVERSATION_CONTINUATION_DETAIL = (
     "Conversation cannot be continued because the latest signed message does not bind conversation_id"
@@ -15,6 +23,16 @@ LEGACY_CONVERSATION_CONTINUATION_DETAIL = (
 
 
 def message_verification_status(row: dict[str, Any]) -> VerificationStatus:
+    # Server-attributed token messages come first: a Better Auth subject holds
+    # no self-custodial signing key, so the server verifies the bearer JWT and
+    # writes the message under the synthetic did:key:jwt-<subject> routing DID
+    # with no client envelope signature. The persisted from_did is set by the
+    # server (a client cannot forge it), so its presence IS the attribution —
+    # surface it as "verified_server" instead of the misleading "unverified".
+    row_from_did = str(row.get("from_did") or "").strip()
+    if row_from_did.startswith(_JWT_DID_PREFIX):
+        return "verified_server"
+
     signed_payload = str(row.get("signed_payload") or "")
     signature = str(row.get("signature") or "")
     if not signed_payload or not signature:
