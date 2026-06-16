@@ -169,16 +169,39 @@ reason, rather than driving removed commands or pretending to pass:
   headless way to stand up two federated, cross-server-routable identities, so
   the journey cannot be made green by a script rewrite — it needs a **product
   decision** on whether/how federation onboarding survives the pivot.
-- **A2A gateway:** two blockers, the load-bearing one in **Go, not bash**: the
-  OSS gateway's `cli/go/cmd/aweb-a2a-gw/main.go:workspaceMailClient` hard-requires
-  a team certificate (`missing cert_path`, `LoadTeamCertificate`,
-  `NewWithCertificate`, awid resolver). Token-only `aw init` writes a cert-less
-  workspace, so the gateway literally cannot build a mail client from it. The
-  awid Go client already has a bearer path (`SetBearerProvider`) and the
-  channel product was ported (follow-up 1) — porting the gateway is the same
-  shape, but it is a feature change out of scope for a bash rewrite. The gateway
-  health gate also still asserts awid-registry reachability + an active global
-  `gateway_identity`. Reliable A2A signal post-pivot stays `make test-a2a`.
+- **A2A gateway:** the load-bearing **Go blocker is now RESOLVED**; the script
+  stays quarantined only for the remaining **bash/Docker** rewrite.
+  - **DONE (Go):** the OSS gateway's `workspaceMailClient` previously
+    hard-required a team certificate (`missing cert_path`, `LoadTeamCertificate`,
+    `NewWithCertificate`, awid resolver), so it could not build a mail client
+    from a cert-less token-only workspace at all. It now branches: when the
+    resolved membership has no `cert_path`, it calls the new
+    `cli/go/cmd/aweb-a2a-gw/token_auth.go:tokenWorkspaceMailClient`, which builds
+    an `awid.Client` via `SetBearerProvider` (token from `AW_TOKEN` /
+    `~/.aw/token`, auto-refreshed) + `SetTeamID`, sending
+    `Authorization: Bearer <jwt>` + `X-AWEB-Team-Id` — mirroring the channel
+    product's port (follow-up 1). The local self-custodial signing key is wired
+    as the E2EE envelope-signing key so outgoing plaintext/E2EE mail is signed
+    from the gateway's real did:key. The legacy cert/DIDKey path is untouched
+    (branch on mode). Gates: `go build ./...`, `go test -c ./cmd/aweb-a2a-gw/`,
+    a2a/a2agw/conformance, and `make fmt` all green; focused unit tests
+    (`token_auth_test.go`) + a gated live test (`token_auth_live_test.go`)
+    added. **Verified live**: token-only `aw init` workspace (cert-less,
+    `cert_path: ""`, no `.aw/team-certs/`) + `AW_TOKEN=$JWT` → the gateway's real
+    `workspaceMailClient` made an authenticated aweb call (`ListAgents` → HTTP
+    200, 4 agents) with no cert error; the same gateway booted against the
+    workspace and served its agent card on `/health` 200. The no-token path
+    fails closed with an actionable "set AW_TOKEN or run `aw login`" message
+    (not a confusing cert error).
+  - **STILL TODO (bash/Docker):** the journey drives removed onboarding
+    commands (`aw id create` / `aw id team` / `aw init --url`) and needs a full
+    Docker stack (incl. the UI issuer to mint a JWT) plus a revisited health
+    gate (it still asserts awid-registry reachability + an active global
+    `gateway_identity`; the non-AC workspace path reports identity
+    "workspace"/usable, so a token-only journey should target that mode). That
+    rewrite + a green Docker run was **not** done in this pass, so the script
+    remains quarantined (exit 1 by design) with its reason updated to say the Go
+    blocker is cleared. Reliable A2A signal post-pivot stays `make test-a2a`.
 
 **Makefile:** `test-e2e` now runs the green token-only journey;
 `test-federation-e2e` / `test-a2a-gateway-e2e` are documented as quarantined

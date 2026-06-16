@@ -7,44 +7,42 @@
 #
 # Why it is quarantined
 # ---------------------
-# Two independent blockers, both rooted in the token-only pivot:
+# UPDATE (token-only pivot follow-up): the Go-level blocker below is RESOLVED.
+# The OSS gateway's `workspaceMailClient` now has a token-only branch
+# (`cli/go/cmd/aweb-a2a-gw/token_auth.go`): a cert-less workspace builds an
+# `awid.Client` via `SetBearerProvider` from `AW_TOKEN` / `~/.aw/token`, sending
+# `Authorization: Bearer <jwt>` + `X-AWEB-Team-Id` instead of the cert/DIDKey
+# path. Verified live against a token-only `aw init` workspace + aweb :8088
+# (authenticated ListAgents -> 200, no cert error). So blocker #2 is GONE.
 #
-# 1. ONBOARDING (removed CLI): the journey provisioned its identities/team with
-#    `aw id create`, `aw id team create / invite / accept-invite`, and onboarded
-#    with `aw init --url`. All of those were removed by the pivot
-#    (`--url` is now `--aweb-url`; the whole `aw id team` / `aw id create`
-#    cluster is gone). That part is a mechanical rewrite, but...
+# It stays quarantined because the remaining blockers are bash/Docker-shaped and
+# were not validated green in this pass:
 #
-# 2. THE GATEWAY ITSELF IS STILL CERT-ONLY (Go code, not a script bug). The OSS
-#    gateway builds its aweb mail transport in
-#    `cli/go/cmd/aweb-a2a-gw/main.go:workspaceMailClient`, which HARD-REQUIRES a
-#    team certificate:
-#      - errors with "missing cert_path" when the workspace has no cert,
-#      - calls `awid.LoadTeamCertificate` + `awid.NewWithCertificate`,
-#      - cross-checks the local signing key against `cert.MemberDIDKey`,
-#      - resolves recipients through the awid registry.
-#    Token-only `aw init` writes a CERT-LESS workspace (no `.aw/team-certs/`),
-#    so `workspaceMailClient` cannot construct a client from it at all. The awid
-#    Go client already supports a bearer path (`Client.SetBearerProvider`), and
-#    the gateway's *AC-config* mode uses a bearer token for its config fetch —
-#    but the OSS workspace mail transport was never ported to it.
+# 1. ONBOARDING (removed CLI): the journey still drives removed commands —
+#    `aw id create`, `aw id team create / invite / accept-invite`, and
+#    `aw init --url`. The pivot removed all of these (`--url` is now
+#    `--aweb-url`; the `aw id team` / `aw id create` cluster is gone). The
+#    journey must be rewritten to mint a JWT and run `AW_TOKEN=$JWT aw init
+#    --aweb-url --team` instead.
 #
-# So no amount of bash rewriting makes this green: the gateway needs a
-# token-only `workspaceMailClient` branch (a Go feature change) before a
-# token-only A2A journey is even possible. The gateway's health check also still
-# asserts awid-registry reachability/compatibility and an active global
-# `gateway_identity`, which token-only onboarding does not provision.
+# 2. HEALTH GATE / gateway_identity: the gateway's runtime health still asserts
+#    awid-registry reachability/compatibility and (in AC mode) an active global
+#    `gateway_identity`, which token-only onboarding does not provision. The
+#    workspace (non-AC) path reports identity status "workspace"/usable, so a
+#    token-only journey should target that mode; the health expectations in this
+#    script need revisiting accordingly.
 #
-# What needs to happen before this can be un-quarantined (Go work, then bash):
-#   1. Add a token-only branch to `workspaceMailClient` (and/or a config field)
-#      that builds an `awid.Client` via `SetBearerProvider` from `AW_TOKEN` /
-#      `~/.aw/token`, sending `Authorization: Bearer <jwt>` + `X-AWEB-Team-Id`
-#      instead of the DIDKey/cert path — mirroring what the channel product
-#      already did for its token-only path (see PIVOT-FOLLOWUPS.md §1).
-#   2. Decide how (or whether) the gateway needs a global `gateway_identity` and
-#      awid registry in the token-only world, and relax the health gate
-#      accordingly.
-#   3. Then rewrite this journey to: stand up the full stack (incl. the UI
+# 3. FULL DOCKER STACK: the journey must stand up the full stack (incl. the UI
+#    issuer for JWT minting) on safe ports and drive a real A2A round-trip; that
+#    rewrite + a green Docker run is the remaining work and was not done here.
+#
+# RESOLVED (this pass) — keep for the record:
+#   [done] Add a token-only branch to `workspaceMailClient` that builds an
+#          `awid.Client` via `SetBearerProvider` from `AW_TOKEN` / `~/.aw/token`,
+#          mirroring the channel product's token-only path (PIVOT-FOLLOWUPS.md §1).
+#   [todo] Decide how (or whether) the gateway needs a global `gateway_identity`
+#          and awid registry in the token-only world, and relax the health gate.
+#   [todo] Then rewrite this journey to: stand up the full stack (incl. the UI
 #      issuer) on safe ports like scripts/e2e-oss-user-journey.sh does, mint a
 #      JWT for the gateway + personal identities, `AW_TOKEN=$JWT aw init
 #      --aweb-url --team`, point the gateway at the token-only workspace, and
@@ -60,15 +58,18 @@
 set -euo pipefail
 
 cat >&2 <<'MSG'
-=== A2A gateway Docker e2e: QUARANTINED ===
+=== A2A gateway Docker e2e: QUARANTINED (Go blocker resolved; bash/Docker rewrite pending) ===
 
-This journey cannot pass after the token-only pivot:
-  (1) it drove removed onboarding commands (aw id create / aw id team /
-      aw init --url), AND
-  (2) the OSS gateway's mail transport (workspaceMailClient in
-      cli/go/cmd/aweb-a2a-gw/main.go) is STILL cert-only — it hard-requires a
-      team certificate that token-only `aw init` no longer writes. Porting the
-      gateway to a bearer-token transport is a Go change, not a script fix.
+The gateway's mail transport is no longer cert-only: workspaceMailClient
+(cli/go/cmd/aweb-a2a-gw/token_auth.go) now bearer-authenticates token-only
+workspaces (Authorization: Bearer <jwt> + X-AWEB-Team-Id), verified live.
+
+This journey still cannot pass unmodified because:
+  (1) it drives removed onboarding commands (aw id create / aw id team /
+      aw init --url) and must be rewritten to AW_TOKEN=$JWT aw init
+      --aweb-url --team, AND
+  (2) it needs a full Docker stack (incl. the UI issuer to mint a JWT) and a
+      revisited health gate before a real A2A round-trip can run green.
 
 Reliable A2A gate post-pivot:
   make test-a2a   (conformance + a2a/a2agw packages + awid a2a-publication)

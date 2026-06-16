@@ -1197,7 +1197,11 @@ func workspaceMailClient(workspaceDir, teamIDOverride, registryURLOverride, gate
 		certPath = strings.TrimSpace(workspaceMembership.CertPath)
 	}
 	if certPath == "" {
-		return nil, "", fmt.Errorf("team %q is missing cert_path", teamID)
+		// Token-only (cert-less) binding: the pivoted `aw init` writes a
+		// membership with no cert_path and no .aw/team-certs/. Authenticate with
+		// a bearer JWT (Authorization: Bearer + X-AWEB-Team-Id) instead of a team
+		// certificate. The cert path below is preserved for legacy workspaces.
+		return tokenWorkspaceMailClient(workspaceDir, teamIDOverride, registryURLOverride, gatewayIdentityOverride)
 	}
 	if !filepath.IsAbs(certPath) {
 		certPath = filepath.Join(root, ".aw", filepath.FromSlash(certPath))
