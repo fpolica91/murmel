@@ -8,7 +8,11 @@ import httpx
 
 from awid.log import canonical_server_origin
 
-from .envelope import FederatedDeliveryRequest, FederationEnvelope
+from .envelope import (
+    FederatedDeliveryRequest,
+    FederationEnvelope,
+    ServerDeliveryAssertion,
+)
 
 
 class FederatedMailDeliveryError(RuntimeError):
@@ -24,14 +28,20 @@ async def deliver_federated_message(
     delivery_origin: str,
     envelope: FederationEnvelope,
     signature: str,
+    assertion: ServerDeliveryAssertion | None = None,
     transport: httpx.AsyncBaseTransport | None = None,
     timeout: float = 10.0,
 ) -> dict[str, Any]:
-    """POST a sender-signed mail/chat envelope to a remote aweb delivery origin."""
+    """POST a sender-signed mail/chat envelope to a remote aweb delivery origin.
+
+    Under Option A.2 the request also carries a server-vouched outer ``assertion``
+    (serialized into the body) wrapping the inner participant-signed envelope.
+    """
     origin = canonical_server_origin(delivery_origin)
     request_body = FederatedDeliveryRequest(
         envelope=envelope,
         signature=signature,
+        assertion=assertion,
     ).model_dump(mode="json", exclude_none=True)
     try:
         async with httpx.AsyncClient(transport=transport, timeout=timeout) as client:
@@ -73,6 +83,7 @@ async def deliver_federated_mail(
     delivery_origin: str,
     envelope: FederationEnvelope,
     signature: str,
+    assertion: ServerDeliveryAssertion | None = None,
     transport: httpx.AsyncBaseTransport | None = None,
     timeout: float = 10.0,
 ) -> dict[str, Any]:
@@ -80,6 +91,7 @@ async def deliver_federated_mail(
         delivery_origin=delivery_origin,
         envelope=envelope,
         signature=signature,
+        assertion=assertion,
         transport=transport,
         timeout=timeout,
     )

@@ -6,14 +6,19 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from awid.log import canonical_server_origin
+from awid.signing import verify_did_key_signature
 
 from aweb.config import get_settings
 from aweb.deps import get_db
 from aweb.e2ee_messages import encrypted_message_storage_metadata
 from aweb.federation.envelope import (
+    FEDERATION_TIMESTAMP_SKEW_SECONDS,
     FederatedDeliveryRequest,
     FederationEnvelope,
     FederationEnvelopeError,
+    ServerDeliveryAssertion,
+    assertion_signing_bytes,
+    compute_envelope_hash,
     verify_federation_envelope,
 )
 from aweb.hooks import fire_mutation_hook
@@ -117,65 +122,93 @@ async def _backfill_federated_sender_current_key(db, envelope: FederationEnvelop
 
 
 
-async def _verify_sender_current_key(registry_client, envelope: FederationEnvelope) -> None:
-    if envelope.sender_did_aw.startswith("did:key:"):
-        if envelope.sender_current_did_key != envelope.sender_did_aw:
-            raise HTTPException(status_code=422, detail="Federation sender local key mismatch")
-        return
-    try:
-        resolution = await registry_client.resolve_key(envelope.sender_did_aw)
-        if (
-            resolution
-            and resolution.current_did_key != envelope.sender_current_did_key
-            and hasattr(registry_client, "resolve_key_fresh")
-        ):
-            resolution = await registry_client.resolve_key_fresh(envelope.sender_did_aw)
-    except Exception as exc:
-        raise HTTPException(status_code=503, detail="AWID registry unavailable") from exc
-    if not resolution or resolution.current_did_key != envelope.sender_current_did_key:
-        raise HTTPException(status_code=422, detail="Federation sender current key mismatch")
-
-
-async def _resolve_target_identity(
-    registry_client,
-    envelope: FederationEnvelope,
-    *,
-    stored_route_continuation: bool = False,
-):
-    if stored_route_continuation:
-        return None
-    if "/" not in envelope.target_address:
-        raise HTTPException(status_code=422, detail="Federation first-contact target_address must be domain/name")
-    try:
-        domain, name = _split_address(envelope.target_address)
-        resolved = await registry_client.resolve_address(domain, name)
-    except HTTPException:
-        raise
-    except Exception as exc:
-        raise HTTPException(status_code=503, detail="AWID registry unavailable") from exc
-    if resolved is None:
-        raise HTTPException(status_code=404, detail="Federation target identity not found")
-    if resolved.did_aw != envelope.target_did_aw:
-        raise HTTPException(status_code=422, detail="Federation target did:aw mismatch")
-    if resolved.current_did_key != envelope.target_current_did_key:
-        raise HTTPException(status_code=422, detail="Federation target current key mismatch")
-    delivery = getattr(resolved, "delivery", None)
-    try:
-        resolved_origin = canonical_server_origin(
-            str(getattr(delivery, "origin", "") or "").strip()
-        )
-    except Exception as exc:
-        raise HTTPException(status_code=424, detail="Federation target address has no delivery origin") from exc
-    if resolved_origin != envelope.target_delivery_origin:
-        raise HTTPException(status_code=422, detail="Federation target delivery origin mismatch")
-    return resolved
-
-
-
-
 def _require_target_origin_here(request: Request, envelope: FederationEnvelope) -> None:
     if envelope.target_delivery_origin not in _public_origins(request):
         raise HTTPException(status_code=421, detail="Federation message is addressed to a different delivery origin")
+
+
+def _enforce_assertion_skew(assertion: ServerDeliveryAssertion) -> None:
+    now = datetime.now(timezone.utc)
+    timestamp = _parse_timestamp(assertion.timestamp)
+    if abs((now - timestamp).total_seconds()) > FEDERATION_TIMESTAMP_SKEW_SECONDS:
+        raise HTTPException(status_code=422, detail="Federation assertion timestamp outside accepted skew")
+
+
+def _verify_server_assertion(
+    request: Request,
+    assertion: ServerDeliveryAssertion,
+    envelope: FederationEnvelope,
+):
+    """Steps 3-5 of the inbound order: allowlist, binding, pinned-key signature.
+
+    Returns the matched :class:`Peer` so callers can confirm federation is
+    configured. Raises HTTPException with the precise spec status on any failure.
+    """
+    # Step 3: allowlisted origin — checked BEFORE any crypto.
+    origin = canonical_server_origin(assertion.server_origin)
+    by_origin = getattr(request.app.state, "federation_peers_by_origin", None) or {}
+    peer = by_origin.get(origin)
+    if peer is None:
+        raise HTTPException(status_code=403, detail="Federation peer origin not allowlisted")
+
+    # Step 4: assertion <-> envelope binding (all mismatches => 422).
+    if assertion.message_id != envelope.message_id:
+        raise HTTPException(status_code=422, detail="Federation assertion message_id does not match envelope")
+    if assertion.sender_did_key != envelope.sender_current_did_key:
+        raise HTTPException(status_code=422, detail="Federation assertion sender_did_key does not match envelope")
+    if assertion.sender_address != (envelope.sender_address or ""):
+        raise HTTPException(status_code=422, detail="Federation assertion sender_address does not match envelope")
+    if assertion.target_address != envelope.target_address:
+        raise HTTPException(status_code=422, detail="Federation assertion target_address does not match envelope")
+    if assertion.server_origin != (envelope.sender_delivery_origin or ""):
+        raise HTTPException(status_code=422, detail="Federation assertion server_origin does not match envelope sender origin")
+    if assertion.envelope_hash != compute_envelope_hash(envelope):
+        raise HTTPException(status_code=422, detail="Federation assertion envelope_hash does not match envelope")
+    _enforce_assertion_skew(assertion)
+
+    # Step 5: outer server signature against the PINNED key (config, not wire).
+    try:
+        verify_did_key_signature(
+            did_key=peer.pinned_server_did,
+            payload=assertion_signing_bytes(assertion),
+            signature_b64=assertion.server_signature,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=403, detail="Federation server signature invalid") from exc
+    return peer
+
+
+async def _resolve_local_target(db, envelope: FederationEnvelope) -> None:
+    """Local agent-directory resolution of target domain/name (replaces awid).
+
+    Asserts the locally-resolved agent's did_key matches the envelope's
+    target_current_did_key and that the agent's address domain is one B serves.
+    Stored-route continuations (existing did:key conversations) are validated
+    elsewhere and skip first-contact directory resolution.
+    """
+    if _is_local_did_key(envelope.target_did_aw):
+        # did:key targets are routed by an existing conversation, validated below.
+        return
+    domain, name = _split_address(envelope.target_address)
+    aweb_db = db.get_manager("aweb")
+    row = await aweb_db.fetch_one(
+        """
+        SELECT did_key, did_aw, address
+        FROM {{tables.agents}}
+        WHERE deleted_at IS NULL
+          AND lower(address) = lower($1)
+        ORDER BY created_at DESC
+        LIMIT 1
+        """,
+        envelope.target_address,
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Federation target identity not found")
+    resolved_address = str(row["address"] or "").strip()
+    if "/" not in resolved_address or resolved_address.split("/", 1)[0].strip().lower() != domain.lower():
+        raise HTTPException(status_code=422, detail="Federation target address domain not served here")
+    if str(row["did_key"] or "").strip() != envelope.target_current_did_key:
+        raise HTTPException(status_code=422, detail="Federation target current key mismatch")
 
 
 def _delivery_response(envelope: FederationEnvelope, *, message_id: str, conversation_id: str, created_at: datetime) -> dict:
@@ -516,18 +549,43 @@ async def _ensure_federated_chat_session(db, envelope: FederationEnvelope, recip
     return str(session_id)
 
 
+@router.get("/server-key")
+async def get_federation_server_key(request: Request):
+    """Unauthenticated server-key advertisement (JWKS-style).
+
+    Convenience for manual peer pinning ONLY. It is never consulted at verify
+    time — B always verifies against the *configured pinned* key.
+    """
+    server_key = getattr(request.app.state, "federation_server_key", None)
+    if server_key is None:
+        raise HTTPException(status_code=404, detail="Federation server key is not provisioned")
+    configured = str(getattr(request.app.state, "public_origin", "") or "").strip()
+    server_origin = canonical_server_origin(configured) if configured else get_settings().public_origin
+    return {"server_origin": server_origin, "public_did": server_key.public_did}
+
+
 @router.post("/messages")
 async def receive_federated_message(
     request: Request,
     payload: FederatedDeliveryRequest,
     db=Depends(get_db),
 ):
+    # Step 1: type gate.
     if payload.envelope.type not in {"mail", "chat"}:
         raise HTTPException(status_code=422, detail="Federation endpoint accepts mail or chat")
-    registry_client = getattr(request.app.state, "awid_registry_client", None)
-    if registry_client is None:
-        raise HTTPException(status_code=503, detail="AWID registry unavailable")
 
+    # Step 2: assertion present (A.2 — no registry fallback).
+    if payload.assertion is None:
+        raise HTTPException(status_code=403, detail="Federation requires a server delivery assertion")
+
+    # Steps 3-5: allowlist (before crypto), assertion<->envelope binding, then the
+    # outer server signature against the PINNED key.
+    _verify_server_assertion(request, payload.assertion, payload.envelope)
+
+    # Step 6: target origin is here.
+    _require_target_origin_here(request, payload.envelope)
+
+    # Step 7: inner participant signature + binding (UNCHANGED, PRESERVED).
     try:
         envelope = verify_federation_envelope(
             payload.envelope,
@@ -545,15 +603,15 @@ async def receive_federated_message(
     except FederationEnvelopeError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    _require_target_origin_here(request, envelope)
-    await _verify_sender_current_key(registry_client, envelope)
+    # Step 8: local directory resolution (replaces registry). The assertion
+    # already vouched for sender_current_did_key; keep the did:key self-key guard.
+    if envelope.sender_did_aw.startswith("did:key:") and envelope.sender_current_did_key != envelope.sender_did_aw:
+        raise HTTPException(status_code=422, detail="Federation sender local key mismatch")
     stored_route_continuation = await _federated_stored_route_continuation_exists(db, envelope)
-    await _resolve_target_identity(
-        registry_client,
-        envelope,
-        stored_route_continuation=stored_route_continuation,
-    )
+    if not stored_route_continuation:
+        await _resolve_local_target(db, envelope)
 
+    # Step 9: recipient resolution + authorization (unchanged).
     recipient = await resolve_agent_by_did(db, envelope.target_did_aw)
     if recipient is None:
         recipient = await resolve_agent_by_did(db, envelope.target_current_did_key)
@@ -603,7 +661,7 @@ async def receive_federated_message(
             )
             message_id, created_at = await deliver_message(
                 db,
-                registry_client=registry_client,
+                registry_client=getattr(request.app.state, "awid_registry_client", None),
                 recipient_agent=recipient,
                 from_did=envelope.sender_did_aw,
                 to_did=envelope.target_did_aw,

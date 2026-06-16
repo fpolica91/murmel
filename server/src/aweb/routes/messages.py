@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from typing import Optional
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_serializer, model_validator
@@ -18,9 +18,13 @@ from aweb.e2ee_messages import (
 from aweb.federation.envelope import (
     FederationEnvelope,
     FederationEnvelopeError,
+    ServerDeliveryAssertion,
+    assertion_signing_bytes,
+    compute_envelope_hash,
     verify_federation_envelope,
 )
 from aweb.federation.mail import FederatedMailDeliveryError, deliver_federated_mail
+from awid.signing import sign_message
 from aweb.hooks import fire_mutation_hook
 from aweb.identity_metadata import lookup_identity_metadata_by_did
 from aweb.identity_auth_deps import MessagingAuth, auth_dids, get_messaging_auth
@@ -687,7 +691,33 @@ async def _validate_encrypted_payload(
     return encrypted_message_storage_metadata(payload.encrypted_envelope or {})
 
 
-def _remote_delivery_origin(recipient: dict | None) -> str:
+def _recipient_address_domain(recipient: dict | None) -> str:
+    address = str((recipient or {}).get("address") or "").strip()
+    if "/" in address:
+        return address.split("/", 1)[0].strip().lower()
+    return ""
+
+
+def _peer_for_recipient(request: Request, recipient: dict | None):
+    """Return the allowlisted federation peer for the recipient's domain, if any."""
+    by_domain = getattr(request.app.state, "federation_peers_by_domain", None) or {}
+    domain = _recipient_address_domain(recipient)
+    if not domain:
+        return None
+    return by_domain.get(domain)
+
+
+def _remote_delivery_origin(request: Request, recipient: dict | None) -> str:
+    """Resolve where to POST a federated message.
+
+    Option A.2 trigger: the recipient address domain found in the explicit peer
+    allowlist (``federation_peers_by_domain``) takes precedence — the peer's
+    pinned delivery origin is the POST target. A registry-era origin on the agent
+    row remains a fallback for mixed deployments.
+    """
+    peer = _peer_for_recipient(request, recipient)
+    if peer is not None:
+        return peer.delivery_origin
     return str((recipient or {}).get("delivery_origin") or "").strip()
 
 
@@ -741,7 +771,7 @@ async def _deliver_remote_mail_and_project_locally(
     created_at: datetime | None,
     msg_uuid: UUID | None,
 ) -> SendMessageResponse:
-    delivery_origin = _remote_delivery_origin(recipient)
+    delivery_origin = _remote_delivery_origin(request, recipient)
     if not delivery_origin:
         raise HTTPException(
             status_code=424,
@@ -823,11 +853,52 @@ async def _deliver_remote_mail_and_project_locally(
     except FederationEnvelopeError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
+    # Option A.2: wrap the (preserved) inner envelope in a server-vouched outer
+    # delivery assertion. Never send unsigned — if the server key is not
+    # provisioned the federated branch fails closed with 424.
+    server_key = getattr(request.app.state, "federation_server_key", None)
+    if server_key is None:
+        raise HTTPException(
+            status_code=424,
+            detail="Federation server signing key is not provisioned",
+        )
+    if envelope.sender_current_did_key.startswith("did:key:jwt-"):
+        # The synthetic routing key must never enter the signed surface or the
+        # assertion. The self-custodial key is required for federated send.
+        raise HTTPException(
+            status_code=422,
+            detail="Federated mail delivery requires a self-custodial sender key",
+        )
+    if not (envelope.sender_address or "").strip():
+        raise HTTPException(
+            status_code=422,
+            detail="Federated mail delivery requires a sender address",
+        )
+    assertion = ServerDeliveryAssertion(
+        server_origin=_local_public_origin(request),
+        sender_did_key=envelope.sender_current_did_key,
+        sender_address=envelope.sender_address,
+        target_address=envelope.target_address,
+        envelope_hash=compute_envelope_hash(envelope),
+        message_id=envelope.message_id,
+        timestamp=envelope.timestamp,
+        nonce=str(uuid4()),
+        server_signature="placeholder",
+    )
+    assertion = assertion.model_copy(
+        update={
+            "server_signature": sign_message(
+                server_key.private_key, assertion_signing_bytes(assertion)
+            )
+        }
+    )
+
     try:
         remote = await deliver_federated_mail(
             delivery_origin=delivery_origin,
             envelope=envelope,
             signature=federation_signature,
+            assertion=assertion,
             transport=getattr(request.app.state, "federation_mail_transport", None),
         )
     except FederatedMailDeliveryError as exc:

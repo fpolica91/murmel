@@ -26,8 +26,16 @@ from aweb.e2ee_messages import (
     encrypted_message_storage_metadata,
     validate_e2ee_message_envelope,
 )
-from aweb.federation.envelope import FederationEnvelope, FederationEnvelopeError, verify_federation_envelope
+from aweb.federation.envelope import (
+    FederationEnvelope,
+    FederationEnvelopeError,
+    ServerDeliveryAssertion,
+    assertion_signing_bytes,
+    compute_envelope_hash,
+    verify_federation_envelope,
+)
 from aweb.federation.mail import FederatedMailDeliveryError, deliver_federated_message
+from awid.signing import sign_message
 from aweb.hooks import fire_mutation_hook
 from aweb.identity_metadata import lookup_identity_metadata_by_did, routable_chat_address
 from aweb.identity_auth_deps import MessagingAuth, auth_dids, get_messaging_auth
@@ -663,11 +671,39 @@ async def _deliver_federated_chat(
     except FederationEnvelopeError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
+    # Option A.2: wrap the inner envelope in a server-vouched outer assertion.
+    server_key = getattr(request.app.state, "federation_server_key", None)
+    if server_key is None:
+        raise HTTPException(status_code=424, detail="Federation server signing key is not provisioned")
+    if envelope.sender_current_did_key.startswith("did:key:jwt-"):
+        raise HTTPException(status_code=422, detail="Federated chat delivery requires a self-custodial sender key")
+    if not (envelope.sender_address or "").strip():
+        raise HTTPException(status_code=422, detail="Federated chat delivery requires a sender address")
+    assertion = ServerDeliveryAssertion(
+        server_origin=_local_public_origin(request),
+        sender_did_key=envelope.sender_current_did_key,
+        sender_address=envelope.sender_address,
+        target_address=envelope.target_address,
+        envelope_hash=compute_envelope_hash(envelope),
+        message_id=envelope.message_id,
+        timestamp=envelope.timestamp,
+        nonce=str(uuid_mod.uuid4()),
+        server_signature="placeholder",
+    )
+    assertion = assertion.model_copy(
+        update={
+            "server_signature": sign_message(
+                server_key.private_key, assertion_signing_bytes(assertion)
+            )
+        }
+    )
+
     try:
         return await deliver_federated_message(
             delivery_origin=route["delivery_origin"],
             envelope=envelope,
             signature=federation_signature,
+            assertion=assertion,
             transport=_federation_transport(request),
         )
     except FederatedMailDeliveryError as exc:

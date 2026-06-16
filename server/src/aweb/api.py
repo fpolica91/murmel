@@ -115,6 +115,30 @@ def _build_awid_registry_client(app: FastAPI, redis: Redis | None) -> RegistryCl
     return client_class(**client_kwargs)
 
 
+async def _setup_federation_trust(app: FastAPI, db_infra: DatabaseInfra) -> None:
+    """Provision the server federation signing key + load the peer allowlist.
+
+    Empty/absent ``AWEB_FEDERATION_PEERS`` => federation is disabled (no outbound
+    trigger; inbound rejects every assertion at the allowlist gate). The signing
+    key is still generated so this server can advertise its public did.
+    """
+    from .federation.server_key import ensure_server_key, load_federation_peers, PEERS_ENV
+
+    server_key = await ensure_server_key(db_infra)
+    by_domain, by_origin = load_federation_peers(os.getenv(PEERS_ENV))
+    app.state.federation_server_key = server_key
+    app.state.federation_peers_by_domain = by_domain
+    app.state.federation_peers_by_origin = by_origin
+    settings = get_settings()
+    if not getattr(app.state, "public_origin", None):
+        app.state.public_origin = settings.public_origin
+    logger.info(
+        "Federation trust configured: server_did=%s peers=%d",
+        server_key.public_did,
+        len(by_domain),
+    )
+
+
 async def _validate_awid_registry_client(registry_client: RegistryClient) -> None:
     # The token-auth product does not require awid at runtime; only the legacy
     # DIDKey identity-messaging path uses it. Warn (don't fail startup) when it
@@ -162,6 +186,7 @@ def _make_standalone_lifespan():
             app.state.on_mutation = create_mutation_handler(redis, default_db_infra)
             app.state.awid_registry_client = _build_awid_registry_client(app, redis)
             await _validate_awid_registry_client(app.state.awid_registry_client)
+            await _setup_federation_trust(app, default_db_infra)
             await _mount_mcp_app(app, default_db_infra, redis, app.state.awid_registry_client)
 
         except Exception:
@@ -207,6 +232,7 @@ def _make_library_lifespan(db_infra: DatabaseInfra, redis: Redis):
         app.state.on_mutation = create_mutation_handler(redis, db_infra)
         app.state.awid_registry_client = _build_awid_registry_client(app, redis)
         await _validate_awid_registry_client(app.state.awid_registry_client)
+        await _setup_federation_trust(app, db_infra)
         await _mount_mcp_app(app, db_infra, redis, app.state.awid_registry_client)
 
         try:

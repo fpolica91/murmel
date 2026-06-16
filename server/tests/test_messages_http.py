@@ -24,6 +24,13 @@ from aweb.identity_auth_deps import (
     MessagingAuth,
     get_messaging_auth,
 )
+from aweb.federation.envelope import (
+    ServerDeliveryAssertion,
+    assertion_signing_bytes,
+    compute_envelope_hash,
+)
+from aweb.federation.envelope import FederationEnvelope as _FederationEnvelope
+from aweb.federation.server_key import Peer, ServerKey
 from aweb.routes.federation import router as federation_router
 from aweb.routes.messages import router as messages_router
 
@@ -33,6 +40,49 @@ def _make_keypair():
     pk = bytes(sk.verify_key)
     did_key = did_from_public_key(pk)
     return bytes(sk), pk, did_key
+
+
+def _make_server_key():
+    """A deterministic-per-call server federation signing key for tests."""
+    sk = SigningKey.generate()
+    pk = bytes(sk.verify_key)
+    return bytes(sk), did_from_public_key(pk)
+
+
+# Fixed sender-server signing key + origin used by the inbound federation tests.
+# The receiving app pins SENDER_SERVER_DID for SENDER_SERVER_ORIGIN.
+SENDER_SERVER_PRIVATE, SENDER_SERVER_DID = _make_server_key()
+SENDER_SERVER_ORIGIN = "https://sender.example"
+
+
+def _attach_server_assertion(
+    payload: dict,
+    *,
+    server_private: bytes,
+    server_origin: str,
+) -> dict:
+    """Build + sign a server delivery assertion bound to payload['envelope']."""
+    env = _FederationEnvelope.model_validate(payload["envelope"])
+    assertion = ServerDeliveryAssertion(
+        server_origin=server_origin,
+        sender_did_key=env.sender_current_did_key,
+        sender_address=env.sender_address or "",
+        target_address=env.target_address,
+        envelope_hash=compute_envelope_hash(env),
+        message_id=env.message_id,
+        timestamp=env.timestamp,
+        nonce=str(uuid4()),
+        server_signature="placeholder",
+    )
+    assertion = assertion.model_copy(
+        update={
+            "server_signature": sign_message(
+                server_private, assertion_signing_bytes(assertion)
+            )
+        }
+    )
+    payload["assertion"] = assertion.model_dump(mode="json")
+    return payload
 
 
 def _signed_identity_headers(agent_sk, agent_did_key, did_aw: str, body_bytes=b""):
@@ -204,6 +254,26 @@ def _build_test_app(aweb_db, registry):
     app.state.rate_limiter = None
     app.state.awid_registry_client = registry
     app.state.public_origin = "http://test"
+    # Federation (Option A.2): this server has its own signing key, and inbound
+    # it pins the fixed sender-server key for SENDER_SERVER_ORIGIN. Outbound, the
+    # peer-domain index is empty so the recipient.delivery_origin fallback fires.
+    local_private, local_did = _make_server_key()
+    app.state.federation_server_key = ServerKey(private_key=local_private, public_did=local_did)
+    app.state.federation_peers_by_domain = {}
+    # Inbound: pin the fixed sender-server key for every sender origin the
+    # federation receive tests use. All test assertions are signed by
+    # SENDER_SERVER_PRIVATE, so SENDER_SERVER_DID is the pinned key for each.
+    app.state.federation_peers_by_origin = {
+        origin: Peer(
+            addressing_domain=domain,
+            delivery_origin=origin,
+            pinned_server_did=SENDER_SERVER_DID,
+        )
+        for origin, domain in (
+            ("https://sender.example", "alpha.example"),
+            ("https://remote.example", "remote.example"),
+        )
+    }
     return app
 
 
@@ -3462,10 +3532,15 @@ def _federated_mail_payload(
         "subject": subject,
         "priority": priority,
     }
-    return {
+    payload = {
         "envelope": envelope,
         "signature": sign_message(sender_sk, signed_payload.encode()),
     }
+    return _attach_server_assertion(
+        payload,
+        server_private=SENDER_SERVER_PRIVATE,
+        server_origin=sender_delivery_origin,
+    )
 
 
 @pytest.mark.asyncio
@@ -3503,12 +3578,18 @@ async def test_receive_old_v1_federated_mail_ignores_deprecated_fields_and_deliv
         target_did_key=bob_did_key,
     )
     payload["envelope"].update(_deprecated_federation_v1_fields())
+    # The assertion is bound to the inner envelope hash, so re-vouch after adding
+    # the deprecated compatibility fields.
+    _attach_server_assertion(
+        payload,
+        server_private=SENDER_SERVER_PRIVATE,
+        server_origin=payload["envelope"]["sender_delivery_origin"],
+    )
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.post("/v1/federation/messages", json=payload)
 
     assert resp.status_code == 200, resp.text
-    registry.resolve_address.assert_awaited_with("beta.example", "bob")
     envelope = payload["envelope"]
     assert resp.json()["message_id"] == envelope["message_id"]
     assert resp.json()["conversation_id"] == envelope["conversation_id"]
@@ -3558,9 +3639,10 @@ async def test_receive_federated_mail_first_contact_to_unknown_local_didkey_fail
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.post("/v1/federation/messages", json=payload)
 
-    assert resp.status_code == 422, resp.text
-    assert "Federation first-contact target_address must be domain/name" in resp.text
-    registry.resolve_key.assert_awaited_once_with("did:aw:alice")
+    # A.2: first-contact to an unknown local did:key fails closed — no awid
+    # resolution, the local directory has no such agent.
+    assert resp.status_code == 404, resp.text
+    assert "Federation recipient agent not found" in resp.text
     assert await aweb_cloud_db.aweb_db.fetch_value("SELECT COUNT(*) FROM {{tables.messages}}") == 0
 
 
@@ -3595,8 +3677,10 @@ async def test_receive_federated_mail_existing_local_didkey_first_contact_fails_
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.post("/v1/federation/messages", json=payload)
 
-    assert resp.status_code == 422, resp.text
-    assert "Federation first-contact target_address must be domain/name" in resp.text
+    # A.2: an existing local did:key agent still requires an existing conversation
+    # for first contact; bare-did first contact fails closed.
+    assert resp.status_code == 404, resp.text
+    assert "requires an existing conversation" in resp.text
     assert await aweb_cloud_db.aweb_db.fetch_value("SELECT COUNT(*) FROM {{tables.messages}}") == 0
 
 
@@ -3953,7 +4037,6 @@ async def test_receive_federated_mail_stored_route_rejects_wrong_target_current_
         bob_did_key,
     )
     registry = AsyncMock()
-    registry.resolve_key = AsyncMock(return_value=KeyResolution(did_aw="did:aw:alice", current_did_key=alice_did_key))
     registry.resolve_address = AsyncMock(side_effect=AssertionError("stored-route rejection must not rediscover target address"))
     app = _build_test_app(aweb_cloud_db.aweb_db, registry)
     app.state.public_origin = "https://recipient.example"
@@ -3975,7 +4058,6 @@ async def test_receive_federated_mail_stored_route_rejects_wrong_target_current_
 
     assert resp.status_code == 422, resp.text
     assert "Federation target current key mismatch" in resp.text
-    registry.resolve_key.assert_awaited_once_with("did:aw:alice")
     registry.resolve_address.assert_not_called()
     assert await aweb_cloud_db.aweb_db.fetch_value(
         "SELECT COUNT(*) FROM {{tables.messages}} WHERE conversation_id = $1",
@@ -4105,6 +4187,11 @@ async def test_receive_federated_encrypted_mail_routes_ciphertext_only(aweb_clou
         },
         "signature": encrypted["signature"],
     }
+    _attach_server_assertion(
+        payload,
+        server_private=SENDER_SERVER_PRIVATE,
+        server_origin="https://sender.example",
+    )
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         first = await client.post("/v1/federation/messages", json=payload)
@@ -4124,6 +4211,12 @@ async def test_receive_federated_encrypted_mail_routes_ciphertext_only(aweb_clou
         different_payload["envelope"]["timestamp"] = different_encrypted["created_at"]
         different_payload["envelope"]["encrypted_envelope"] = different_encrypted
         different_payload["signature"] = different_encrypted["signature"]
+        different_payload.pop("assertion", None)
+        _attach_server_assertion(
+            different_payload,
+            server_private=SENDER_SERVER_PRIVATE,
+            server_origin="https://sender.example",
+        )
         different = await client.post("/v1/federation/messages", json=different_payload)
 
     assert first.status_code == 200, first.text
@@ -4231,6 +4324,14 @@ async def test_receive_federated_encrypted_mail_rejects_plaintext_wrapper_and_ti
         for field, value, expected in variants:
             payload = json.loads(json.dumps(base_payload))
             payload["envelope"][field] = value
+            # Re-vouch the assertion over the mutated envelope so verification
+            # reaches the inner encrypted-binding gate (step 7) under test here,
+            # rather than failing earlier on the assertion envelope_hash.
+            _attach_server_assertion(
+                payload,
+                server_private=SENDER_SERVER_PRIVATE,
+                server_origin="https://sender.example",
+            )
             resp = await client.post("/v1/federation/messages", json=payload)
             assert resp.status_code == 422, (field, resp.text)
             assert expected in resp.text
@@ -4282,18 +4383,23 @@ async def test_receive_federated_mail_rejects_sender_key_drift(aweb_cloud_db):
         address="beta.example/bob",
     )
     registry = AsyncMock()
-    registry.resolve_key = AsyncMock(return_value=KeyResolution(did_aw="did:aw:alice", current_did_key="did:key:z6MkRotated"))
-    registry.resolve_address = AsyncMock()
     app = _build_test_app(aweb_cloud_db.aweb_db, registry)
     app.state.public_origin = "https://recipient.example"
-    payload = _federated_mail_payload(sender_sk=alice_sk, sender_did_key=alice_did_key, target_did_key=bob_did_key)
+    # A.2: the local agent directory is the target authority. An envelope whose
+    # target_current_did_key has drifted from bob's stored self-custodial key is
+    # rejected locally (no awid resolution).
+    drifted_key = "did:key:z6MkDriftedBobKeyzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
+    payload = _federated_mail_payload(
+        sender_sk=alice_sk,
+        sender_did_key=alice_did_key,
+        target_did_key=drifted_key,
+    )
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.post("/v1/federation/messages", json=payload)
 
     assert resp.status_code == 422, resp.text
-    assert "sender current key mismatch" in resp.text
-    registry.resolve_address.assert_not_called()
+    assert "target current key mismatch" in resp.text
 
 
 @pytest.mark.asyncio
@@ -4310,28 +4416,23 @@ async def test_receive_federated_mail_rejects_target_binding_mismatch(aweb_cloud
         address="beta.example/bob",
     )
     registry = AsyncMock()
-    registry.resolve_key = AsyncMock(return_value=KeyResolution(did_aw="did:aw:alice", current_did_key=alice_did_key))
-    registry.resolve_address = AsyncMock(
-        return_value=Address(
-            address_id=str(uuid4()),
-            domain="beta.example",
-            name="bob",
-            did_aw="did:aw:mallory",
-            current_did_key=bob_did_key,
-            reachability="public",
-            created_at=datetime.now(timezone.utc).isoformat(),
-            delivery=AddressDelivery(origin="https://recipient.example"),
-        )
-    )
     app = _build_test_app(aweb_cloud_db.aweb_db, registry)
     app.state.public_origin = "https://recipient.example"
-    payload = _federated_mail_payload(sender_sk=alice_sk, sender_did_key=alice_did_key, target_did_key=bob_did_key)
+    # A.2: a target_address that does not resolve to any local agent fails closed
+    # (no awid fallback). beta.example/mallory is not served here.
+    payload = _federated_mail_payload(
+        sender_sk=alice_sk,
+        sender_did_key=alice_did_key,
+        target_address="beta.example/mallory",
+        target_did_aw="did:aw:mallory",
+        target_did_key=bob_did_key,
+    )
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.post("/v1/federation/messages", json=payload)
 
-    assert resp.status_code == 422, resp.text
-    assert "target did:aw mismatch" in resp.text
+    assert resp.status_code == 404, resp.text
+    assert "Federation target identity not found" in resp.text
 
 
 @pytest.mark.asyncio

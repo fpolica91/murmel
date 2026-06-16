@@ -21,11 +21,27 @@ def mcp_messaging_auth(auth: AuthContext) -> MessagingAuth:
     )
 
 
+async def mcp_federation_server_key(db_infra):
+    """Resolve this server's federation signing key for MCP-initiated sends.
+
+    Idempotent: reads the cached single-row key (or generates it once) so the
+    outbound MCP path can sign the Option A.2 server delivery assertion. Returns
+    None only if the DB is unavailable — callers fail closed with 424.
+    """
+    from aweb.federation.server_key import ensure_server_key
+
+    try:
+        return await ensure_server_key(db_infra)
+    except Exception:
+        return None
+
+
 def mcp_federation_request(
     *,
     public_origin: str | None = None,
     mail_transport: Any = None,
     chat_transport: Any = None,
+    federation_server_key: Any = None,
 ):
     origin = (public_origin or "").strip() or get_settings().public_origin
     state = SimpleNamespace(
@@ -33,6 +49,9 @@ def mcp_federation_request(
         federation_mail_transport=mail_transport,
         federation_chat_transport=chat_transport,
         federation_message_transport=chat_transport,
+        federation_server_key=federation_server_key,
+        federation_peers_by_domain={},
+        federation_peers_by_origin={},
     )
     app = SimpleNamespace(state=state)
     return SimpleNamespace(app=app, headers={})

@@ -9,6 +9,7 @@ sender signature over a different federation wrapper.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from datetime import datetime, timezone
 from typing import Any, Literal, Mapping
@@ -17,7 +18,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from awid.log import canonical_server_origin
-from awid.signing import verify_did_key_signature
+from awid.signing import canonical_json_bytes, verify_did_key_signature
 from aweb.e2ee_messages import E2EEEnvelopeError, validate_e2ee_message_envelope
 
 FEDERATION_ENVELOPE_VERSION = 1
@@ -114,6 +115,57 @@ class FederationEnvelope(BaseModel):
         return value
 
 
+class ServerDeliveryAssertion(BaseModel):
+    """Outer, server-vouched delivery assertion (Option A.2).
+
+    A's server signs this over the inner participant-signed envelope, vouching
+    "my member ``sender_address`` (self-custodial key ``sender_did_key``) sent
+    this exact inner envelope to ``target_address``." It is verified by B against
+    A's *pinned* server key. The inner envelope/signature are unchanged; this is
+    the wrapper around them.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    version: Literal[1] = 1
+    server_origin: str = Field(..., min_length=1, max_length=512)
+    sender_did_key: str = Field(..., min_length=1, max_length=256)
+    sender_address: str = Field(..., min_length=1, max_length=256)
+    target_address: str = Field(..., min_length=1, max_length=256)
+    envelope_hash: str = Field(..., min_length=1, max_length=128)
+    message_id: str = Field(..., min_length=1, max_length=64)
+    timestamp: str = Field(..., min_length=1, max_length=64)
+    nonce: str = Field(..., min_length=1, max_length=64)
+    server_signature: str = Field(..., min_length=1, max_length=512)
+
+    @field_validator("server_origin")
+    @classmethod
+    def _canon_origin(cls, value: str) -> str:
+        return canonical_server_origin(value)
+
+    @field_validator("sender_did_key")
+    @classmethod
+    def _validate_sender_did_key(cls, value: str) -> str:
+        value = value.strip()
+        if not value.startswith("did:key:"):
+            raise ValueError("must be a did:key")
+        return value
+
+    @field_validator("message_id", "nonce")
+    @classmethod
+    def _validate_assertion_uuid(cls, value: str) -> str:
+        try:
+            return str(UUID(value.strip()))
+        except Exception as exc:
+            raise ValueError("must be a UUID") from exc
+
+    @field_validator("timestamp")
+    @classmethod
+    def _validate_assertion_timestamp(cls, value: str) -> str:
+        _parse_timestamp(value)
+        return value
+
+
 class FederatedDeliveryRequest(BaseModel):
     """Request body sent from one aweb server to another."""
 
@@ -121,6 +173,34 @@ class FederatedDeliveryRequest(BaseModel):
 
     envelope: FederationEnvelope
     signature: str = Field(..., min_length=1, max_length=512)
+    assertion: ServerDeliveryAssertion | None = None
+
+
+def compute_envelope_hash(envelope: FederationEnvelope) -> str:
+    """sha256 hex over the canonical inner-envelope bytes.
+
+    Binds the outer assertion to the *entire* inner envelope: any tampered inner
+    field changes this hash and the outer server signature fails.
+    """
+    canonical = canonical_json_bytes(envelope.model_dump(mode="json", exclude_none=True))
+    return hashlib.sha256(canonical).hexdigest()
+
+
+def assertion_signing_bytes(assertion: ServerDeliveryAssertion) -> bytes:
+    """Canonical bytes the server signs / verifies (all fields but the signature)."""
+    return canonical_json_bytes(
+        {
+            "version": assertion.version,
+            "server_origin": assertion.server_origin,
+            "sender_did_key": assertion.sender_did_key,
+            "sender_address": assertion.sender_address,
+            "target_address": assertion.target_address,
+            "envelope_hash": assertion.envelope_hash,
+            "message_id": assertion.message_id,
+            "timestamp": assertion.timestamp,
+            "nonce": assertion.nonce,
+        }
+    )
 
 
 def verify_federation_envelope(

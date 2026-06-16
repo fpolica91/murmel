@@ -44,6 +44,7 @@ from aweb.mcp.signing import (
 )
 from aweb.mcp.tools.federation import (
     mcp_federation_request,
+    mcp_federation_server_key,
     mcp_messaging_auth,
     registry_delivery_origin,
 )
@@ -604,6 +605,7 @@ async def chat_send(
                     mcp_federation_request(
                         public_origin=public_origin,
                         chat_transport=federation_transport,
+                        federation_server_key=await mcp_federation_server_key(db_infra),
                     ),
                     payload,
                     auth=mcp_messaging_auth(auth),
@@ -766,6 +768,7 @@ async def chat_send(
                     mcp_federation_request(
                         public_origin=public_origin,
                         chat_transport=federation_transport,
+                        federation_server_key=await mcp_federation_server_key(db_infra),
                     ),
                     payload,
                     auth=mcp_messaging_auth(auth),

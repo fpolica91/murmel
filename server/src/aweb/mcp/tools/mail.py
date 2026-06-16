@@ -23,6 +23,7 @@ from aweb.mcp.signing import (
 from aweb.e2ee_messages import encrypted_message_storage_metadata
 from aweb.mcp.tools.federation import (
     mcp_federation_request,
+    mcp_federation_server_key,
     mcp_messaging_auth,
     registry_delivery_origin,
 )
@@ -288,6 +289,7 @@ async def send_mail(
                     mcp_federation_request(
                         public_origin=public_origin,
                         mail_transport=federation_transport,
+                        federation_server_key=await mcp_federation_server_key(db_infra),
                     ),
                     payload,
                     db_infra,
@@ -497,6 +499,7 @@ async def send_mail(
                 mcp_federation_request(
                     public_origin=public_origin,
                     mail_transport=federation_transport,
+                    federation_server_key=await mcp_federation_server_key(db_infra),
                 ),
                 payload,
                 db_infra,

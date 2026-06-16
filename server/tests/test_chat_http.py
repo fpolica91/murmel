@@ -17,7 +17,14 @@ from awid.did import did_from_public_key
 from awid.registry import Address, AddressDelivery, KeyResolution
 from awid.signing import canonical_json_bytes, sign_message
 from aweb.e2ee_messages import E2EE_SUITE, _envelope_map, _hash_canonical, _key_wrap_map
-from aweb.federation.envelope import verify_federation_envelope
+from aweb.federation.envelope import (
+    FederationEnvelope as _FederationEnvelope,
+    ServerDeliveryAssertion,
+    assertion_signing_bytes,
+    compute_envelope_hash,
+    verify_federation_envelope,
+)
+from aweb.federation.server_key import Peer, ServerKey
 from aweb.identity_auth_deps import IDENTITY_DID_AW_HEADER, MessagingAuth, get_messaging_auth
 from aweb.identity_metadata import routable_chat_address
 from aweb.routes import chat as chat_routes
@@ -30,6 +37,39 @@ def _make_keypair():
     pk = bytes(sk.verify_key)
     did_key = did_from_public_key(pk)
     return bytes(sk), pk, did_key
+
+
+def _make_server_key():
+    sk = SigningKey.generate()
+    return bytes(sk), did_from_public_key(bytes(sk.verify_key))
+
+
+# Fixed sender-server signing key used by the inbound chat federation tests.
+SENDER_SERVER_PRIVATE, SENDER_SERVER_DID = _make_server_key()
+
+
+def _attach_server_assertion(payload: dict, *, server_origin: str) -> dict:
+    env = _FederationEnvelope.model_validate(payload["envelope"])
+    assertion = ServerDeliveryAssertion(
+        server_origin=server_origin,
+        sender_did_key=env.sender_current_did_key,
+        sender_address=env.sender_address or "",
+        target_address=env.target_address,
+        envelope_hash=compute_envelope_hash(env),
+        message_id=env.message_id,
+        timestamp=env.timestamp,
+        nonce=str(uuid4()),
+        server_signature="placeholder",
+    )
+    assertion = assertion.model_copy(
+        update={
+            "server_signature": sign_message(
+                SENDER_SERVER_PRIVATE, assertion_signing_bytes(assertion)
+            )
+        }
+    )
+    payload["assertion"] = assertion.model_dump(mode="json")
+    return payload
 
 
 def _signed_identity_headers(agent_sk, agent_did_key, did_aw: str, body_bytes=b""):
@@ -204,6 +244,22 @@ def _build_test_app(aweb_db, registry):
     app.state.redis = None
     app.state.rate_limiter = None
     app.state.awid_registry_client = registry
+    # Federation (Option A.2): own signing key + pin the fixed sender-server key
+    # for every sender origin the chat receive tests use.
+    local_private, local_did = _make_server_key()
+    app.state.federation_server_key = ServerKey(private_key=local_private, public_did=local_did)
+    app.state.federation_peers_by_domain = {}
+    app.state.federation_peers_by_origin = {
+        origin: Peer(
+            addressing_domain=domain,
+            delivery_origin=origin,
+            pinned_server_did=SENDER_SERVER_DID,
+        )
+        for origin, domain in (
+            ("https://sender.example", "alpha.example"),
+            ("https://remote.example", "remote.example"),
+        )
+    }
     return app
 
 
@@ -1023,10 +1079,11 @@ def _federated_chat_payload(
         "signed_payload": signed_payload,
         "conversation_id": conversation_id,
     }
-    return {
+    payload = {
         "envelope": envelope,
         "signature": sign_message(sender_sk, signed_payload.encode()),
     }
+    return _attach_server_assertion(payload, server_origin=sender_delivery_origin)
 
 
 @pytest.mark.asyncio
@@ -1069,12 +1126,14 @@ async def test_receive_old_v1_federated_chat_ignores_deprecated_fields_and_deliv
         target_did_key=bob_did_key,
     )
     payload["envelope"].update(_deprecated_federation_v1_fields())
+    _attach_server_assertion(
+        payload, server_origin=payload["envelope"]["sender_delivery_origin"]
+    )
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.post("/v1/federation/messages", json=payload)
 
     assert resp.status_code == 200, resp.text
-    registry.resolve_address.assert_awaited_with("beta.example", "bob")
     session_id = resp.json()["session_id"]
     assert session_id == payload["envelope"]["conversation_id"]
     message = await aweb_cloud_db.aweb_db.fetch_one(
@@ -1209,8 +1268,10 @@ async def test_receive_federated_chat_existing_local_didkey_first_contact_fails_
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.post("/v1/federation/messages", json=payload)
 
-    assert resp.status_code == 422, resp.text
-    assert "Federation first-contact target_address must be domain/name" in resp.text
+    # A.2: an existing local did:key agent still requires an existing session for
+    # first contact; bare-did first contact fails closed.
+    assert resp.status_code == 404, resp.text
+    assert "requires an existing session" in resp.text
     assert await aweb_cloud_db.aweb_db.fetch_value("SELECT COUNT(*) FROM {{tables.chat_messages}}") == 0
 
 
@@ -1467,7 +1528,6 @@ async def test_receive_federated_chat_stored_route_rejects_wrong_target_current_
 
     assert resp.status_code == 422, resp.text
     assert "Federation target current key mismatch" in resp.text
-    registry.resolve_key.assert_awaited_once_with("did:aw:alice")
     registry.resolve_address.assert_not_called()
     assert await aweb_cloud_db.aweb_db.fetch_value(
         "SELECT COUNT(*) FROM {{tables.chat_messages}} WHERE session_id = $1",
