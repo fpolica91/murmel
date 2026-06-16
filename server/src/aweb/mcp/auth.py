@@ -170,17 +170,71 @@ class MCPAuthMiddleware:
             raise HTTPException(status_code=401, detail=str(exc)) from exc
 
         team_id = _select_team(auth, request.headers.get(TEAM_ID_HEADER))
-        alias = (auth.agent_name or auth.subject or "").strip() or None
+        did_key = f"did:key:jwt-{auth.subject}"
+        alias = await self._resolve_token_alias(auth, team_id, did_key)
 
         return AuthContext(
             team_id=team_id,
             agent_id=auth.subject,
             workspace_id=None,
             alias=alias,
-            did_key=f"did:key:jwt-{auth.subject}",
+            did_key=did_key,
             did_aw=None,
             address=None,
         )
+
+    async def _resolve_token_alias(
+        self, auth: Any, team_id: str, did_key: str
+    ) -> str | None:
+        """Resolve the caller's display alias for chat/mail attribution.
+
+        Token (Better Auth JWT) callers have no team certificate, but the REST
+        pipeline idempotently upserts a human ``agents`` row keyed by the
+        synthetic routing DID ``did:key:jwt-<subject>`` (see
+        :func:`aweb.identity_auth_deps.provision_human_participant`). That row's
+        ``alias`` is the authoritative, team-unique display name (e.g.
+        ``"Ada (agent)"``) used as chat ``from_alias`` and issue ``assignee_id``.
+
+        Previously this fell straight back to ``auth.subject`` whenever the JWT
+        carried no ``agent_name`` claim, so MCP-attributed chat/mail showed the
+        raw Better Auth subject string instead of the participant's name. We now
+        prefer the provisioned participant alias, then the verified ``name``
+        claim, then ``agent_name``, and only use the opaque subject as a last
+        resort.
+        """
+        try:
+            aweb_db = _aweb_db(self.db_infra)
+            row = await aweb_db.fetch_one(
+                """
+                SELECT alias
+                FROM {{tables.agents}}
+                WHERE did_key = $1 AND team_id = $2 AND deleted_at IS NULL
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                did_key,
+                team_id,
+            )
+        except Exception:  # pragma: no cover - directory lookup must not block auth
+            logger.warning(
+                "token alias lookup failed for subject in team %s",
+                team_id,
+                exc_info=True,
+            )
+            row = None
+
+        candidates: list[str | None] = []
+        if row is not None:
+            candidates.append(row["alias"])
+        if isinstance(getattr(auth, "claims", None), dict):
+            candidates.append(auth.claims.get("name"))
+        candidates.append(auth.agent_name)
+        candidates.append(auth.subject)
+        for candidate in candidates:
+            value = (candidate or "").strip()
+            if value:
+                return value
+        return None
 
     async def _resolve_proxy_auth(self, internal: dict[str, str]) -> AuthContext:
         aweb_db = _aweb_db(self.db_infra)

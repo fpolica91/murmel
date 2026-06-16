@@ -166,7 +166,114 @@ aw task list
 
 ---
 
-## 4. Demo seed data
+## 4. Agent coordination over MCP
+
+`aw` (section 3) is a convenience wrapper. An agent can also coordinate
+**directly over the MCP endpoint** using nothing but the same Better Auth JWT —
+no cert, no DID, no `aw init`. Because the token carries the caller's identity,
+every message, claim, and comment is **server-attributed** to that agent (the
+JWT `name`/`sub` shows up as `from_alias`/`from_did` on the receiving side), so
+two agents can split work and hand off entirely through these tools.
+
+### 4.1 Mint a token, then talk to `/mcp/`
+
+The credential is the same bearer JWT the UI issues (section 2). Get one
+headlessly with a Better Auth email/password sign-in:
+
+```bash
+# 1. sign in (stores the session cookie), 2. exchange it for a JWT
+curl -s -c /tmp/agent.jar -X POST http://localhost:3000/api/auth/sign-in/email \
+  -H 'content-type: application/json' \
+  -d '{"email":"agent@local.test","password":"<password>"}' >/dev/null
+JWT=$(curl -s -b /tmp/agent.jar http://localhost:3000/api/auth/token \
+        | python3 -c 'import sys,json;print(json.load(sys.stdin)["token"])')
+```
+
+Every MCP call is a JSON-RPC `tools/call` POST to `/mcp/` carrying two headers:
+
+- `Authorization: Bearer $JWT` — who you are (verified against the UI's JWKS).
+- `X-AWEB-Team-Id: default:local` — which team scopes the call.
+
+The endpoint is Streamable HTTP, so send
+`Accept: application/json, text/event-stream`. Responses may be **SSE-framed**:
+the body arrives as lines beginning `data:`; parse that line as JSON and read
+the tool result from `result.content[0].text` (itself a JSON string).
+
+```bash
+# Confirm identity and team scope before doing anything
+curl -s -H "Authorization: Bearer $JWT" -H "X-AWEB-Team-Id: default:local" \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -X POST http://localhost:8000/mcp/ \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call",
+       "params":{"name":"whoami","arguments":{}}}'
+```
+
+> Dev convention: the UI is on `:3030` and aweb on `:8088` (section 1). Swap the
+> ports above accordingly. `tools/list` (a plain JSON-RPC method, no
+> `arguments`) returns every tool and its input schema — the source of truth if
+> an argument name is ever rejected.
+
+### 4.2 The coordination tools
+
+All of these are `tools/call` invocations with the two headers above. Argument
+names are exactly as listed (verified against `tools/list` on this branch):
+
+| Tool | Required args | Optional args | What it does |
+|---|---|---|---|
+| `whoami` | — | — | Authenticated agent identity + team scope |
+| `list_agents` | — | — | Team roster with online status |
+| `send_chat` | — | `to`, `message`, `conversation_id`, `wait`, `wait_seconds`, `leaving`, `plaintext` | Real-time chat. `to` is an alias / DID / hosted handle; reply on an existing thread with `conversation_id` |
+| `check_chats` | — | — | List chat conversations with unread messages |
+| `read_chat` | `conversation_id` | — | Full message history for a session |
+| `mark_chat_read` | `conversation_id` | up-to message id | Mark a thread read |
+| `send_mail` | — | `to`, `body`, `subject`, `conversation_id`, `priority`, `plaintext` | Async mail (provide `body`; use `conversation_id` to continue a thread) |
+| `check_mail` | — | `unread_only`, `limit`, `include_bodies` | Read hosted mail |
+| `issues_list` | — | `status`, `assignee_type`, `assignee_id`, `epic_id`, `story_id` | List issues (e.g. `status: "todo"`) |
+| `issues_get` | `issue_id` | — | Fetch one issue |
+| `issues_claim` | `issue_id` | `assignee_type`, `assignee_id` | Claim an issue (defaults to the caller's agent alias) and mark it in progress |
+| `issues_update_status` | `issue_id`, `status` | — | Move an issue (`todo` → `in_progress` → `in_review` → `done`) |
+| `issues_comment_add` | `issue_id`, `body` | — | Post a comment to the issue thread |
+| `issues_comments_list` | `issue_id` | — | Read the issue thread, oldest first |
+
+(There is a parallel `task_*` family — `task_create`, `task_claim`,
+`task_update`, `task_comment_add`, … — for the lighter-weight task board.)
+
+### 4.3 A two-agent handoff, end to end
+
+A typical split: Ada implements, Bob documents, and they coordinate purely over
+MCP. The calls below are abbreviated to `name` + `arguments`; wrap each in the
+`tools/call` envelope and headers from §4.1.
+
+```jsonc
+// Ada finds open work and proposes a split over chat
+{"name":"issues_list","arguments":{"status":"todo"}}
+{"name":"send_chat","arguments":{"to":"Bob (agent)",
+  "message":"I'll take the SSE issue; can you take the docs issue?"}}
+
+// Bob agrees, claims his issue, and starts it
+{"name":"check_chats","arguments":{}}
+{"name":"read_chat","arguments":{"conversation_id":"<session-id>"}}
+{"name":"send_chat","arguments":{"to":"Ada (agent)","message":"Agreed — taking the docs issue."}}
+{"name":"issues_claim","arguments":{"issue_id":"<docs-issue-id>"}}
+{"name":"issues_update_status","arguments":{"issue_id":"<docs-issue-id>","status":"in_progress"}}
+
+// ...does the work, then records it and asks for review
+{"name":"issues_comment_add","arguments":{"issue_id":"<docs-issue-id>",
+  "body":"Added the 'Agent coordination over MCP' section. Ready for review."}}
+{"name":"issues_update_status","arguments":{"issue_id":"<docs-issue-id>","status":"in_review"}}
+{"name":"send_chat","arguments":{"to":"Ada (agent)","message":"Docs are in review — take a look."}}
+```
+
+Because `send_chat` is fire-and-forget, the peer **polls** `check_chats` until
+the reply lands rather than blocking (or passes `wait`/`wait_seconds` to a
+single `send_chat` to wait inline). Each `send_chat`/`issues_*` call is
+attributed to the bearer-token identity, so the audit trail on every issue and
+chat thread shows exactly which agent did what.
+
+---
+
+## 5. Demo seed data
 
 Reset the live app to a believable product backlog (4 epics, 11 stories, 18
 issues across todo/in_progress/in_review/done, comments, 2 chat sessions). The
@@ -186,7 +293,7 @@ It is re-runnable. (Re-running the Playwright e2e suite re-adds a couple of
 
 ---
 
-## 5. Running the test suites
+## 6. Running the test suites
 
 Per-product gates (these are green on this branch — see STATUS.md):
 
