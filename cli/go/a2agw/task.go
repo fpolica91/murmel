@@ -3,6 +3,7 @@ package a2agw
 import (
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -356,7 +357,9 @@ func (s *taskStore) expiredLocked(record *taskRecord) bool {
 }
 
 func (r *taskRecord) visibleTo(callerScope, token string) bool {
-	if token != "" && token == r.TaskToken {
+	// Constant-time compare so the capability token can't be recovered by
+	// timing (matches the bearer check in rpc.go).
+	if token != "" && subtle.ConstantTimeCompare([]byte(token), []byte(r.TaskToken)) == 1 {
 		return true
 	}
 	return callerScope != "" && callerScope == r.CallerScope && callerScope != "anonymous:unscoped"
