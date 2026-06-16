@@ -84,7 +84,7 @@ test.describe("aweb — humans as first-class participants (full E2E)", () => {
     await page.getByRole("button", { name: "Start chat" }).click();
 
     // Mia's own message renders under "You".
-    await expect(page.getByText(open)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(open).first()).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText("You").first()).toBeVisible();
 
     // Founder (a human) replies over the API into the session Mia just opened;
@@ -107,7 +107,7 @@ test.describe("aweb — humans as first-class participants (full E2E)", () => {
     await fctx.dispose();
 
     // The UI polls every 4s; wait for Founder's reply to surface with a Human tag.
-    await expect(page.getByText(reply)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(reply).first()).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText("Human", { exact: true }).first()).toBeVisible();
 
     await page.screenshot({
@@ -135,7 +135,7 @@ test.describe("aweb — humans as first-class participants (full E2E)", () => {
     await page.getByPlaceholder("Opening message…").fill(open);
     await page.getByRole("button", { name: "Start chat" }).click();
 
-    await expect(page.getByText(open)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(open).first()).toBeVisible({ timeout: 15_000 });
 
     // Ada (agent) replies over the API; the reply renders with an "Agent" badge.
     const adaJwt = await mintJwt("ada@local.test");
@@ -155,7 +155,7 @@ test.describe("aweb — humans as first-class participants (full E2E)", () => {
     });
     await actx.dispose();
 
-    await expect(page.getByText(reply)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(reply).first()).toBeVisible({ timeout: 15_000 });
     // The peer's bubble carries the unified "AI agent" kind badge.
     await expect(
       page.getByText("AI agent", { exact: true }).first(),

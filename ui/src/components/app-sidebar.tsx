@@ -1,12 +1,16 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { signOut } from "@/lib/auth-client";
 import { TeamSwitcher } from "@/components/team-switcher";
 import { UserBadge } from "@/components/user-badge";
+import { useTeam } from "@/components/team-context";
+import { listChatConversations } from "@/lib/api/chat";
+import { subscribeEvents } from "@/lib/events/eventStream";
 import {
   ChatIcon,
   ConsoleIcon,
@@ -28,6 +32,40 @@ const NAV_LINKS: ReadonlyArray<{
 
 function DashboardNav() {
   const pathname = usePathname();
+  const { activeTeam } = useTeam();
+  const [unreadChat, setUnreadChat] = useState(0);
+
+  // Live unread-chat badge: refresh on the SSE event stream (actionable_chat),
+  // with a slow poll as a fallback so a dropped stream still updates eventually.
+  useEffect(() => {
+    if (!activeTeam) {
+      setUnreadChat(0);
+      return;
+    }
+    let cancelled = false;
+    const refresh = async () => {
+      try {
+        const { conversations } = await listChatConversations(activeTeam);
+        if (!cancelled) {
+          setUnreadChat(
+            conversations.reduce((n, c) => n + (c.unread_count || 0), 0),
+          );
+        }
+      } catch {
+        /* keep the last known count on transient errors */
+      }
+    };
+    void refresh();
+    const unsub = subscribeEvents(activeTeam, (e) => {
+      if (e.type === "actionable_chat") void refresh();
+    });
+    const id = setInterval(() => void refresh(), 30000);
+    return () => {
+      cancelled = true;
+      unsub();
+      clearInterval(id);
+    };
+  }, [activeTeam]);
 
   function isActive(href: string) {
     // Exact match for the Console root; prefix match for the section roots so
@@ -49,6 +87,14 @@ function DashboardNav() {
         >
           {link.icon}
           <span>{link.label}</span>
+          {link.href === "/dashboard/chat" && unreadChat > 0 ? (
+            <span
+              className="sidebar-badge"
+              aria-label={`${unreadChat} unread`}
+            >
+              {unreadChat > 99 ? "99+" : unreadChat}
+            </span>
+          ) : null}
         </Link>
       ))}
     </nav>

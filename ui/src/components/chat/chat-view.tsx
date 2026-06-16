@@ -189,13 +189,13 @@ export function ChatView() {
   }, [activeSessionId, activeTeam, loadMessages]);
 
   // ---- Live updates via the SSE event stream -----------------------------
-  // Instant: a chat_message event refreshes the conversation list and, if it
+  // Instant: an actionable_chat event refreshes the conversation list and, if it
   // belongs to the open thread, the messages. The polling effects above remain
   // as a fallback so a dropped/blocked stream never regresses liveness.
   useEffect(() => {
     if (!activeTeam) return;
     return subscribeEvents(activeTeam, (e) => {
-      if (e.type !== "chat_message") return;
+      if (e.type !== "actionable_chat") return;
       void loadList();
       const sid = activeRef.current;
       if (sid && (!e.session_id || e.session_id === sid)) {
