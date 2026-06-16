@@ -331,3 +331,33 @@ memberships: []
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestLoadWorktreeWorkspaceFromAcceptsCertlessMembership(t *testing.T) {
+	t.Parallel()
+
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "workspace.yaml")
+	if err := os.WriteFile(path, []byte(strings.TrimSpace(`
+aweb_url: https://app.aweb.ai
+memberships:
+  - team_id: backend:acme.com
+    alias: alice
+    role_name: developer
+`)+"\n"), 0o600); err != nil {
+		t.Fatalf("write workspace: %v", err)
+	}
+
+	ws, err := LoadWorktreeWorkspaceFrom(path)
+	if err != nil {
+		t.Fatalf("expected cert-less membership to load, got: %v", err)
+	}
+	if len(ws.Memberships) != 1 {
+		t.Fatalf("expected 1 membership, got %d", len(ws.Memberships))
+	}
+	if ws.Memberships[0].CertPath != "" {
+		t.Fatalf("expected empty cert_path, got %q", ws.Memberships[0].CertPath)
+	}
+	if ws.Memberships[0].TeamID != "backend:acme.com" {
+		t.Fatalf("unexpected team_id: %q", ws.Memberships[0].TeamID)
+	}
+}

@@ -223,9 +223,9 @@ func (w *WorktreeWorkspace) validate() error {
 		if membership.TeamID == "" {
 			return errors.New("workspace.yaml membership is missing team_id")
 		}
-		if membership.CertPath == "" {
-			return fmt.Errorf("workspace.yaml membership %q is missing cert_path", membership.TeamID)
-		}
+		// cert_path is optional: token-only bindings authenticate by bearer
+		// token and carry no team certificate. When present it still
+		// round-trips so legacy cert-based workspaces keep working.
 		key := strings.ToLower(membership.TeamID)
 		if _, ok := seen[key]; ok {
 			return fmt.Errorf("workspace.yaml contains duplicate membership for %q", membership.TeamID)
