@@ -504,6 +504,17 @@ func configureResolvedClient(c *aweb.Client, sel *awconfig.Selection, baseURL st
 		Pin:      &awid.PinResolver{Store: ps},
 	})
 
+	// Bearer (SimpleAuth/JWT) clients have no transport signing key (auth is the
+	// token), but they hold a local self-custodial signing key whose did:key is
+	// the identity they published to the server (custody=self). Wire it as the
+	// envelope-signing key so plaintext chat/mail are signed with the real
+	// did:key — recipients then verify the signature against the sender's
+	// published key resolved from the roster, instead of rendering "[unverified]".
+	// No-op for certificate/identity clients (they already carry a signing key).
+	if err := wireBearerE2EESigningKey(c, sel); err != nil {
+		return err
+	}
+
 	configureBaseURLFallback(c, sel, baseURL)
 	return nil
 }

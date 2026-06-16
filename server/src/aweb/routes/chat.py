@@ -61,7 +61,12 @@ from aweb.messaging.chat import (
 from aweb.messaging.conversations import close_conversation
 from aweb.messaging.contacts import get_contact_addresses, is_address_in_contacts, upsert_successful_identity_contact
 from aweb.messaging.handle_addresses import normalize_hosted_handle_reference
-from aweb.messaging.messages import authorize_message_delivery, utc_iso as _utc_iso
+from aweb.messaging.messages import (
+    active_encryption_identity_did,
+    authorize_message_delivery,
+    is_synthetic_jwt_did_key,
+    utc_iso as _utc_iso,
+)
 from aweb.messaging.verification import require_conversation_not_legacy_bound
 from aweb.messaging.waiting import (
     get_waiting_agents,
@@ -273,6 +278,41 @@ def _actor_dids(auth: MessagingAuth) -> list[str]:
         if value and value not in dids:
             dids.append(value)
     return dids
+
+
+async def _resolve_signed_sender_did(
+    db,
+    auth: MessagingAuth,
+    claimed_from_did: str,
+) -> str | None:
+    """Resolve the did:key a signed plaintext chat may claim as from_did.
+
+    For certificate/identity senders the authenticated transport did is the
+    signer, so the claimed from_did must be one of the actor dids. For token
+    humans the transport did is a synthetic ``did:key:jwt-<sub>`` routing
+    placeholder that holds no private key — they sign plaintext envelopes with
+    the real self-custodial did:key published in their active encryption-key
+    assertion (custody=self). The server vouches for that binding by having
+    published it under the authenticated token, so accept the claimed from_did
+    when it matches that real identity_did. Returns the accepted did, or None
+    when the claim does not match any identity the authenticated sender holds.
+    """
+    claimed = str(claimed_from_did or "").strip()
+    actor_dids = set(_actor_dids(auth))
+    if claimed in actor_dids:
+        return claimed
+    # Token-human path: the authenticated transport key is a synthetic JWT
+    # placeholder; allow the claim only if it is the real self-custodial did:key
+    # the server published for this agent's active encryption key.
+    if any(is_synthetic_jwt_did_key(d) for d in actor_dids):
+        real_did = await active_encryption_identity_did(
+            db,
+            agent_id=getattr(auth, "agent_id", None),
+            team_id=getattr(auth, "team_id", None),
+        )
+        if real_did and claimed == str(real_did).strip():
+            return claimed
+    return None
 
 
 def _actor_alias(auth: MessagingAuth, actor_agent: dict[str, Any] | None) -> str:
@@ -1378,8 +1418,10 @@ async def create_or_send(
         if payload.from_did is None or not payload.from_did.strip():
             raise HTTPException(status_code=422, detail="from_did is required when signature is provided")
         from_did = payload.from_did.strip()
-        if from_did not in set(_actor_dids(auth)):
+        resolved_from_did = await _resolve_signed_sender_did(db, auth, from_did)
+        if resolved_from_did is None:
             raise HTTPException(status_code=422, detail="from_did must match the authenticated sender")
+        from_did = resolved_from_did
         if payload.message_id is None or payload.timestamp is None:
             raise HTTPException(
                 status_code=422,
@@ -2306,8 +2348,10 @@ async def send_message(
         if payload.from_did is None or not payload.from_did.strip():
             raise HTTPException(status_code=422, detail="from_did is required when signature is provided")
         from_did = payload.from_did.strip()
-        if from_did not in set(_actor_dids(auth)):
+        resolved_from_did = await _resolve_signed_sender_did(db, auth, from_did)
+        if resolved_from_did is None:
             raise HTTPException(status_code=422, detail="from_did must match the authenticated sender")
+        from_did = resolved_from_did
         if payload.message_id is None or payload.timestamp is None:
             raise HTTPException(
                 status_code=422,

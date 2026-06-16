@@ -77,13 +77,15 @@ func isRegistryAddressNotFound(err error) bool {
 // returns a zero signedFields. Callers stamp the returned fields onto
 // the request struct before posting.
 func (c *Client) signEnvelope(ctx context.Context, env *MessageEnvelope) (signedFields, error) {
-	if c.signingKey == nil {
+	signingKey := c.envelopeSigningKey()
+	signingDID := c.envelopeSigningDID()
+	if signingKey == nil || signingDID == "" {
 		return signedFields{}, nil
 	}
 	if strings.TrimSpace(env.From) == "" {
 		env.From = c.address
 	}
-	env.FromDID = c.did
+	env.FromDID = signingDID
 	env.FromStableID = c.stableID
 	env.Timestamp = time.Now().UTC().Format(time.RFC3339)
 	msgID, err := GenerateUUID4()
@@ -140,17 +142,17 @@ func (c *Client) signEnvelope(ctx context.Context, env *MessageEnvelope) (signed
 		return signedFields{}, &RecipientResolutionError{Target: bindingTarget, MessageType: env.Type, Err: errors.New("missing current did:key")}
 	}
 
-	sig, err := SignMessage(c.signingKey, env)
+	sig, err := SignMessage(signingKey, env)
 	if err != nil {
 		return signedFields{}, fmt.Errorf("sign message: %w", err)
 	}
 	return signedFields{
-		FromDID:       c.did,
+		FromDID:       signingDID,
 		ToDID:         env.ToDID,
 		ToStableID:    env.ToStableID,
 		FromStableID:  c.stableID,
 		Signature:     sig,
-		SigningKeyID:  c.did,
+		SigningKeyID:  signingDID,
 		Timestamp:     env.Timestamp,
 		MessageID:     env.MessageID,
 		SignedPayload: CanonicalJSON(env),
@@ -369,14 +371,30 @@ func (c *Client) addressAlias() string {
 	return ""
 }
 
+// isBearerEnvelopeSigner reports whether this client signs envelopes with a
+// bearer self-custodial key (transport auth is a JWT, not a DIDKey signature).
+// Token humans are addressless local identities: their server-side address is a
+// display/routing hint they cannot present as a signed-from authority, so they
+// must sign envelopes from their real did:key, which the server accepts via the
+// published encryption-key binding.
+func (c *Client) isBearerEnvelopeSigner() bool {
+	return c.signingKey == nil && c.e2eeSigningKey != nil
+}
+
 func (c *Client) signedPayloadFrom(identityTarget, preferAlias bool) string {
 	from := strings.TrimSpace(c.address)
-	if c.signingKey == nil {
+	if !c.canSignEnvelopes() {
 		return from
+	}
+	signingDID := c.envelopeSigningDID()
+	// Bearer self-custodial signers (token humans) have no routable signed-from
+	// address authority; sign from the real did:key the server can verify.
+	if c.isBearerEnvelopeSigner() && c.addressAlias() == "" {
+		return signingDID
 	}
 	if identityTarget {
 		if from == "" {
-			return strings.TrimSpace(c.did)
+			return signingDID
 		}
 		return from
 	}
@@ -391,7 +409,7 @@ func (c *Client) signedPayloadFrom(identityTarget, preferAlias bool) string {
 		}
 	}
 	if from == "" {
-		return strings.TrimSpace(c.did)
+		return signingDID
 	}
 	return from
 }
@@ -472,6 +490,41 @@ func (c *Client) e2eeEnvelopeDID() string {
 // envelopes via either the dedicated E2EE key or the transport signing key.
 func (c *Client) hasE2EESigningMaterial() bool {
 	return c.e2eeEnvelopeSigningKey() != nil && c.e2eeEnvelopeDID() != ""
+}
+
+// envelopeSigningKey returns the key used to sign plaintext message envelopes
+// (mail/chat). Certificate/identity clients sign with the transport key. Bearer
+// (SimpleAuth/JWT) clients have no transport signing key (c.signingKey is nil so
+// transport auth stays on the token), but they DO hold a local self-custodial
+// signing key wired via SetE2EESigningKey. That key — whose did:key is the
+// identity the human published to the server with custody=self — is the correct
+// signer for plaintext envelopes too, so recipients can verify the signature
+// against the sender's published key resolved from the roster. Without this,
+// token-human plaintext chat/mail would be unsigned and render "[unverified]".
+func (c *Client) envelopeSigningKey() ed25519.PrivateKey {
+	if c.signingKey != nil {
+		return c.signingKey
+	}
+	return c.e2eeSigningKey
+}
+
+// envelopeSigningDID returns the did:key to stamp as from_did / signing_key_id
+// on plaintext envelopes — the real self-custodial did:key that matches
+// envelopeSigningKey. This is NEVER the synthetic did:key:jwt-<sub> routing
+// placeholder (that lives only in the server roster's did_key column and the
+// token client never holds it).
+func (c *Client) envelopeSigningDID() string {
+	if c.signingKey != nil {
+		return strings.TrimSpace(c.did)
+	}
+	return strings.TrimSpace(c.e2eeDID)
+}
+
+// canSignEnvelopes reports whether the client can produce a signed plaintext
+// envelope (either via the transport signing key or the bearer self-custodial
+// E2EE signing key).
+func (c *Client) canSignEnvelopes() bool {
+	return c.envelopeSigningKey() != nil && c.envelopeSigningDID() != ""
 }
 
 func (c *Client) ResolveIdentity(ctx context.Context, identifier string) (*ResolvedIdentity, error) {
@@ -665,6 +718,20 @@ func (c *Client) checkTOFUPinWithMeta(ctx context.Context, status VerificationSt
 	defer c.pinStore.mu.Unlock()
 
 	pinKey := fromDID
+
+	// A synthetic did:key:jwt-<sub> is a server-side routing placeholder for a
+	// token human — no one holds its private key, so it can never be a real
+	// verification anchor. If a stale pin recorded it for this address (e.g.
+	// from a pre-signing run), drop it so the sender's real self-custodial
+	// did:key pins cleanly instead of tripping an IdentityMismatch against the
+	// placeholder. The incoming fromDID here is always the signature-verified
+	// real key (status==Verified gated this far).
+	if existingDID, ok := c.pinStore.Addresses[trustAddress]; ok && isSyntheticJWTDIDKey(existingDID) && existingDID != pinKey {
+		delete(c.pinStore.Pins, existingDID)
+		c.pinStore.RemoveAddress(trustAddress)
+		c.savePinStore()
+	}
+
 	if fromStableID != "" {
 		pinKey = fromStableID
 
