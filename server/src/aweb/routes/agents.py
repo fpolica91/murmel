@@ -234,7 +234,12 @@ async def list_agents(
             FROM {{tables.agent_encryption_keys}}
             WHERE agent_id = a.agent_id
               AND team_id = a.team_id
-              AND identity_did = a.did_key
+              -- DID-bound (certificate) participants: the key's signing DID must
+              -- equal the participant's server did:key. Token participants are
+              -- keyed by a synthetic local routing DID (did:key:jwt-<subject>)
+              -- that never signs anything, so their self-custodial key is bound
+              -- by agent_id alone (enforced at publish time).
+              AND (identity_did = a.did_key OR a.did_key LIKE 'did:key:jwt-%')
               AND (
                   (NULLIF(BTRIM(COALESCE(a.did_aw, '')), '') IS NULL
                    AND identity_stable_id IS NULL)
@@ -247,7 +252,11 @@ async def list_agents(
             LIMIT 1
         ) e ON TRUE
         WHERE a.team_id = $1 AND a.deleted_at IS NULL
-          AND COALESCE(a.agent_type, 'agent') != 'human'
+          -- Humans are normally roster-excluded (opaque attribution rows), but a
+          -- human who has published an active E2E encryption key (e.g. a token
+          -- human after `aw init`) must be discoverable so others can send them
+          -- encrypted mail. Attribution rows never publish keys, so they stay out.
+          AND (COALESCE(a.agent_type, 'agent') != 'human' OR e.encryption_key_id IS NOT NULL)
         ORDER BY a.alias
         """,
         identity.team_id,
@@ -464,13 +473,55 @@ async def publish_my_encryption_key(
     db=Depends(get_db),
     identity: TeamIdentity = Depends(get_team_identity),
 ) -> PublishEncryptionKeyResponse:
-    """Publish the calling agent's identity-signed E2E encryption key."""
+    """Publish the calling agent's identity-signed E2E encryption key.
+
+    Two custody models are supported, keyed on how the caller authenticated:
+
+    - **Certificate / DID-bound identities** present a server-side ``did:key``
+      (``identity.did_key``). The assertion's ``identity_did`` must equal that
+      DID (and ``identity_stable_id`` the caller's ``did:aw``), so the published
+      key is bound to the certificate identity that signed it.
+
+    - **Token (Better Auth JWT) identities** have no server-side ``did:key`` —
+      their participant row is keyed by a synthetic, local-only routing DID
+      (``did:key:jwt-<subject>``) that is never used for signature verification.
+      The encryption key they publish is a *self-custodial* key whose
+      ``identity_did`` is the caller's LOCAL ``did:key:z...`` (created by
+      ``aw init``) and is self-signed. We validate the assertion against its own
+      embedded ``identity_did`` (custody MUST be ``self``, no ``did:aw`` stable
+      id), then bind that custodial DID to the authenticated token participant
+      by storing it under their ``agent_id``. The participant row's synthetic
+      ``did_key`` is intentionally left unchanged so re-auth provisioning stays
+      idempotent; discovery (``GET /v1/agents``) matches the key by ``agent_id``.
+    """
     aweb_db = db.get_manager("aweb")
-    expected_stable_id = identity.did_aw.strip() or None
+
+    is_token_identity = (identity.identity_scope or "").strip() == "token" or not (identity.did_key or "").strip()
+
+    if is_token_identity:
+        # Token caller: there is no server-side did:key to match against. The key
+        # is self-custodial — validate it against the assertion's own
+        # identity_did (the local custodial did:key:z...), require custody=self,
+        # and forbid a did:aw stable id (token humans are local-only).
+        custodial_did = (payload.identity_did or "").strip()
+        if (payload.custody or "").strip() and payload.custody != "self":
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "invalid_encryption_key_assertion",
+                    "message": "token identities may only publish self-custodial encryption keys",
+                },
+            )
+        current_did_key = custodial_did
+        expected_stable_id = None
+    else:
+        current_did_key = identity.did_key
+        expected_stable_id = identity.did_aw.strip() or None
+
     try:
         canonical_payload, created_at, not_before, expires_at = validate_encryption_key_assertion(
             payload.model_dump(exclude_none=True),
-            current_did_key=identity.did_key,
+            current_did_key=current_did_key,
             stable_id=expected_stable_id,
             now=datetime.now(timezone.utc),
         )
@@ -483,21 +534,38 @@ async def publish_my_encryption_key(
             },
         )
 
-    row = await aweb_db.fetch_one(
-        """
-        SELECT agent_id, team_id, alias
-        FROM {{tables.agents}}
-        WHERE team_id = $1
-          AND agent_id = $2::UUID
-          AND did_key = $3
-          AND deleted_at IS NULL
-        """,
-        identity.team_id,
-        identity.agent_id,
-        identity.did_key,
-    )
+    if is_token_identity:
+        # Resolve the provisioned participant row by its synthetic routing DID
+        # (identity.agent_id is the JWT subject string, not the UUID agent_id).
+        row = await aweb_db.fetch_one(
+            """
+            SELECT agent_id, team_id, alias
+            FROM {{tables.agents}}
+            WHERE team_id = $1
+              AND did_key = $2
+              AND deleted_at IS NULL
+            """,
+            identity.team_id,
+            f"did:key:jwt-{identity.agent_id}",
+        )
+    else:
+        row = await aweb_db.fetch_one(
+            """
+            SELECT agent_id, team_id, alias
+            FROM {{tables.agents}}
+            WHERE team_id = $1
+              AND agent_id = $2::UUID
+              AND did_key = $3
+              AND deleted_at IS NULL
+            """,
+            identity.team_id,
+            identity.agent_id,
+            identity.did_key,
+        )
     if row is None:
         raise HTTPException(status_code=404, detail="Agent not found")
+
+    resolved_agent_id = str(row["agent_id"])
 
     await aweb_db.execute(
         """
@@ -544,7 +612,7 @@ async def publish_my_encryption_key(
             published_at = NOW(),
             revoked_at = NULL
         """,
-        identity.agent_id,
+        resolved_agent_id,
         identity.team_id,
         payload.encryption_key_id,
         payload.encryption_public_key,

@@ -709,3 +709,119 @@ async def test_publish_my_encryption_key_requires_global_stable_id(aweb_cloud_db
     assert "identity_stable_id" in missing.json()["detail"]["message"]
     assert ok.status_code == 200, ok.text
     assert ok.json()["encryption_key"]["identity_stable_id"] == stable_id
+
+
+@pytest.mark.asyncio
+async def test_token_identity_publishes_self_custodial_key_and_list_returns_it(aweb_cloud_db):
+    """A token (Better Auth JWT) caller publishes a self-custodial E2E key.
+
+    Token participants have no server-side did:key — their agents row is keyed by
+    a synthetic local routing DID (did:key:jwt-<subject>). The key they publish is
+    self-signed with their LOCAL custodial did:key:z..., so it must validate
+    against the assertion's own identity_did (custody=self, no did:aw), bind to
+    the participant by agent_id, and surface in GET /v1/agents for E2E discovery
+    even though the participant is agent_type='human'. Regression for the
+    `aw init` token-only 422 "identity_did must match current did:key".
+    """
+    _, _, team_did_key = _make_keypair()
+    custodial_sk, _, custodial_did_key = _make_keypair()
+
+    await _insert_team(aweb_cloud_db.aweb_db, "backend:acme.com", team_did_key)
+
+    subject = "user-token-subject"
+    synthetic_did = f"did:key:jwt-{subject}"
+    agent_id = uuid4()
+    await aweb_cloud_db.aweb_db.execute(
+        """
+        INSERT INTO {{tables.agents}}
+            (agent_id, team_id, did_key, alias, human_name, agent_type, identity_scope, status)
+        VALUES ($1, $2, $3, $4, $5, 'human', 'local', 'active')
+        """,
+        agent_id,
+        "backend:acme.com",
+        synthetic_did,
+        "Founder",
+        "Founder",
+    )
+
+    # Self-custodial assertion signed by the LOCAL custodial key, NOT the
+    # synthetic routing DID.
+    assertion = _make_encryption_assertion(
+        custodial_sk, did_key=custodial_did_key, custody="self"
+    )
+    body_bytes = json.dumps(assertion, separators=(",", ":")).encode()
+
+    # Token identity: empty server did_key, identity_scope='token', agent_id is
+    # the JWT subject string (NOT the UUID agents.agent_id).
+    app = _build_test_app(
+        aweb_cloud_db.aweb_db,
+        agent_id=subject,
+        did_key="",
+        alias="Founder",
+        identity_scope="token",
+    )
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        publish = await client.put(
+            "/v1/agents/me/encryption-key",
+            content=body_bytes,
+            headers={"Content-Type": "application/json"},
+        )
+        listed = await client.get("/v1/agents")
+
+    assert publish.status_code == 200, publish.text
+    assert publish.json()["agent_id"] == str(agent_id)
+    assert publish.json()["encryption_key"]["encryption_key_id"] == assertion["encryption_key_id"]
+    assert publish.json()["encryption_key"]["identity_did"] == custodial_did_key
+    assert publish.json()["encryption_key"]["custody"] == "self"
+
+    assert listed.status_code == 200, listed.text
+    agents = {a["alias"]: a for a in listed.json()["agents"]}
+    assert "Founder" in agents, listed.text
+    founder = agents["Founder"]
+    assert founder["agent_id"] == str(agent_id)
+    assert founder["encryption_key"]["encryption_key_id"] == assertion["encryption_key_id"]
+    assert founder["encryption_key"]["identity_did"] == custodial_did_key
+
+
+@pytest.mark.asyncio
+async def test_token_identity_rejects_hosted_custodial_key(aweb_cloud_db):
+    """Token callers may only publish self-custodial keys."""
+    _, _, team_did_key = _make_keypair()
+    custodial_sk, _, custodial_did_key = _make_keypair()
+
+    await _insert_team(aweb_cloud_db.aweb_db, "backend:acme.com", team_did_key)
+
+    subject = "user-token-hosted"
+    await aweb_cloud_db.aweb_db.execute(
+        """
+        INSERT INTO {{tables.agents}}
+            (agent_id, team_id, did_key, alias, human_name, agent_type, identity_scope, status)
+        VALUES ($1, $2, $3, $4, $4, 'human', 'local', 'active')
+        """,
+        uuid4(),
+        "backend:acme.com",
+        f"did:key:jwt-{subject}",
+        "Founder",
+    )
+
+    assertion = _make_encryption_assertion(
+        custodial_sk, did_key=custodial_did_key, custody="hosted_custodial"
+    )
+    body_bytes = json.dumps(assertion, separators=(",", ":")).encode()
+
+    app = _build_test_app(
+        aweb_cloud_db.aweb_db,
+        agent_id=subject,
+        did_key="",
+        alias="Founder",
+        identity_scope="token",
+    )
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.put(
+            "/v1/agents/me/encryption-key",
+            content=body_bytes,
+            headers={"Content-Type": "application/json"},
+        )
+
+    assert resp.status_code == 422, resp.text
+    assert "self-custodial" in resp.json()["detail"]["message"]
