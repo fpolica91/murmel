@@ -37,7 +37,7 @@ router = APIRouter(prefix="/v1/namespaces/{domain}/teams", tags=["teams"])
 # ---------------------------------------------------------------------------
 
 
-def _verify_signed_request(
+async def _verify_signed_request(
     request: Request,
     *,
     domain: str,
@@ -48,12 +48,12 @@ def _verify_signed_request(
     payload = {"domain": domain, "operation": operation}
     if extra_payload:
         payload.update(extra_payload)
-    return verify_signed_json_request(request, payload_dict=payload)
+    return await verify_signed_json_request(request, payload_dict=payload)
 
 
 async def _require_namespace_controller(request: Request, db, *, domain: str, operation: str, **extra) -> str:
     """Verify auth and check that the signer is the namespace controller. Returns caller DID."""
-    caller_did = _verify_signed_request(
+    caller_did = await _verify_signed_request(
         request, domain=domain, operation=operation, extra_payload=extra or None,
     )
     row = await db.fetch_one(
@@ -75,7 +75,7 @@ async def _require_team_controller(
     request: Request, db, *, domain: str, name: str, operation: str, **extra,
 ) -> tuple[str, dict]:
     """Verify auth against the team's own public key. Returns (caller_did, team_row)."""
-    caller_did = _verify_signed_request(
+    caller_did = await _verify_signed_request(
         request, domain=domain, operation=operation,
         extra_payload={"team_name": name, **extra} if extra else {"team_name": name},
     )

@@ -73,14 +73,14 @@ _ATOMIC_CLAIM_CONFLICT_CODES = (
 )
 
 
-def _verify_address_signature(
+async def _verify_address_signature(
     request: Request,
     *,
     domain: str,
     name: str,
     operation: str,
 ) -> str:
-    return verify_signed_json_request(
+    return await verify_signed_json_request(
         request,
         payload_dict={
             "domain": domain,
@@ -538,7 +538,7 @@ async def register_address(
     db = db_infra.get_manager("aweb")
     domain = _validate_domain(domain)
 
-    caller_did = _verify_address_signature(
+    caller_did = await _verify_address_signature(
         request, domain=domain, name=body.name, operation="register_address",
     )
 
@@ -990,7 +990,7 @@ async def update_address(
     db = db_infra.get_manager("aweb")
     domain = _validate_domain(domain)
 
-    caller_did = _verify_address_signature(
+    caller_did = await _verify_address_signature(
         request, domain=domain, name=name, operation="update_address",
     )
 
@@ -1054,7 +1054,7 @@ async def delete_address(
     db = db_infra.get_manager("aweb")
     domain = _validate_domain(domain)
 
-    caller_did = _verify_address_signature(
+    caller_did = await _verify_address_signature(
         request, domain=domain, name=name, operation="delete_address",
     )
 
@@ -1122,7 +1122,7 @@ async def reassign_address(
     db = db_infra.get_manager("aweb")
     domain = _validate_domain(domain)
 
-    caller_did = _verify_address_signature(
+    caller_did = await _verify_address_signature(
         request, domain=domain, name=name, operation="reassign_address",
     )
 

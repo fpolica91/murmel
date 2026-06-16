@@ -38,7 +38,7 @@ _PARENT_AUTH_HEADER = "X-AWEB-Parent-Authorization"
 _PARENT_TIMESTAMP_HEADER = "X-AWEB-Parent-Timestamp"
 
 
-def _verify_controller_signature(
+async def _verify_controller_signature(
     request: Request,
     *,
     domain: str,
@@ -53,7 +53,7 @@ def _verify_controller_signature(
     }
     if extra_payload:
         payload_dict.update(extra_payload)
-    return verify_signed_json_request(
+    return await verify_signed_json_request(
         request,
         payload_dict=payload_dict,
         authorization_header=authorization_header,
@@ -69,14 +69,14 @@ def _validate_domain(domain: str) -> str:
     return domain
 
 
-def _verify_controller_rotation_signature(
+async def _verify_controller_rotation_signature(
     request: Request,
     *,
     domain: str,
     new_controller_did: str,
 ) -> None:
     """Require proof that the caller controls the new controller key."""
-    did_key = _verify_controller_signature(
+    did_key = await _verify_controller_signature(
         request,
         domain=domain,
         operation="rotate_controller",
@@ -105,7 +105,7 @@ async def _find_parent_namespace(db, *, domain: str, lock_for_share: bool = Fals
     return await db.fetch_one(query, domain)
 
 
-def _verify_parent_namespace_authorization(
+async def _verify_parent_namespace_authorization(
     request: Request,
     *,
     child_domain: str,
@@ -120,7 +120,7 @@ def _verify_parent_namespace_authorization(
     elif controller_did is not None:
         extra_payload["controller_did"] = controller_did
 
-    return _verify_controller_signature(
+    return await _verify_controller_signature(
         request,
         domain=child_domain,
         operation=operation,
@@ -233,7 +233,7 @@ async def register_namespace(
         if body.default_delivery_origin is not None
         else None
     )
-    caller_did = _verify_controller_signature(
+    caller_did = await _verify_controller_signature(
         request,
         domain=domain,
         operation="register",
@@ -288,7 +288,7 @@ async def register_namespace(
             parent_namespace = await _find_parent_namespace(tx, domain=domain, lock_for_share=True)
             if parent_namespace is None:
                 raise HTTPException(status_code=401, detail="Invalid parent authorization")
-            parent_signer = _verify_parent_namespace_authorization(
+            parent_signer = await _verify_parent_namespace_authorization(
                 request,
                 child_domain=domain,
                 controller_did=requested_controller_did,
@@ -398,7 +398,7 @@ async def update_namespace(
     db = db_infra.get_manager("aweb")
     domain = _validate_domain(domain)
     signed_origin = body.default_delivery_origin or ""
-    caller_did = _verify_controller_signature(
+    caller_did = await _verify_controller_signature(
         request,
         domain=domain,
         operation="update_namespace",
@@ -461,7 +461,7 @@ async def rotate_namespace_controller(
     db = db_infra.get_manager("aweb")
     domain = _validate_domain(domain)
     new_controller_did = body.new_controller_did
-    _verify_controller_rotation_signature(
+    await _verify_controller_rotation_signature(
         request,
         domain=domain,
         new_controller_did=new_controller_did,
@@ -506,7 +506,7 @@ async def rotate_namespace_controller(
             parent_namespace = await _find_parent_namespace(tx, domain=domain, lock_for_share=True)
             if parent_namespace is None:
                 raise HTTPException(status_code=401, detail="Invalid parent authorization")
-            parent_signer = _verify_parent_namespace_authorization(
+            parent_signer = await _verify_parent_namespace_authorization(
                 request,
                 child_domain=domain,
                 new_controller_did=new_controller_did,
@@ -622,7 +622,7 @@ async def delete_namespace(
     domain = _validate_domain(domain)
 
     # Verify the caller's signature first (fail fast on bad auth)
-    caller_did = _verify_controller_signature(request, domain=domain, operation="delete_namespace")
+    caller_did = await _verify_controller_signature(request, domain=domain, operation="delete_namespace")
 
     # Transactional: lock the row, verify ownership, then delete
     async with db.transaction() as tx:

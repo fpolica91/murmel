@@ -343,3 +343,60 @@ def test_build_http_didkey_payload_normalizes_method_to_uppercase() -> None:
     )
 
     assert lower == upper == mixed
+
+
+# --------------------------------------------------------------------------
+# Signature replay protection (_enforce_single_use)
+# --------------------------------------------------------------------------
+
+
+class _FakeRedis:
+    def __init__(self) -> None:
+        self.store: dict[str, str] = {}
+
+    async def set(self, key, value, nx=False, ex=None):
+        if nx and key in self.store:
+            return None
+        self.store[key] = value
+        return True
+
+
+class _ReqState:
+    def __init__(self, redis):
+        self.redis = redis
+
+
+class _ReqApp:
+    def __init__(self, redis):
+        self.state = _ReqState(redis)
+
+
+class _Req:
+    def __init__(self, redis):
+        self.app = _ReqApp(redis)
+
+
+@pytest.mark.asyncio
+async def test_enforce_single_use_rejects_replay():
+    from fastapi import HTTPException
+
+    req = _Req(_FakeRedis())
+    await dns_auth._enforce_single_use(req, did_key="did:key:z6Mkabc", signature="sig123")
+    with pytest.raises(HTTPException) as exc:
+        await dns_auth._enforce_single_use(req, did_key="did:key:z6Mkabc", signature="sig123")
+    assert exc.value.status_code == 401
+    assert "replay" in exc.value.detail.lower()
+
+
+@pytest.mark.asyncio
+async def test_enforce_single_use_distinct_signatures_allowed():
+    req = _Req(_FakeRedis())
+    await dns_auth._enforce_single_use(req, did_key="did:key:z6Mkabc", signature="sigA")
+    await dns_auth._enforce_single_use(req, did_key="did:key:z6Mkabc", signature="sigB")  # no raise
+
+
+@pytest.mark.asyncio
+async def test_enforce_single_use_noop_without_redis():
+    req = _Req(None)
+    await dns_auth._enforce_single_use(req, did_key="x", signature="y")
+    await dns_auth._enforce_single_use(req, did_key="x", signature="y")  # no raise
