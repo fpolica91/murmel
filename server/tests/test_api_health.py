@@ -66,3 +66,44 @@ async def test_cached_body_receive_terminates_after_replay():
     assert first == {"type": "http.request", "body": b'{"hello":"world"}', "more_body": False}
     assert second == {"type": "http.request", "body": b"", "more_body": False}
     assert third == {"type": "http.request", "body": b"", "more_body": False}
+
+
+def test_full_stack_post_body_is_parsed_by_pydantic(monkeypatch):
+    """Regression: cache_body_middleware must keep POST JSON bodies readable by
+    pydantic through the FULL middleware stack, AND enforce the size cap.
+
+    A round-7 change swapped the body read to request.stream(), which consumes
+    the receive channel without populating Starlette's body cache, so every POST
+    422'd ("body: Field required") on the live server. Router-only unit tests
+    miss this (they skip create_app's middleware); an end-to-end agent run caught
+    it. Uses Starlette's TestClient (httpx ASGITransport does not faithfully
+    replay the middleware receive).
+    """
+    from fastapi import Body
+    from starlette.testclient import TestClient
+
+    async def _noop_mount(*_a, **_k):
+        return None
+
+    async def _noop_reg(*_a):
+        return None
+
+    monkeypatch.setattr("aweb.api._mount_mcp_app", _noop_mount)
+    monkeypatch.setattr("aweb.api._validate_awid_registry_client", _noop_reg)
+    monkeypatch.setattr("aweb.api.MAX_REQUEST_BODY_BYTES", 1024)
+    app = create_app(db_infra=_DbInfra(), redis=_FailingRedis())
+
+    @app.post("/v1/_test_echo_body")
+    async def _echo(msg: str = Body(..., embed=True)):  # noqa: ANN202
+        return {"msg": msg}
+
+    # No context manager -> skip the app lifespan (needs a real DB/Redis); the
+    # body middleware + route under test don't require app.state.
+    client = TestClient(app)
+
+    ok = client.post("/v1/_test_echo_body", json={"msg": "hello body"})
+    assert ok.status_code == 200, ok.text
+    assert ok.json() == {"msg": "hello body"}  # body reached pydantic
+
+    too_big = client.post("/v1/_test_echo_body", json={"msg": "x" * 4096})
+    assert too_big.status_code == 413, too_big.text  # size cap enforced

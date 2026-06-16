@@ -386,13 +386,15 @@ def create_app(
             except ValueError:
                 return JSONResponse(status_code=400, content={"detail": "Invalid Content-Length"})
 
-        # ...and bound the ACTUAL read so a missing/lying Content-Length (e.g.
-        # chunked transfer-encoding) can't buffer an unbounded body into memory.
-        body = b""
-        async for chunk in request.stream():
-            body += chunk
-            if len(body) > MAX_REQUEST_BODY_BYTES:
-                return JSONResponse(status_code=413, content={"detail": "Request body too large"})
+        # Read via request.body() (which populates Starlette's body cache and is
+        # safely replayable downstream) and reject if the actual size exceeds the
+        # cap — this catches a missing/lying Content-Length too. NOTE: do not
+        # swap this for request.stream(): consuming the stream here leaves the
+        # downstream Request with no body, 422-ing every POST (caught by an
+        # end-to-end agent run; see test_full_stack_post_body_is_parsed_by_pydantic).
+        body = await request.body()
+        if len(body) > MAX_REQUEST_BODY_BYTES:
+            return JSONResponse(status_code=413, content={"detail": "Request body too large"})
         request.state.cached_body = body
         request.state.body_sha256 = _hashlib.sha256(body).hexdigest() if body else _hashlib.sha256(b"").hexdigest()
         request._receive = _cached_body_receive(body)
