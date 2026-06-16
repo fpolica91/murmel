@@ -523,6 +523,46 @@ async def test_messages(aweb_cloud_db):
 
 
 @pytest.mark.asyncio
+async def test_public_team_messages_redacts_content_for_anonymous(aweb_cloud_db):
+    # A public team is readable without a token, but message subject/body must
+    # NOT leak to an unauthenticated caller — only metadata.
+    app = _build_app(
+        aweb_cloud_db.aweb_db,
+        registry_client=_FakeRegistryClient(visibility="public"),
+    )
+    await _seed(aweb_cloud_db.aweb_db)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.get("/v1/teams/backend:acme.com/messages")  # no token
+
+    assert resp.status_code == 200
+    msg = resp.json()["messages"][0]
+    assert msg["from_alias"] == "alice" and msg["to_alias"] == "bob"  # metadata visible
+    assert msg["subject"] == "" and msg["body"] == ""  # content redacted
+
+
+@pytest.mark.asyncio
+async def test_public_team_messages_full_content_with_token(aweb_cloud_db):
+    # An authenticated member still sees full content on a public team.
+    app = _build_app(
+        aweb_cloud_db.aweb_db,
+        registry_client=_FakeRegistryClient(visibility="public"),
+    )
+    await _seed(aweb_cloud_db.aweb_db)
+    token = _make_jwt(["backend:acme.com"])
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.get(
+            "/v1/teams/backend:acme.com/messages",
+            headers={"X-Dashboard-Token": token},
+        )
+
+    assert resp.status_code == 200
+    msg = resp.json()["messages"][0]
+    assert msg["subject"] == "Hello" and msg["body"] == "Hi Bob!"
+
+
+@pytest.mark.asyncio
 async def test_tasks(aweb_cloud_db):
     app = _build_app(aweb_cloud_db.aweb_db)
     await _seed(aweb_cloud_db.aweb_db)

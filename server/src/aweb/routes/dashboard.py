@@ -55,8 +55,28 @@ def _get_dashboard_secret(request: Request) -> str:
 
 
 async def _require_dashboard_auth(request: Request, team_id: str) -> dict[str, Any]:
-    """Allow anonymous reads for public teams; otherwise verify dashboard JWT."""
+    """Resolve dashboard access. A valid X-Dashboard-Token grants authenticated
+    (full) access on any team; otherwise a *public* team allows an anonymous
+    read, flagged ``authenticated: False`` so content-bearing endpoints redact
+    message bodies/subjects. Private teams require a valid token.
+    """
     token = request.headers.get("X-Dashboard-Token")
+
+    # A present token is authoritative — verify it first so an authenticated
+    # member sees full content even on a public team.
+    token_error: ValueError | None = None
+    if token:
+        secret = _get_dashboard_secret(request)
+        try:
+            claims = verify_dashboard_token(token, secret, required_team=team_id)
+            claims["authenticated"] = True
+            return claims
+        except ValueError as e:
+            if "not configured" in str(e):
+                raise HTTPException(status_code=500, detail="Dashboard auth misconfigured")
+            token_error = e  # may still fall through to a public anonymous read
+
+    # No valid token — only public teams allow an anonymous (redacted) read.
     try:
         visibility = await _get_team_visibility(request, team_id)
     except HTTPException:
@@ -65,21 +85,13 @@ async def _require_dashboard_auth(request: Request, team_id: str) -> dict[str, A
         visibility = "private"
 
     if visibility == "public":
-        return {"user_id": "", "team_ids": [team_id]}
+        return {"user_id": "", "team_ids": [team_id], "authenticated": False}
 
-    if not token:
-        raise HTTPException(status_code=401, detail="Missing X-Dashboard-Token header")
-
-    secret = _get_dashboard_secret(request)
-    try:
-        return verify_dashboard_token(token, secret, required_team=team_id)
-    except ValueError as e:
-        msg = str(e)
-        if "not configured" in msg:
-            raise HTTPException(status_code=500, detail="Dashboard auth misconfigured")
-        if "not authorized" in msg:
-            raise HTTPException(status_code=403, detail=msg)
-        raise HTTPException(status_code=401, detail=msg)
+    if token_error is not None:
+        if "not authorized" in str(token_error):
+            raise HTTPException(status_code=403, detail=str(token_error))
+        raise HTTPException(status_code=401, detail=str(token_error))
+    raise HTTPException(status_code=401, detail="Missing X-Dashboard-Token header")
 
 
 async def _get_team_visibility(request: Request, team_id: str) -> str:
@@ -427,7 +439,7 @@ async def list_team_messages(
     limit: int = Query(default=50, ge=1, le=200),
     db=Depends(get_db),
 ) -> dict:
-    await _require_dashboard_auth(request, team_id)
+    auth = await _require_dashboard_auth(request, team_id)
     aweb_db = db.get_manager("aweb")
 
     rows = await aweb_db.fetch_all(
@@ -442,14 +454,17 @@ async def list_team_messages(
         limit,
     )
 
+    # Unauthenticated public-team callers see message metadata only — never the
+    # subject or body. Authenticated dashboard tokens see full content.
+    redact = not auth.get("authenticated", False)
     return {
         "messages": [
             MessageSummary(
                 message_id=str(r["message_id"]),
                 from_alias=r["from_alias"],
                 to_alias=r["to_alias"],
-                subject=r["subject"],
-                body=r["body"],
+                subject="" if redact else r["subject"],
+                body="" if redact else r["body"],
                 priority=r["priority"],
                 created_at=r["created_at"].isoformat(),
                 read_at=r["read_at"].isoformat() if r.get("read_at") else None,
