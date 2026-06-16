@@ -17,12 +17,16 @@ import (
 var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Initialize this directory as an aw workspace",
-	Long: `Initialize the current directory using one of the supported
-team-architecture flows:
+	Long: `Initialize the current directory as a token-authenticated aw workspace.
 
-- connect with an existing team certificate already present in .aw/
-- create a hosted aweb.ai account when this directory is still clean
-- use --byod to create an identity under a domain you control
+Authentication is by bearer token (no team certificate):
+
+- run "aw login" first to cache a token at ~/.aw/token, or
+- pass --token <jwt> / set AW_TOKEN for non-interactive use (CI, scripts).
+
+init writes a cert-less .aw/workspace.yaml bound to --team on the --aweb-url
+server, plus a local self-custodial signing key for end-to-end encrypted
+messaging (never used for server auth).
 
 By default, init creates or updates the clearly marked aweb section in
 AGENTS.md or CLAUDE.md. Use --do-not-touch-agents-md to skip that file update.`,
@@ -54,6 +58,7 @@ var (
 	initRole               string
 	initPersistent         bool
 	initInboundMode        string
+	initTeam               string
 )
 
 var (
@@ -81,6 +86,7 @@ func init() {
 	initCmd.Flags().BoolVar(&initBYOD, "byod", false, "Use a domain you control instead of hosted aweb.ai onboarding")
 	initCmd.Flags().StringVar(&initUsername, "username", "", "Hosted username to create")
 	initCmd.Flags().StringVar(&initDomain, "domain", "", "BYOD domain to use with --byod")
+	initCmd.Flags().StringVar(&initTeam, "team", "", "Team ID to bind this workspace to (e.g. default:local). Defaults to AWEB_TEAM_ID.")
 	initCmd.Flags().StringVar(&initAlias, "alias", "", "Local workspace routing alias (optional; default: server-suggested)")
 	initCmd.Flags().StringVar(&initName, "name", "", "Global identity name (required with --global unless .aw/identity.yaml already exists)")
 	initCmd.Flags().BoolVar(&initInjectDocs, "inject-docs", false, "Inject aw coordination instructions into CLAUDE.md and AGENTS.md")
@@ -135,74 +141,8 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	if apiKey := resolveInitAPIKey(); apiKey != "" {
-		wd, _ := os.Getwd()
-		awebURL, err := resolveAPIKeyInitAwebURL()
-		if err != nil {
-			return err
-		}
-		registryURL, err := resolveInitAWIDRegistryURL()
-		if err != nil {
-			return err
-		}
-		result, err := runAPIKeyBootstrapInit(apiKeyInitRequest{
-			WorkingDir:  wd,
-			AwebURL:     awebURL,
-			RegistryURL: registryURL,
-			APIKey:      apiKey,
-			Name:        strings.TrimSpace(initName),
-			Alias:       resolveAliasValue(strings.TrimSpace(initAlias)),
-			Role:        resolveRequestedRole(strings.TrimSpace(initRole)),
-			HumanName:   resolveHumanNameValue(strings.TrimSpace(initHumanName)),
-			AgentType:   resolveAgentTypeValue(strings.TrimSpace(initAgentType)),
-			Persistent:  initPersistent,
-			InboundMode: canonicalInitInboundModeForWire(initInboundMode),
-		})
-		if err != nil {
-			return err
-		}
-		printOutput(result, formatConnect)
-		didInjectDocs := runDefaultInitDocsInjection(wd)
-		if !jsonFlag {
-			printPostInitActions(&initResult{
-				ServerName:    hostFromBaseURL(result.AwebURL),
-				ExportBaseURL: result.AwebURL,
-				Alias:         strings.TrimSpace(result.Alias),
-				APIKeyAuth:    true,
-			}, wd, didInjectDocs)
-		}
-		return nil
-	}
-
-	// Certificate-based init: when a team certificate exists and a server URL is provided.
-	{
-		wd, _ := os.Getwd()
-		if hasCertificateForInit(wd) {
-			awebURL, err := resolveExplicitInitAwebURL()
-			if err != nil {
-				return err
-			}
-			serviceURLs, err := resolveOnboardingServiceURLs(awebURL)
-			if err != nil {
-				return err
-			}
-			result, err := initCertificateConnectWithOptions(wd, serviceURLs.AwebURL, certificateConnectOptions{
-				Role: resolveRequestedRole(strings.TrimSpace(initRole)),
-			})
-			if err != nil {
-				return err
-			}
-			printOutput(result, formatConnect)
-			didInjectDocs := runDefaultInitDocsInjection(wd)
-			if !jsonFlag {
-				printPostInitActions(&initResult{
-					ServerName:    hostFromBaseURL(serviceURLs.AwebURL),
-					ExportBaseURL: serviceURLs.AwebURL,
-					Alias:         strings.TrimSpace(result.Alias),
-				}, wd, didInjectDocs)
-			}
-			return nil
-		}
+	if err := rejectRemovedInitFlags(); err != nil {
+		return err
 	}
 
 	wd, _ := os.Getwd()
@@ -210,80 +150,77 @@ func runInit(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	if workspaceMissing {
-		awebURL, err := resolveInitAwebURL()
-		if err != nil {
-			return err
-		}
-		registryURL, err := resolveInitAWIDRegistryURL()
-		if err != nil {
-			return err
-		}
-		if initShouldUseImplicitLocalFlow(registryURL) {
-			result, err := initRunImplicitLocalFlow(implicitLocalInitRequest{
-				WorkingDir:  wd,
-				AwebURL:     awebURL,
-				RegistryURL: registryURL,
-				Alias:       resolveAliasValue(strings.TrimSpace(initAlias)),
-				Role:        resolveRequestedRole(strings.TrimSpace(initRole)),
-				HumanName:   resolveHumanNameValue(strings.TrimSpace(initHumanName)),
-				AgentType:   resolveAgentTypeValue(strings.TrimSpace(initAgentType)),
-			})
-			if err != nil {
-				if isRegistryUnavailableError(err) {
-					return fmt.Errorf("local awid registry %s is not reachable; start the local stack (for example docker compose up) and retry: %w", registryURL, err)
-				}
-				return err
-			}
-			printOutput(result, formatConnect)
-			didInjectDocs := runDefaultInitDocsInjection(wd)
-			if !jsonFlag {
-				printPostInitActions(&initResult{
-					ServerName:    hostFromBaseURL(awebURL),
-					ExportBaseURL: awebURL,
-					Alias:         strings.TrimSpace(result.Alias),
-				}, wd, didInjectDocs)
-			}
-			return nil
-		}
-		canPrompt := initIsTTY() && !jsonFlag
-		askPostCreateSetup := canPrompt && !initHasExplicitOnboardingArgs()
-		result, err := guidedOnboardingWizard(guidedOnboardingRequest{
-			WorkingDir:  wd,
-			PromptIn:    os.Stdin,
-			PromptOut:   os.Stderr,
-			BaseURL:     awebURL,
-			RegistryURL: registryURL,
-			ServerName:  serverFlag,
-			BYOD:        initBYOD,
-			Username:    strings.TrimSpace(initUsername),
-			Domain:      strings.TrimSpace(initDomain),
-			Alias: func() string {
-				if initPersistent {
-					return strings.TrimSpace(initAlias)
-				}
-				return resolveAliasValue(strings.TrimSpace(initAlias))
-			}(),
-			Name:               strings.TrimSpace(initName),
-			HumanName:          resolveHumanNameValue(strings.TrimSpace(initHumanName)),
-			AgentType:          resolveAgentTypeValue(strings.TrimSpace(initAgentType)),
-			Role:               resolveRequestedRole(strings.TrimSpace(initRole)),
-			Persistent:         initPersistent,
-			InboundMode:        canonicalInitInboundModeForWire(initInboundMode),
-			InjectAgentDocs:    !initDoNotTouchAgentsMD && !jsonFlag,
-			DoNotTouchAgentsMD: initDoNotTouchAgentsMD,
-			AskPostCreateSetup: askPostCreateSetup,
-			NonInteractive:     !canPrompt,
-		})
-		if err != nil {
-			return err
-		}
-		if !jsonFlag {
-			initPrintGuidedOnboardingReady(result)
-		}
-		return nil
+	if !workspaceMissing {
+		return usageError("this directory already has a workspace; use a fresh directory")
 	}
-	return usageError("this directory already has a workspace; use a fresh directory")
+
+	awebURL, err := resolveInitAwebURL()
+	if err != nil {
+		return err
+	}
+	teamID, err := resolveInitTeamID()
+	if err != nil {
+		return err
+	}
+
+	result, err := initTokenWorkspace(cmd.Context(), tokenInitOptions{
+		WorkingDir:   wd,
+		AwebURL:      awebURL,
+		TeamID:       teamID,
+		Alias:        resolveAliasValue(strings.TrimSpace(initAlias)),
+		RoleName:     resolveRequestedRole(strings.TrimSpace(initRole)),
+		HumanName:    resolveHumanNameValue(strings.TrimSpace(initHumanName)),
+		AgentType:    resolveAgentTypeValue(strings.TrimSpace(initAgentType)),
+		WriteContext: initWriteContext,
+	})
+	if err != nil {
+		return err
+	}
+	printOutput(result, formatConnect)
+	didInjectDocs := runDefaultInitDocsInjection(wd)
+	if !jsonFlag {
+		printPostInitActions(&initResult{
+			ServerName:    hostFromBaseURL(result.AwebURL),
+			ExportBaseURL: result.AwebURL,
+			Alias:         strings.TrimSpace(result.Alias),
+		}, wd, didInjectDocs)
+	}
+	return nil
+}
+
+// resolveInitTeamID resolves the team_id to bind, from --team or AWEB_TEAM_ID.
+func resolveInitTeamID() (string, error) {
+	value := strings.TrimSpace(initTeam)
+	if value == "" {
+		value = strings.TrimSpace(os.Getenv("AWEB_TEAM_ID"))
+	}
+	if value == "" {
+		return "", usageError("a team is required: pass --team <team_id> (e.g. default:local) or set AWEB_TEAM_ID")
+	}
+	return value, nil
+}
+
+// rejectRemovedInitFlags turns the certificate/registry-only flags into clear
+// usage errors pointing at the token flow, now that init authenticates by
+// bearer token only.
+func rejectRemovedInitFlags() error {
+	switch {
+	case initBYOD:
+		return usageError("--byod is no longer supported: aw init authenticates by token; run `aw login` (or pass --token) and use --team")
+	case initPersistent:
+		return usageError("--global/--persistent is no longer supported: aw init authenticates by token; run `aw login` (or pass --token) and use --team")
+	case strings.TrimSpace(initUsername) != "":
+		return usageError("--username is no longer supported: aw init authenticates by token; run `aw login` (or pass --token)")
+	case strings.TrimSpace(initDomain) != "":
+		return usageError("--domain is no longer supported: aw init authenticates by token; run `aw login` (or pass --token)")
+	case strings.TrimSpace(initInboundMode) != "":
+		return usageError("--inbound-mode is no longer supported: aw init authenticates by token")
+	case strings.TrimSpace(initAWIDRegistry) != "":
+		return usageError("--awid-registry is no longer supported: aw init authenticates by token; no registry is contacted")
+	case strings.TrimSpace(initName) != "":
+		return usageError("--name is no longer supported: aw init authenticates by token; run `aw login` (or pass --token)")
+	}
+	return nil
 }
 
 func initHasExplicitOnboardingArgs() bool {
