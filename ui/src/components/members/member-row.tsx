@@ -60,7 +60,7 @@ export function MemberRow({ participant }: { participant: Participant }) {
           {roleLabel ? <span className={styles.role}>{roleLabel}</span> : null}
         </div>
         {p.address ? (
-          <span className={styles.subline}>{p.address}</span>
+          <span className={`${styles.subline} mono`}>{p.address}</span>
         ) : null}
       </div>
 
