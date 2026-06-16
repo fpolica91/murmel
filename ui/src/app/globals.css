@@ -378,3 +378,81 @@ h3,
   font-weight: 600;
   line-height: 1;
 }
+
+/* Mobile: collapse the left rail into a top bar (brand + team + account on one
+   line, primary nav as a horizontal scroll row beneath). */
+@media (max-width: 760px) {
+  .dashboard-shell {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    flex: none;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+    padding: 0.55rem 0.9rem;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-brand {
+    padding: 0;
+  }
+
+  .sidebar-team {
+    order: 2;
+    margin: 0 0 0 auto;
+    padding: 0;
+    border: none;
+  }
+
+  .sidebar-team .team-switcher {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .sidebar-team .team-switcher label {
+    display: none;
+  }
+
+  .sidebar-footer {
+    order: 3;
+    border: none;
+    padding: 0;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.55rem;
+  }
+
+  .sidebar-footer .btn {
+    width: auto;
+    margin-top: 0;
+    padding: 0.42rem 0.75rem;
+  }
+
+  .sidebar-nav {
+    order: 4;
+    flex-basis: 100%;
+    flex-direction: row;
+    gap: 0.25rem;
+    overflow-x: auto;
+    padding-bottom: 0.1rem;
+  }
+
+  .sidebar-link {
+    white-space: nowrap;
+    padding: 0.42rem 0.7rem;
+  }
+
+  .sidebar-spacer {
+    display: none;
+  }
+
+  .content {
+    padding: 1.1rem 1rem;
+  }
+}
