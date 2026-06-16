@@ -333,12 +333,47 @@ async def ensure_session(
         raise ServiceError("Chat session requires at least two participants")
 
     if session_id is not None:
-        existing = await aweb_db.fetch_one(
-            "SELECT session_id FROM {{tables.chat_sessions}} WHERE session_id = $1",
+        caller_did = created_by if created_by.startswith("did:") else normalized_participants[0]["did"]
+        existing_chat = await aweb_db.fetch_one(
+            "SELECT team_id FROM {{tables.chat_sessions}} WHERE session_id = $1",
             session_id,
         )
-        if existing is not None:
-            created_by_did = created_by if created_by.startswith("did:") else normalized_participants[0]["did"]
+        existing_conv = await aweb_db.fetch_one(
+            "SELECT conversation_type, team_id FROM {{tables.conversations}} WHERE conversation_id = $1",
+            session_id,
+        )
+        if existing_chat is not None or existing_conv is not None:
+            # Reusing an existing id: the caller must ALREADY belong to it, it
+            # must be a chat (never a mail conversation), and it must be in the
+            # caller's team. Without this, a caller could pass another team's
+            # mail conversation_id and forge themselves into its participant set,
+            # then read that thread (cross-tenant disclosure).
+            if existing_conv is not None:
+                if str(existing_conv.get("conversation_type") or "") != "chat":
+                    raise ForbiddenError("Session id refers to a non-chat conversation")
+                conv_team = str(existing_conv.get("team_id") or "")
+                if team_id is not None and conv_team and conv_team != team_id:
+                    raise ForbiddenError("Session belongs to another team")
+            if existing_chat is not None:
+                chat_team = str(existing_chat.get("team_id") or "")
+                if team_id is not None and chat_team and chat_team != team_id:
+                    raise ForbiddenError("Session belongs to another team")
+            member = await aweb_db.fetch_one(
+                """
+                SELECT 1 FROM {{tables.chat_participants}}
+                WHERE session_id = $1 AND did = $2
+                UNION ALL
+                SELECT 1 FROM {{tables.conversation_participants}}
+                WHERE conversation_id = $1 AND did = $2
+                LIMIT 1
+                """,
+                session_id,
+                caller_did,
+            )
+            if member is None:
+                raise ForbiddenError("Not a participant of this session")
+
+            created_by_did = caller_did
             await _ensure_chat_conversation(
                 aweb_db,
                 session_id=UUID(str(session_id)),

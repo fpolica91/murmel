@@ -314,7 +314,7 @@ async def get_mail_conversation(
 
     conversation = await aweb_db.fetch_one(
         """
-        SELECT conversation_id, conversation_type
+        SELECT conversation_id, conversation_type, team_id
         FROM {{tables.conversations}}
         WHERE conversation_id = $1
         """,
@@ -323,6 +323,12 @@ async def get_mail_conversation(
     if conversation:
         if conversation["conversation_type"] != "mail":
             raise HTTPException(status_code=422, detail="Conversation is not a mail conversation")
+        # Defense-in-depth: a conversation is owned by exactly one team; never
+        # serve it to a caller authenticated for a different team even if a
+        # participant row somehow matched.
+        conv_team = str(conversation.get("team_id") or "")
+        if auth.team_id is not None and conv_team and conv_team != auth.team_id:
+            raise HTTPException(status_code=403, detail="Conversation belongs to another team")
         participant = await aweb_db.fetch_one(
             """
             SELECT 1

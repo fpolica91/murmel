@@ -431,3 +431,56 @@ async def test_ensure_session_does_not_merge_different_agents_sharing_did_aw(awe
     )
 
     assert new_session != old_session
+
+
+@pytest.mark.asyncio
+async def test_ensure_session_rejects_hijacking_foreign_conversation(aweb_cloud_db):
+    # Security regression (audit CRITICAL): a caller must NOT be able to pass an
+    # existing conversation_id they don't belong to (e.g. another team's MAIL
+    # thread) and get forged into its participant set.
+    from aweb.service_errors import ForbiddenError
+    import uuid as _uuid
+
+    aweb_db = aweb_cloud_db.aweb_db
+    db_shim = _DbShim(aweb_db)
+    attacker, accomplice = await _setup_team_and_agents(aweb_db, team_id="team:attacker.com")
+
+    # A victim MAIL conversation owned by another team, with its own participants.
+    await aweb_db.execute(
+        """
+        INSERT INTO {{tables.teams}} (team_id, namespace, team_name, team_did_key)
+        VALUES ('ops:victim.com', 'victim.com', 'ops', 'did:key:z6Mkvictim')
+        ON CONFLICT DO NOTHING
+        """,
+    )
+    conv_id = _uuid.uuid4()
+    await aweb_db.execute(
+        """
+        INSERT INTO {{tables.conversations}} (conversation_id, conversation_type, team_id, created_by_did)
+        VALUES ($1, 'mail', 'ops:victim.com', 'did:aw:victim-a')
+        """,
+        conv_id,
+    )
+    await aweb_db.execute(
+        """
+        INSERT INTO {{tables.conversation_participants}} (conversation_id, did, alias, transport_hint)
+        VALUES ($1, 'did:aw:victim-a', 'va', 'mail'), ($1, 'did:aw:victim-b', 'vb', 'mail')
+        """,
+        conv_id,
+    )
+
+    with pytest.raises(ForbiddenError):
+        await ensure_session(
+            db_shim,
+            team_id="team:attacker.com",
+            participant_rows=[attacker, accomplice],
+            created_by="alice",
+            session_id=conv_id,  # victim's mail conversation id
+        )
+
+    # The victim conversation's participant set is untouched (nothing forged).
+    rows = await aweb_db.fetch_all(
+        "SELECT did FROM {{tables.conversation_participants}} WHERE conversation_id = $1",
+        conv_id,
+    )
+    assert {r["did"] for r in rows} == {"did:aw:victim-a", "did:aw:victim-b"}
