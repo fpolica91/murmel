@@ -211,6 +211,9 @@ class JWKSVerifier:
         options = {
             "require": ["exp", "sub"],
             "verify_aud": self._config.audience is not None,
+            # Reject (not just warn on) an undersized RSA signing key from the
+            # JWKS — fail closed if a misconfigured issuer ever publishes one.
+            "enforce_minimum_key_length": True,
         }
         decode_kwargs: dict[str, Any] = {
             "algorithms": list(self._config.algorithms),

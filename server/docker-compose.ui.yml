@@ -4,8 +4,10 @@
 #
 #   docker compose -f docker-compose.yml -f docker-compose.ui.yml up --build -d
 #
-# Then open http://localhost:3000. Set BETTER_AUTH_SECRET and
-# AWEB_MEMBERSHIPS_HINT_KEY in server/.env for anything beyond local testing.
+# Then open http://localhost:3000. BETTER_AUTH_SECRET and
+# AWEB_MEMBERSHIPS_HINT_KEY are required (compose refuses to start without
+# them) — set both in server/.env. Never ship a known/default value: the
+# secret is the signing root the aweb server trusts for ALL token-auth.
 
 services:
   # One-shot: create Better Auth's tables (user/session/account/verification/
@@ -20,7 +22,7 @@ services:
     command: ["sh", "-c", "npm run db:migrate || echo 'better-auth tables already present; skipping migrate'"]
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-aweb}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-aweb}
-      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-dev-insecure-change-me-please-32-chars}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET is required}
       BETTER_AUTH_URL: http://localhost:3000
     depends_on:
       postgres:
@@ -34,12 +36,12 @@ services:
       - "${UI_PORT:-3000}:3000"
     environment:
       BETTER_AUTH_URL: http://localhost:3000
-      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-dev-insecure-change-me-please-32-chars}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET is required}
       DATABASE_URL: postgresql://${POSTGRES_USER:-aweb}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-aweb}
       AWEB_JWT_AUDIENCE: http://localhost:8000
       # Server-side (SSR) fetch to aweb over the internal network.
       AWEB_MEMBERSHIPS_URL: http://aweb:8000/v1/memberships
-      AWEB_MEMBERSHIPS_HINT_KEY: ${AWEB_MEMBERSHIPS_HINT_KEY:-dev-hint-key-change-me}
+      AWEB_MEMBERSHIPS_HINT_KEY: ${AWEB_MEMBERSHIPS_HINT_KEY:?AWEB_MEMBERSHIPS_HINT_KEY is required}
     depends_on:
       ui-migrate:
         condition: service_completed_successfully
@@ -58,4 +60,4 @@ services:
       AWEB_TOKEN_AUTH_ISSUER: http://localhost:3000
       AWEB_TOKEN_AUTH_AUDIENCE: http://localhost:8000
       AWEB_CORS_ORIGINS: http://localhost:3000
-      AWEB_MEMBERSHIPS_HINT_KEY: ${AWEB_MEMBERSHIPS_HINT_KEY:-dev-hint-key-change-me}
+      AWEB_MEMBERSHIPS_HINT_KEY: ${AWEB_MEMBERSHIPS_HINT_KEY:?AWEB_MEMBERSHIPS_HINT_KEY is required}
