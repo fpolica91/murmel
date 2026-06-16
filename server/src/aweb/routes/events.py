@@ -278,9 +278,15 @@ async def _sse_agent_events(
     # UUID); their participant row is keyed by the synthetic routing DID
     # did:key:jwt-<subject>. Resolve the real UUID from it instead of casting the
     # subject (which raises and silently kills the stream before any frame).
-    is_token_identity = (identity.identity_scope or "").strip() == "token" or not (
-        identity.did_key or ""
-    ).strip()
+    # Detect a token caller by whether agent_id parses as a UUID — robust across
+    # identity shapes (cert/agent identities carry a UUID agent_id; token callers
+    # carry the JWT subject string).
+    try:
+        aid = UUID(agent_id)
+        is_token_identity = False
+    except (ValueError, TypeError):
+        aid = None
+        is_token_identity = True
     if is_token_identity:
         viewer = await aweb_db.fetch_one(
             """
@@ -293,7 +299,6 @@ async def _sse_agent_events(
         )
         aid = viewer["agent_id"] if viewer else None
     else:
-        aid = UUID(agent_id)
         viewer = await aweb_db.fetch_one(
             """
             SELECT did_aw, did_key
