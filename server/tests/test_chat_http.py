@@ -5463,3 +5463,126 @@ async def test_chat_session_list_accepts_alternate_session_participant_did(aweb_
             "sender_waiting": False,
         }
     ]
+
+
+@pytest.mark.asyncio
+async def test_chat_history_exposes_verification_status(aweb_cloud_db):
+    """Chat history surfaces verification_status per message, including
+    verified_server for server-attributed Better Auth token identities
+    (did:key:jwt- from_did, no client signature)."""
+    alice_sk, _, alice_did_key = _make_keypair()
+    _, _, bob_did_key = _make_keypair()
+    # Server-attributed token sender: synthetic did:key:jwt- routing DID
+    # stamped by the server after verifying the bearer JWT (no signing key).
+    carol_jwt_did = "did:key:jwt-carol-subject-123"
+    session_id = uuid4()
+    signed_message_id = uuid4()
+    server_message_id = uuid4()
+
+    await aweb_cloud_db.aweb_db.execute(
+        """
+        INSERT INTO {{tables.teams}} (team_id, namespace, team_name, team_did_key)
+        VALUES ('backend:acme.com', 'acme.com', 'backend', 'did:key:team-1')
+        """
+    )
+    alice_agent_id = await aweb_cloud_db.aweb_db.fetch_value(
+        """
+        INSERT INTO {{tables.agents}} (team_id, alias, did_key, did_aw, address, identity_scope, role, inbound_mode)
+        VALUES ('backend:acme.com', 'alice', $1, 'did:aw:alice', 'acme.com/alice', 'global', 'developer', 'open')
+        RETURNING agent_id
+        """,
+        alice_did_key,
+    )
+    bob_agent_id = await aweb_cloud_db.aweb_db.fetch_value(
+        """
+        INSERT INTO {{tables.agents}} (team_id, alias, did_key, did_aw, address, identity_scope, role, inbound_mode)
+        VALUES ('backend:acme.com', 'bob', $1, 'did:aw:bob', 'acme.com/bob', 'global', 'developer', 'open')
+        RETURNING agent_id
+        """,
+        bob_did_key,
+    )
+    await aweb_cloud_db.aweb_db.execute(
+        """
+        INSERT INTO {{tables.chat_sessions}} (session_id, team_id, created_by)
+        VALUES ($1, 'backend:acme.com', 'alice')
+        """,
+        session_id,
+    )
+    await aweb_cloud_db.aweb_db.execute(
+        """
+        INSERT INTO {{tables.chat_participants}} (session_id, did, agent_id, alias, address)
+        VALUES
+            ($1, $2, $3, 'alice', 'acme.com/alice'),
+            ($1, 'did:aw:bob', $4, 'bob', 'acme.com/bob')
+        """,
+        session_id,
+        alice_did_key,
+        alice_agent_id,
+        bob_agent_id,
+    )
+
+    timestamp = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    signed_payload = canonical_json_bytes(
+        {
+            "body": "signed chat",
+            "from": "alice",
+            "from_did": alice_did_key,
+            "message_id": str(signed_message_id),
+            "subject": "",
+            "timestamp": timestamp,
+            "to": "bob",
+            "to_did": "did:aw:bob",
+            "type": "chat",
+        }
+    )
+    # A properly signed message from a self-custodial key -> "verified".
+    await aweb_cloud_db.aweb_db.execute(
+        """
+        INSERT INTO {{tables.chat_messages}}
+            (message_id, session_id, from_did, from_alias, body, signature, signed_payload, created_at)
+        VALUES ($1, $2, $3, 'alice', 'signed chat', $4, $5, NOW())
+        """,
+        signed_message_id,
+        session_id,
+        alice_did_key,
+        sign_message(alice_sk, signed_payload),
+        signed_payload.decode(),
+    )
+    # A server-attributed token message: did:key:jwt- from_did, no signature.
+    await aweb_cloud_db.aweb_db.execute(
+        """
+        INSERT INTO {{tables.chat_messages}}
+            (message_id, session_id, from_did, from_alias, body, created_at)
+        VALUES ($1, $2, $3, 'carol', 'token chat', NOW() + INTERVAL '1 second')
+        """,
+        server_message_id,
+        session_id,
+        carol_jwt_did,
+    )
+
+    app = _build_test_app(aweb_cloud_db.aweb_db, AsyncMock())
+
+    async def _bob_auth_override():
+        return MessagingAuth(
+            did_key=bob_did_key,
+            did_aw="did:aw:bob",
+            address="acme.com/bob",
+            team_id="backend:acme.com",
+            alias="bob",
+        )
+
+    app.dependency_overrides[get_messaging_auth] = _bob_auth_override
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        history_resp = await client.get(f"/v1/chat/sessions/{session_id}/messages")
+
+    assert history_resp.status_code == 200, history_resp.text
+    messages = history_resp.json()["messages"]
+    by_id = {m["message_id"]: m for m in messages}
+
+    # Every history item carries the new field.
+    for m in messages:
+        assert "verification_status" in m, m
+
+    assert by_id[str(signed_message_id)]["verification_status"] == "verified"
+    assert by_id[str(server_message_id)]["verification_status"] == "verified_server"

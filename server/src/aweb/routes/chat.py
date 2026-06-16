@@ -75,7 +75,7 @@ from aweb.messaging.messages import (
     is_synthetic_jwt_did_key,
     utc_iso as _utc_iso,
 )
-from aweb.messaging.verification import require_conversation_not_legacy_bound
+from aweb.messaging.verification import message_verification_status, require_conversation_not_legacy_bound
 from aweb.messaging.waiting import (
     get_waiting_agents,
     get_waiting_agents_by_session,
@@ -1848,6 +1848,7 @@ async def history(
                 "from_stable_id": identity_map.get(from_did, {}).get("stable_id") or None,
                 "signature": msg.get("signature"),
                 "signed_payload": msg.get("signed_payload"),
+                "verification_status": message_verification_status(dict(msg)),
                 "is_contact": is_address_in_contacts(from_address, contact_addrs),
             }
         )
