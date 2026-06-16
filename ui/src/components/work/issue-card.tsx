@@ -32,9 +32,7 @@ export function IssueCard({
         <AssigneeChip
           assigneeType={issue.assignee_type}
           assigneeId={issue.assignee_id}
-          showLabel={false}
         />
-        <span>{issue.assignee_id ?? "Unassigned"}</span>
         {issue.comment_count ? (
           <span className={styles.commentCount} title="Comments">
             💬 {issue.comment_count}

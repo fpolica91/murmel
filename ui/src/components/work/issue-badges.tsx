@@ -6,6 +6,7 @@ import {
   type IssueStatus,
 } from "@/lib/api/types";
 import { Avatar } from "@/components/ui/avatar";
+import { useAssignee } from "./assignee-directory";
 import styles from "./work.module.css";
 
 /** Coloured status pill used in cards, rows, and the detail sidebar. */
@@ -31,6 +32,11 @@ export function AssigneeChip({
   assigneeId: string | null;
   showLabel?: boolean;
 }) {
+  // Resolve the (possibly JWT-subject) assignee id to a display name. The
+  // issue's own `assignee_type` stays authoritative for the avatar colour; the
+  // directory only supplies the human-readable label.
+  const resolved = useAssignee(assigneeId);
+
   if (!assigneeId) {
     return (
       <span className={styles.assignee}>
@@ -40,17 +46,18 @@ export function AssigneeChip({
     );
   }
 
+  const kind = assigneeType ?? resolved.kind ?? "human";
   return (
     <span
       className={styles.assignee}
-      title={`${assigneeType ?? "?"}: ${assigneeId}`}
+      title={`${assigneeType ?? resolved.kind ?? "?"}: ${resolved.label}`}
     >
       <Avatar
-        label={assigneeId}
-        kind={assigneeType === "agent" ? "agent" : "human"}
+        label={resolved.label}
+        kind={kind === "agent" ? "agent" : "human"}
         size="sm"
       />
-      {showLabel && <span>{assigneeId}</span>}
+      {showLabel && <span>{resolved.label}</span>}
     </span>
   );
 }
