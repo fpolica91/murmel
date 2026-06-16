@@ -285,5 +285,42 @@ def test_validate_token_auth_config_ok_when_aud_iss_set(monkeypatch):
     _force_token_auth(monkeypatch, True)
     monkeypatch.setenv("AWEB_TOKEN_AUTH_AUDIENCE", "http://localhost:8088")
     monkeypatch.setenv("AWEB_TOKEN_AUTH_ISSUER", "http://localhost:3030")
+    monkeypatch.setenv("AWEB_TOKEN_AUTH_JWKS_URL", "https://issuer.example/jwks")
     monkeypatch.setenv("ENVIRONMENT", "production")
     validate_token_auth_config()  # no raise
+
+
+def test_validate_token_auth_config_rejects_symmetric_alg(monkeypatch):
+    from aweb.token_auth import validate_token_auth_config
+
+    _force_token_auth(monkeypatch, True)
+    monkeypatch.setenv("AWEB_TOKEN_AUTH_AUDIENCE", "http://localhost:8088")
+    monkeypatch.setenv("AWEB_TOKEN_AUTH_ISSUER", "http://localhost:3030")
+    monkeypatch.setenv("AWEB_TOKEN_AUTH_JWKS_URL", "https://issuer.example/jwks")
+    monkeypatch.setenv("AWEB_TOKEN_AUTH_ALGORITHMS", "HS256")
+    monkeypatch.setenv("ENVIRONMENT", "development")  # alg guard fails closed even in dev
+    with pytest.raises(RuntimeError, match="asymmetric"):
+        validate_token_auth_config()
+
+
+def test_validate_token_auth_config_prod_requires_https_jwks(monkeypatch):
+    from aweb.token_auth import validate_token_auth_config
+
+    _force_token_auth(monkeypatch, True)
+    monkeypatch.setenv("AWEB_TOKEN_AUTH_AUDIENCE", "http://localhost:8088")
+    monkeypatch.setenv("AWEB_TOKEN_AUTH_ISSUER", "http://localhost:3030")
+    monkeypatch.setenv("AWEB_TOKEN_AUTH_JWKS_URL", "http://issuer.example/jwks")
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    with pytest.raises(RuntimeError, match="https"):
+        validate_token_auth_config()
+
+
+def test_validate_token_auth_config_allows_loopback_http_jwks(monkeypatch):
+    from aweb.token_auth import validate_token_auth_config
+
+    _force_token_auth(monkeypatch, True)
+    monkeypatch.setenv("AWEB_TOKEN_AUTH_AUDIENCE", "http://localhost:8088")
+    monkeypatch.setenv("AWEB_TOKEN_AUTH_ISSUER", "http://localhost:3030")
+    monkeypatch.setenv("AWEB_TOKEN_AUTH_JWKS_URL", "http://localhost:3030/api/auth/jwks")
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    validate_token_auth_config()  # loopback http allowed -> no raise

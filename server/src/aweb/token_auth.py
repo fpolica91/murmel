@@ -251,21 +251,65 @@ def reset_verifier_cache() -> None:
 
 
 _DEV_LIKE_ENVS = {"dev", "development", "local", "test", "testing"}
+# The key source is a PUBLIC JWKS; only asymmetric algorithms are ever valid.
+# A symmetric (HS*) alg would let an attacker forge tokens with the public key.
+_ASYMMETRIC_ALGS = {
+    "RS256", "RS384", "RS512",
+    "ES256", "ES384", "ES512",
+    "PS256", "PS384", "PS512",
+    "EdDSA",
+}
+
+
+def _current_env() -> str:
+    for name in ("ENVIRONMENT", "APP_ENV"):
+        value = (os.getenv(name) or "").strip().lower()
+        if value:
+            return value
+    return ""
+
+
+def _jwks_url_is_safe(url: str) -> bool:
+    """True if the JWKS URL is https or targets a loopback/internal host."""
+    from urllib.parse import urlparse
+
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        return False
+    if parsed.scheme == "https":
+        return True
+    host = (parsed.hostname or "").lower()
+    return (
+        host in ("localhost", "127.0.0.1", "::1")
+        or host.endswith(".localhost")
+        or host.endswith(".internal")
+    )
 
 
 def validate_token_auth_config() -> None:
-    """Fail closed when token auth is enabled but audience/issuer are unset.
-
-    Without them, ``verify()`` skips ``aud``/``iss`` checks, so a token minted
-    for a *different* service that shares the issuer's JWKS would be accepted.
-    Enforced at startup. Dev/test environments only warn so local setups and the
-    test suite (which omit aud/iss) still run.
+    """Fail closed on insecure token-auth configuration. Enforced at startup in
+    BOTH deployment modes. Dev/test environments downgrade the env-sensitive
+    checks (aud/iss, JWKS scheme) to warnings so local setups still run; the
+    symmetric-algorithm guard always fails closed.
     """
     from aweb.token_team_scope import token_auth_enabled  # avoid import cycle
 
     if not token_auth_enabled():
         return
     cfg = TokenAuthConfig.from_env()
+    is_dev = _current_env() in _DEV_LIKE_ENVS
+
+    # 1) Symmetric algorithms against a public JWKS are never valid — always fail.
+    bad_algs = [a for a in cfg.algorithms if a not in _ASYMMETRIC_ALGS]
+    if bad_algs:
+        raise RuntimeError(
+            "Refusing to start: non-asymmetric JWT algorithm(s) configured "
+            f"against a public JWKS: {', '.join(bad_algs)}"
+        )
+
+    # 2) aud/iss must be set, else verify() skips those claims and a token minted
+    #    for another service sharing the issuer's JWKS would be accepted.
     missing = [
         name
         for name, value in (
@@ -274,21 +318,23 @@ def validate_token_auth_config() -> None:
         )
         if not value
     ]
-    if not missing:
-        return
-    env = ""
-    for name in ("ENVIRONMENT", "APP_ENV"):
-        env = (os.getenv(name) or "").strip().lower()
-        if env:
-            break
-    detail = (
-        f"token auth is enabled but {', '.join(missing)} not set; "
-        "aud/iss claims will not be validated"
-    )
-    if env in _DEV_LIKE_ENVS:
-        logger.warning("Token auth config: %s", detail)
-        return
-    raise RuntimeError(f"Refusing to start: {detail}")
+    if missing:
+        detail = (
+            f"token auth is enabled but {', '.join(missing)} not set; "
+            "aud/iss claims will not be validated"
+        )
+        if is_dev:
+            logger.warning("Token auth config: %s", detail)
+        else:
+            raise RuntimeError(f"Refusing to start: {detail}")
+
+    # 3) JWKS must be fetched over https (except loopback/internal hosts).
+    if not _jwks_url_is_safe(cfg.jwks_url):
+        detail = f"AWEB_TOKEN_AUTH_JWKS_URL is not https: {cfg.jwks_url}"
+        if is_dev:
+            logger.warning("Token auth config: %s", detail)
+        else:
+            raise RuntimeError(f"Refusing to start: {detail}")
 
 
 # ---------------------------------------------------------------------------

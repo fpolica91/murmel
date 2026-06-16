@@ -151,9 +151,13 @@ async def _enforce_assertion_nonce(
     key = f"aweb:fed:nonce:{origin}:{assertion.nonce}"
     try:
         was_set = await redis.set(key, "1", nx=True, ex=FEDERATION_TIMESTAMP_SKEW_SECONDS * 2)
-    except Exception:  # pragma: no cover - replay cache must not block on Redis hiccups
-        logger.warning("Federation nonce cache unavailable; allowing", exc_info=True)
-        return
+    except Exception as exc:
+        # Fail CLOSED: with a replay store configured but unreachable, we cannot
+        # rule out a replay, so refuse the delivery rather than allow it.
+        logger.warning("Federation nonce cache unavailable; rejecting", exc_info=True)
+        raise HTTPException(
+            status_code=503, detail="Federation replay protection unavailable"
+        ) from exc
     if not was_set:
         raise HTTPException(status_code=403, detail="Federation assertion nonce already used")
 

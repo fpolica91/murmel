@@ -91,6 +91,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/v1/chat", tags=["aweb-chat"])
 
 MAX_CHAT_STREAM_DURATION = 300
+MAX_CHAT_STREAMS_PER_AGENT = 5  # concurrent chat SSE connections per principal
 CHAT_STREAM_FALLBACK_POLL_SECONDS = 2.0
 CHAT_STREAM_KEEPALIVE_SECONDS = 30.0
 
@@ -2195,7 +2196,10 @@ async def _sse_events(
         await unregister_waiting(redis, session_id_str, viewer_did)
 
 
-@router.get("/sessions/{session_id}/stream")
+@router.get(
+    "/sessions/{session_id}/stream",
+    dependencies=[Depends(rate_limit_dep("chat_stream"))],
+)
 async def stream(
     request: Request,
     session_id: str,
@@ -2233,17 +2237,46 @@ async def stream(
     after_dt = _parse_timestamp(after, "after") if after is not None else None
     await register_waiting(redis, str(session_uuid), actor_did)
 
+    # Per-principal concurrency cap (mirrors the events stream): each chat SSE
+    # connection pins a Redis pubsub subscription + a DB polling loop, so an
+    # unbounded fan-out of connections is an amplification vector. Slot is
+    # released in the generator's finally.
+    stream_key: str | None = None
+    if redis is not None and actor_did:
+        key = f"aweb:chat:streams:{actor_did}"
+        try:
+            count = await redis.incr(key)
+            await redis.expire(key, MAX_CHAT_STREAM_DURATION + 60)
+        except Exception:  # pragma: no cover - cap is best-effort, never blocks open
+            count = 0
+        else:
+            stream_key = key
+            if count > MAX_CHAT_STREAMS_PER_AGENT:
+                await redis.decr(stream_key)
+                raise HTTPException(status_code=429, detail="Too many concurrent chat streams")
+
+    async def _guarded_events():
+        try:
+            async for chunk in _sse_events(
+                db=db,
+                redis=redis,
+                session_id=session_uuid,
+                viewer_did=actor_did,
+                viewer_team_id=auth.team_id,
+                contact_owner_dids=owner_dids,
+                deadline=deadline_dt,
+                after=after_dt,
+            ):
+                yield chunk
+        finally:
+            if stream_key is not None:
+                try:
+                    await redis.decr(stream_key)
+                except Exception:  # pragma: no cover - cleanup must not raise
+                    logger.warning("Failed to release chat-stream slot", exc_info=True)
+
     return StreamingResponse(
-        _sse_events(
-            db=db,
-            redis=redis,
-            session_id=session_uuid,
-            viewer_did=actor_did,
-            viewer_team_id=auth.team_id,
-            contact_owner_dids=owner_dids,
-            deadline=deadline_dt,
-            after=after_dt,
-        ),
+        _guarded_events(),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
     )

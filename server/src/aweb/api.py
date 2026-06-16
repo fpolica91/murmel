@@ -237,6 +237,11 @@ def _make_library_lifespan(db_infra: DatabaseInfra, redis: Redis):
         configure_logging(log_level=log_level, json_format=json_format)
         logger.info("Starting aweb coordination server (library mode)")
 
+        # Fail closed on insecure token-auth config in embedded mode too.
+        from aweb.token_auth import validate_token_auth_config
+
+        validate_token_auth_config()
+
         # Use externally provided connections - no initialization needed
         app.state.redis = redis
         app.state.db = db_infra

@@ -422,14 +422,19 @@ async def event_stream(
     # once the cap is hit; the slot is released in the generator's finally.
     stream_key: str | None = None
     if redis is not None and identity.agent_id:
-        stream_key = f"aweb:events:streams:{identity.agent_id}"
-        count = await redis.incr(stream_key)
-        await redis.expire(stream_key, MAX_STREAM_DURATION + 60)
-        if count > MAX_STREAMS_PER_AGENT:
-            await redis.decr(stream_key)
-            raise HTTPException(
-                status_code=429, detail="Too many concurrent event streams"
-            )
+        key = f"aweb:events:streams:{identity.agent_id}"
+        try:
+            count = await redis.incr(key)
+            await redis.expire(key, MAX_STREAM_DURATION + 60)
+        except Exception:  # pragma: no cover - cap is best-effort, never blocks open
+            count = 0
+        else:
+            stream_key = key
+            if count > MAX_STREAMS_PER_AGENT:
+                await redis.decr(stream_key)
+                raise HTTPException(
+                    status_code=429, detail="Too many concurrent event streams"
+                )
 
     async def _guarded_stream():
         try:

@@ -171,6 +171,7 @@ _BUCKET_DEFAULTS: dict[str, tuple[int, int]] = {
     # SSE event-stream opens (the per-connection backend cost is high); paired
     # with a per-agent concurrency cap in the route.
     "events_stream": (60, 60),
+    "chat_stream": (60, 60),
 }
 
 
