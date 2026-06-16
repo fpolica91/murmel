@@ -44,6 +44,11 @@ from .coordination.routes.workspaces import router as workspaces_router
 
 logger = logging.getLogger(__name__)
 
+# Max accepted request body. Bounds the in-memory buffering done by
+# cache_body_middleware so a single large POST can't exhaust memory. Generous
+# enough for encrypted envelopes; override with AWEB_MAX_BODY_BYTES.
+MAX_REQUEST_BODY_BYTES = int(os.getenv("AWEB_MAX_BODY_BYTES", str(1024 * 1024)))
+
 
 def _cached_body_receive(body: bytes):
     """Return an ASGI receive callable that replays a cached request body.
@@ -328,6 +333,15 @@ def create_app(
         )
 
     @app.middleware("http")
+    async def security_headers_middleware(request: Request, call_next):
+        """Baseline hardening headers on every API response."""
+        response = await call_next(request)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "no-referrer")
+        return response
+
+    @app.middleware("http")
     async def cache_body_middleware(request: Request, call_next):
         """Cache request body and compute SHA256 for signature verification.
 
@@ -341,7 +355,20 @@ def create_app(
             request.state.body_sha256 = _hashlib.sha256(b"").hexdigest()
             return await call_next(request)
 
+        # Bound the body before buffering it into memory. Reject an oversized
+        # declared Content-Length up front; still cap the actual read so a
+        # missing/lying header can't exhaust memory.
+        declared = request.headers.get("content-length")
+        if declared is not None:
+            try:
+                if int(declared) > MAX_REQUEST_BODY_BYTES:
+                    return JSONResponse(status_code=413, content={"detail": "Request body too large"})
+            except ValueError:
+                return JSONResponse(status_code=400, content={"detail": "Invalid Content-Length"})
+
         body = await request.body()
+        if len(body) > MAX_REQUEST_BODY_BYTES:
+            return JSONResponse(status_code=413, content={"detail": "Request body too large"})
         request.state.cached_body = body
         request.state.body_sha256 = _hashlib.sha256(body).hexdigest() if body else _hashlib.sha256(b"").hexdigest()
         request._receive = _cached_body_receive(body)

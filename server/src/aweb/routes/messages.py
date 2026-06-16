@@ -8,6 +8,7 @@ from uuid import UUID, uuid4
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_serializer, model_validator
 
+from awid.ratelimit import rate_limit_dep
 from aweb.deps import get_db
 from aweb.config import get_settings
 from aweb.e2ee_messages import (
@@ -1349,7 +1350,11 @@ async def _existing_mail_conversation_for_target(
         raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
 
 
-@router.post("", response_model=SendMessageResponse)
+@router.post(
+    "",
+    response_model=SendMessageResponse,
+    dependencies=[Depends(rate_limit_dep("mail_send"))],
+)
 async def send_message(
     request: Request, payload: SendMessageRequest, db=Depends(get_db),
     auth: MessagingAuth = Depends(get_messaging_auth),

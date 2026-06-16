@@ -12,6 +12,8 @@ from uuid import UUID
 
 import asyncpg.exceptions
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
+
+from awid.ratelimit import rate_limit_dep
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
 from redis.asyncio.client import PubSub
@@ -1068,15 +1070,15 @@ class CreateSessionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     session_id: str | None = None
-    to_aliases: list[str] = Field(default_factory=list)
-    to_dids: list[str] = Field(default_factory=list)
-    to_addresses: list[str] = Field(default_factory=list)
+    to_aliases: list[str] = Field(default_factory=list, max_length=64)
+    to_dids: list[str] = Field(default_factory=list, max_length=64)
+    to_addresses: list[str] = Field(default_factory=list, max_length=64)
     message: str
     content_mode: str = "legacy_plaintext_v1"
     message_version: int = 1
     encrypted_envelope: dict[str, Any] | None = None
     leaving: bool = False
-    wait_seconds: int | None = None
+    wait_seconds: int | None = Field(default=None, ge=0, le=600)
     message_id: str | None = None
     reply_to: str | None = None
     timestamp: str | None = None
@@ -1187,7 +1189,11 @@ class CreateSessionResponse(BaseModel):
     targets_left: list[str]
 
 
-@router.post("/sessions", response_model=CreateSessionResponse)
+@router.post(
+    "/sessions",
+    response_model=CreateSessionResponse,
+    dependencies=[Depends(rate_limit_dep("chat_create"))],
+)
 async def create_or_send(
     request: Request,
     payload: CreateSessionRequest,
@@ -2296,7 +2302,11 @@ class SendMessageResponse(BaseModel):
     extends_wait_seconds: int = 0
 
 
-@router.post("/sessions/{session_id}/messages", response_model=SendMessageResponse)
+@router.post(
+    "/sessions/{session_id}/messages",
+    response_model=SendMessageResponse,
+    dependencies=[Depends(rate_limit_dep("chat_send"))],
+)
 async def send_message(
     request: Request,
     session_id: str = Path(..., min_length=1),
