@@ -1,5 +1,6 @@
 # Built binary
 /aw
+/aweb-a2a-gw
 
 # Test binaries
 *.test

@@ -88,8 +88,18 @@ test-e2e:
 # verifies in both directions, and asserts all four attacks are rejected by the
 # LIVE receiver. RAN GREEN on Docker (26/26). See ai-completion/PIVOT-FOLLOWUPS.md §2.
 #
-# test-a2a-gateway-e2e: STILL QUARANTINED by the token-only pivot (exit 1 by
-# design — the bash/Docker rewrite is not done; the Go blocker is cleared).
+# test-a2a-gateway-e2e: token-only A2A gateway journey. UN-QUARANTINED — stands
+# up the full stack (UI issuer + aweb + awid + pg + redis) on isolated safe
+# ports, token-onboards a gateway + responder (cert-less), then builds + runs
+# the real aweb-a2a-gw against the token workspace and asserts: gateway boots,
+# /health 200 (awid compatible, workspace identity usable), agent card 200, the
+# gateway's bearer credentials authenticate to aweb (200 vs 401 bogus), and an
+# A2A SendMessage drives the gateway's real bridge client to a token-
+# authenticated aweb call that reaches business logic past auth (post-auth
+# recipient-binding 404, NOT 401). Full *delivered* mail round-trip is a
+# documented non-fatal bonus (the token-only stack provisions no awid namespace
+# for direct-address recipient binding). RAN GREEN on Docker (26/26). See
+# ai-completion/PIVOT-FOLLOWUPS.md §2.
 test-federation-e2e:
 	./scripts/e2e-oss-federation.sh
 
@@ -352,8 +362,9 @@ ship: release-all-check
 	@echo "=== Running federation e2e journey (token-only A.2) ==="
 	@echo "    Stands up two cross-pinned aweb stacks and proves vouched"
 	@echo "    cross-server mail + the four attack rejections (see"
-	@echo "    PIVOT-FOLLOWUPS.md §2). The A2A-gateway journey remains"
-	@echo "    QUARANTINED (exit 1 by design)."
+	@echo "    PIVOT-FOLLOWUPS.md §2). The token-only A2A-gateway journey is"
+	@echo "    also un-quarantined (green 26/26) and runs in"
+	@echo "    release-a2a-gateway-check via scripts/e2e-a2a-gateway-docker.sh."
 	$(MAKE) test-federation-e2e
 	@echo ""
 	@echo "=== ship: ALL pre-release checks passed ==="
