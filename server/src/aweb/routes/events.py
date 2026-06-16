@@ -274,15 +274,34 @@ async def _sse_agent_events(
 ) -> AsyncIterator[str]:
     """Generate per-agent SSE actionable coordination events."""
     aweb_db = db.get_manager("aweb")
-    aid = UUID(agent_id)
-    viewer = await aweb_db.fetch_one(
-        """
-        SELECT did_aw, did_key
-        FROM {{tables.agents}}
-        WHERE agent_id = $1 AND deleted_at IS NULL
-        """,
-        aid,
-    )
+    # Token (Better Auth JWT) callers have agent_id == the JWT subject (not a
+    # UUID); their participant row is keyed by the synthetic routing DID
+    # did:key:jwt-<subject>. Resolve the real UUID from it instead of casting the
+    # subject (which raises and silently kills the stream before any frame).
+    is_token_identity = (identity.identity_scope or "").strip() == "token" or not (
+        identity.did_key or ""
+    ).strip()
+    if is_token_identity:
+        viewer = await aweb_db.fetch_one(
+            """
+            SELECT agent_id, did_aw, did_key
+            FROM {{tables.agents}}
+            WHERE team_id = $1 AND did_key = $2 AND deleted_at IS NULL
+            """,
+            team_id,
+            f"did:key:jwt-{agent_id}",
+        )
+        aid = viewer["agent_id"] if viewer else None
+    else:
+        aid = UUID(agent_id)
+        viewer = await aweb_db.fetch_one(
+            """
+            SELECT did_aw, did_key
+            FROM {{tables.agents}}
+            WHERE agent_id = $1 AND deleted_at IS NULL
+            """,
+            aid,
+        )
     viewer_dids = _identity_dids(viewer, identity)
     if not viewer_dids:
         yield f"event: error\ndata: {json.dumps({'type': 'error', 'detail': 'identity incomplete'})}\n\n"
@@ -300,7 +319,7 @@ async def _sse_agent_events(
         redis,
         participant_dids=viewer_dids,
         viewer_team_id=team_id,
-        participant_agent_id=agent_id,
+        participant_agent_id=str(aid),
     )
     control_events = await _poll_control_signals(aweb_db, team_id=team_id, agent_id=aid)
     previous_mail = _index_events(mail_events, key_field="message_id")
