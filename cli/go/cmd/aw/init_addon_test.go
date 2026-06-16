@@ -60,7 +60,7 @@ func TestRunInitSetupChannelExistingWorkspaceStaysAddonWithURLFlags(t *testing.T
 	}
 	defer os.Chdir(origWd)
 
-	t.Setenv(initAPIKeyEnvVar, "")
+	t.Setenv("AWEB_API_KEY", "")
 	t.Setenv("AWEB_URL", "")
 	initURL = "https://app.aweb.ai"
 	initAwebURL = "https://app.aweb.ai/api"

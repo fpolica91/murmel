@@ -38,15 +38,6 @@ var workspaceAddWorktreeCmd = &cobra.Command{
 	RunE: runWorkspaceAddWorktree,
 }
 
-var workspaceConnectCmd = &cobra.Command{
-	Use:   "connect",
-	Short: "Connect this workspace to a service using an existing team certificate",
-	Long: "Connect this workspace to a service using the existing .aw signing key and team certificate in this directory.\n\n" +
-		"This is the first-class workspace connection verb. It does not create identities,\n" +
-		"create teams, or change AWID team membership. It is equivalent to `aw service init`.",
-	RunE: runServiceInit,
-}
-
 var workspaceMigrateMultiTeamCmd = &cobra.Command{
 	Use:   "migrate-multi-team",
 	Short: "Rewrite a legacy single-team workspace into the canonical multi-team shape",
@@ -114,12 +105,8 @@ func init() {
 	workspaceStatusCmd.Flags().IntVar(&workspaceStatusLimit, "limit", 15, "Maximum team workspaces to show")
 	workspaceStatusCmd.Flags().BoolVar(&workspaceStatusAll, "all", false, "Show all local team memberships in addition to the selected team status")
 	workspaceAddWorktreeCmd.Flags().StringVar(&workspaceAddAlias, "alias", "", "Override the default alias")
-	workspaceConnectCmd.Flags().StringVar(&serviceInitServiceURL, "service", "", "Service URL to connect to")
-	workspaceConnectCmd.Flags().StringVar(&serviceInitTeamID, "team", "", "Canonical AWID team id to activate before connecting")
-	workspaceConnectCmd.Flags().StringVar(&serviceInitRole, "role", "", "Optional role name for this workspace")
 
 	workspaceCmd.AddCommand(workspaceStatusCmd)
-	workspaceCmd.AddCommand(workspaceConnectCmd)
 	workspaceCmd.AddCommand(workspaceAddWorktreeCmd)
 	workspaceCmd.AddCommand(workspaceMigrateMultiTeamCmd)
 	workspaceCmd.AddCommand(workspaceDeleteCmd)
@@ -410,43 +397,10 @@ func runWorkspaceAddWorktree(cmd *cobra.Command, args []string) error {
 	}
 
 	if !jsonFlag {
-		fmt.Fprintln(os.Stderr, "Bootstrapping team certificate...")
+		fmt.Fprintln(os.Stderr, "Binding new worktree (token auth)...")
 	}
 
-	teamDomain, teamName, err := awid.ParseTeamID(teamID)
-	if err != nil {
-		cleanupWorkspaceWorktree(root, worktreePath, branchName, branchCreated)
-		return fmt.Errorf("invalid team_id in workspace.yaml: %w", err)
-	}
-
-	// When the team controller key is available locally (BYOD), mint the
-	// certificate directly.  When it is not (hosted/API-key bootstrapped
-	// workspaces), delegate certificate issuance to the cloud via the
-	// parent workspace's API key.
-	hasTeamKey, err := awconfig.TeamKeyExists(teamDomain, teamName)
-	if err != nil {
-		cleanupWorkspaceWorktree(root, worktreePath, branchName, branchCreated)
-		return fmt.Errorf("check team key: %w", err)
-	}
-
-	if hasTeamKey {
-		_, err = addWorktreeViaLocalTeamKey(
-			worktreePath, root, branchName, branchCreated,
-			teamID, teamDomain, teamName, sourceServerURL, workingDir,
-			alias, role, state,
-		)
-	} else if strings.TrimSpace(state.APIKey) != "" {
-		_, err = addWorktreeViaCloudBootstrap(
-			worktreePath, root, branchName, branchCreated,
-			sourceServerURL, alias, role, state,
-		)
-	} else {
-		_, err = addWorktreeViaPrimaryInvite(
-			workingDir, worktreePath, root, branchName, branchCreated,
-			sourceServerURL, alias, role, state,
-		)
-	}
-	if err != nil {
+	if err := addWorktreeViaToken(worktreePath, root, branchName, branchCreated, sourceServerURL, teamID, alias, role, state); err != nil {
 		return err
 	}
 
@@ -464,95 +418,30 @@ func runWorkspaceAddWorktree(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func addWorktreeViaLocalTeamKey(
+// addWorktreeViaToken binds a freshly-created worktree to the parent's team
+// using token auth. The new worktree inherits the parent's aweb_url, team_id,
+// and human/agent metadata, gets its own local self-custodial E2EE signing key,
+// and writes a cert-less workspace.yaml — no team invite, certificate issuance,
+// or rollback ceremony. On failure the worktree is cleaned up.
+func addWorktreeViaToken(
 	worktreePath, root, branchName string, branchCreated bool,
-	teamID, teamDomain, teamName, sourceServerURL, workingDir string,
-	alias, role string, state *awconfig.WorktreeWorkspace,
-) (connectOutput, error) {
-	registryURL, err := resolveWorkspaceTeamRegistryURL(workingDir, sourceServerURL, teamDomain)
-	if err != nil {
-		cleanupWorkspaceWorktree(root, worktreePath, branchName, branchCreated)
-		return connectOutput{}, err
-	}
-
-	_, inviteToken, err := createTeamInviteToken(teamDomain, teamName, registryURL, sourceServerURL, true)
-	if err != nil {
-		cleanupWorkspaceWorktree(root, worktreePath, branchName, branchCreated)
-		return connectOutput{}, fmt.Errorf("create local team invite for %s: %w", teamID, err)
-	}
-	acceptedInvite, err := acceptTeamInviteWithDetails(worktreePath, inviteToken, alias, "")
-	if err != nil {
-		cleanupWorkspaceWorktree(root, worktreePath, branchName, branchCreated)
-		return connectOutput{}, fmt.Errorf("accept team invite in new worktree: %w", err)
-	}
-
-	rollback := func(step string, cause error) (connectOutput, error) {
-		rollbackErr := revokeAcceptedTeamCertificate(acceptedInvite)
-		cleanupWorkspaceWorktree(root, worktreePath, branchName, branchCreated)
-		if rollbackErr != nil {
-			return connectOutput{}, fmt.Errorf("%s: %w (rollback revoke failed: %v)", step, cause, rollbackErr)
-		}
-		return connectOutput{}, fmt.Errorf("%s: %w", step, cause)
-	}
-
-	fmt.Fprintln(os.Stderr, "Connecting new workspace...")
-	connectResult, err := initCertificateConnectWithOptions(worktreePath, sourceServerURL, certificateConnectOptions{
-		Role:      role,
-		HumanName: strings.TrimSpace(state.HumanName),
-		AgentType: strings.TrimSpace(state.AgentType),
-	})
-	if err != nil {
-		return rollback("connect new worktree", err)
-	}
-	if strings.TrimSpace(connectResult.Alias) != "" && !strings.EqualFold(strings.TrimSpace(connectResult.Alias), alias) {
-		return rollback(
-			"validate new worktree alias",
-			fmt.Errorf("new workspace connected as alias %q, expected %q", strings.TrimSpace(connectResult.Alias), alias),
-		)
-	}
-	return connectResult, nil
-}
-
-func addWorktreeViaCloudBootstrap(
-	worktreePath, root, branchName string, branchCreated bool,
-	sourceServerURL, alias, role string, state *awconfig.WorktreeWorkspace,
-) (connectOutput, error) {
-	apiKey := strings.TrimSpace(state.APIKey)
-	if apiKey == "" {
-		cleanupWorkspaceWorktree(root, worktreePath, branchName, branchCreated)
-		return connectOutput{}, usageError(
-			"no local team key and no workspace API key; " +
-				"run `aw id team create` to manage teams locally, " +
-				"or re-initialize with an API key from the dashboard",
-		)
-	}
-
-	awebURL, err := normalizeAPIKeyBootstrapBaseURL(sourceServerURL)
-	if err != nil {
-		cleanupWorkspaceWorktree(root, worktreePath, branchName, branchCreated)
-		return connectOutput{}, err
-	}
-
-	fmt.Fprintln(os.Stderr, "Requesting certificate from cloud...")
-	result, err := runAPIKeyBootstrapInit(apiKeyInitRequest{
-		WorkingDir: worktreePath,
-		AwebURL:    awebURL,
-		APIKey:     apiKey,
-		Alias:      alias,
-		Role:       role,
-		HumanName:  strings.TrimSpace(state.HumanName),
-		AgentType:  strings.TrimSpace(state.AgentType),
-		Persistent: false,
+	sourceServerURL, teamID, alias, role string, state *awconfig.WorktreeWorkspace,
+) error {
+	_, err := initTokenWorkspace(context.Background(), tokenInitOptions{
+		WorkingDir:   worktreePath,
+		AwebURL:      sourceServerURL,
+		TeamID:       teamID,
+		Alias:        alias,
+		RoleName:     role,
+		HumanName:    strings.TrimSpace(state.HumanName),
+		AgentType:    strings.TrimSpace(state.AgentType),
+		WriteContext: true,
 	})
 	if err != nil {
 		cleanupWorkspaceWorktree(root, worktreePath, branchName, branchCreated)
-		return connectOutput{}, fmt.Errorf("cloud bootstrap for new worktree: %w", err)
+		return fmt.Errorf("bind new worktree: %w", err)
 	}
-	if strings.TrimSpace(result.Alias) != "" && !strings.EqualFold(strings.TrimSpace(result.Alias), alias) {
-		cleanupWorkspaceWorktree(root, worktreePath, branchName, branchCreated)
-		return connectOutput{}, fmt.Errorf("new workspace connected as alias %q, expected %q", strings.TrimSpace(result.Alias), alias)
-	}
-	return result, nil
+	return nil
 }
 
 func runWorkspaceMigrateMultiTeam(cmd *cobra.Command, args []string) error {

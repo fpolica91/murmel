@@ -2,11 +2,28 @@ package main
 
 import (
 	"context"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/awebai/aw/awid"
 )
+
+// resolveOnboardingAwebURL normalizes an aweb base URL for onboarding service
+// discovery, defaulting to AWEB_URL / DefaultAwebURL when raw is empty. This
+// was previously resolveGuidedOnboardingAwebURL in the (removed) onboarding
+// wizard.
+func resolveOnboardingAwebURL(raw string) (string, error) {
+	awebURL := strings.TrimSpace(raw)
+	if awebURL == "" {
+		if env := strings.TrimSpace(os.Getenv("AWEB_URL")); env != "" {
+			awebURL = env
+		} else {
+			awebURL = DefaultAwebURL
+		}
+	}
+	return normalizeAwebBaseURL(awebURL)
+}
 
 type onboardingServiceURLs struct {
 	OnboardingURL       string
@@ -21,7 +38,7 @@ func resolveOnboardingServiceURLs(raw string) (onboardingServiceURLs, error) {
 		if err == nil {
 			return urls, nil
 		}
-		fallbackURL, ferr := resolveGuidedOnboardingAwebURL(v)
+		fallbackURL, ferr := resolveOnboardingAwebURL(v)
 		if ferr != nil {
 			return onboardingServiceURLs{}, ferr
 		}
@@ -51,7 +68,7 @@ func resolveOnboardingServiceURLs(raw string) (onboardingServiceURLs, error) {
 	if err == nil {
 		return urls, nil
 	}
-	fallbackURL, ferr := resolveGuidedOnboardingAwebURL(DefaultAwebURL)
+	fallbackURL, ferr := resolveOnboardingAwebURL(DefaultAwebURL)
 	if ferr != nil {
 		return onboardingServiceURLs{}, ferr
 	}
@@ -62,7 +79,7 @@ func resolveOnboardingServiceURLs(raw string) (onboardingServiceURLs, error) {
 }
 
 func discoverOnboardingServiceURLs(raw string) (onboardingServiceURLs, error) {
-	baseURL, err := resolveGuidedOnboardingAwebURL(raw)
+	baseURL, err := resolveOnboardingAwebURL(raw)
 	if err != nil {
 		return onboardingServiceURLs{}, err
 	}

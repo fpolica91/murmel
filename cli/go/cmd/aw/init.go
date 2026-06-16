@@ -4,13 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/url"
 	"os"
 	"strings"
 
 	"github.com/awebai/aw/awconfig"
-	"github.com/awebai/aw/awid"
 	"github.com/spf13/cobra"
 )
 
@@ -62,9 +60,7 @@ var (
 )
 
 var (
-	initIsTTY                      = isTTY
-	initPrintGuidedOnboardingReady = printGuidedOnboardingReadyMessage
-	initRunImplicitLocalFlow       = runImplicitLocalInit
+	initIsTTY = isTTY
 )
 
 type initResult struct {
@@ -117,9 +113,6 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 	if initInjectDocs && initDoNotTouchAgentsMD {
 		return fmt.Errorf("--inject-docs and --do-not-touch-agents-md are mutually exclusive")
-	}
-	if err := validateInitInboundMode(); err != nil {
-		return err
 	}
 
 	// When only --inject-docs, --setup-hooks, or --setup-channel are requested,
@@ -223,101 +216,12 @@ func rejectRemovedInitFlags() error {
 	return nil
 }
 
-func initHasExplicitOnboardingArgs() bool {
-	values := []string{
-		initUsername,
-		initDomain,
-		initAlias,
-		initName,
-	}
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return true
-		}
-	}
-	return initBYOD || initPersistent
-}
-
 func resolveInitAwebURL() (string, error) {
 	value := resolveInitAwebURLOverride()
 	if value == "" {
 		value = DefaultAwebURL
 	}
 	return normalizeAwebBaseURL(value)
-}
-
-func resolveExplicitInitAwebURL() (string, error) {
-	value := resolveInitAwebURLOverride()
-	if value == "" {
-		workingDir, err := os.Getwd()
-		if err != nil {
-			return "", err
-		}
-		discovered, ok, err := resolveDefaultCertificateInitAwebURL(workingDir)
-		if err != nil {
-			return "", err
-		}
-		if ok {
-			return discovered, nil
-		}
-		return "", usageError("--aweb-url, --url, or AWEB_URL is required when using certificate auth (team certificate found under .aw/team-certs/)")
-	}
-	return normalizeAwebBaseURL(value)
-}
-
-func resolveDefaultCertificateInitAwebURL(workingDir string) (string, bool, error) {
-	cert, _, err := loadCertificateForConnect(workingDir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return "", false, nil
-		}
-		return "", false, err
-	}
-	teamDomain, _, err := awid.ParseTeamID(strings.TrimSpace(cert.Team))
-	if err != nil {
-		return "", false, fmt.Errorf("current team certificate has invalid team_id %q: %w", cert.Team, err)
-	}
-	if workspace, _, err := awconfig.LoadWorktreeWorkspaceFromDir(workingDir); err == nil && workspace != nil {
-		if awebURL := strings.TrimSpace(workspace.AwebURL); awebURL != "" {
-			if workspace.Membership(strings.TrimSpace(cert.Team)) != nil || len(workspace.Memberships) == 0 {
-				normalized, err := normalizeAwebBaseURL(awebURL)
-				if err != nil {
-					return "", false, fmt.Errorf("invalid aweb_url for team %s: %w", cert.Team, err)
-				}
-				return normalized, true, nil
-			}
-		}
-	} else if err != nil && !os.IsNotExist(err) {
-		return "", false, err
-	}
-	if teamState, err := awconfig.LoadTeamState(workingDir); err == nil && teamState != nil {
-		if membership := teamState.Membership(strings.TrimSpace(cert.Team)); membership != nil {
-			if awebURL := strings.TrimSpace(membership.AwebURL); awebURL != "" {
-				normalized, err := normalizeAwebBaseURL(awebURL)
-				if err != nil {
-					return "", false, fmt.Errorf("invalid aweb_url for team %s: %w", cert.Team, err)
-				}
-				return normalized, true, nil
-			}
-		}
-	} else if err != nil && !os.IsNotExist(err) {
-		return "", false, err
-	}
-	registryURL, err := resolveWorkspaceTeamRegistryURL(workingDir, "", teamDomain)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return "", false, nil
-		}
-		return "", false, err
-	}
-	if strings.TrimSpace(registryURL) != awid.DefaultAWIDRegistryURL {
-		return "", false, nil
-	}
-	awebURL, err := cleanBaseURL(DefaultAwebURL + "/api")
-	if err != nil {
-		return "", false, err
-	}
-	return awebURL, true, nil
 }
 
 func resolveInitAwebURLOverride() string {
@@ -329,51 +233,6 @@ func resolveInitAwebURLOverride() string {
 		value = strings.TrimSpace(os.Getenv("AWEB_URL"))
 	}
 	return value
-}
-
-func resolveInitAWIDRegistryURL() (string, error) {
-	value := strings.TrimSpace(initAWIDRegistry)
-	if value == "" {
-		value = strings.TrimSpace(os.Getenv("AWID_REGISTRY_URL"))
-	}
-	if value == "" {
-		value = awid.DefaultAWIDRegistryURL
-	}
-	if strings.EqualFold(value, "local") {
-		return "", usageError("AWID_REGISTRY_URL=local is not supported by `aw init`; use an explicit localhost URL such as http://localhost:8010")
-	}
-	return cleanBaseURL(value)
-}
-
-func initBaseURLIsLocalhost(raw string) bool {
-	u, err := url.Parse(strings.TrimSpace(raw))
-	if err != nil {
-		return false
-	}
-	host := strings.TrimSpace(u.Hostname())
-	if strings.EqualFold(host, "localhost") {
-		return true
-	}
-	ip := net.ParseIP(host)
-	return ip != nil && ip.IsLoopback()
-}
-
-func initRegistryIsLocalhost(raw string) bool {
-	return initBaseURLIsLocalhost(raw)
-}
-
-func initShouldUseImplicitLocalFlow(registryURL string) bool {
-	if !initRegistryIsLocalhost(registryURL) {
-		return false
-	}
-	// The implicit local flow is the compatibility path for a local aweb+awid
-	// stack. Explicit onboarding inputs mean the user is asking for hosted/BYOD
-	// semantics even if the test or dev stack happens to be on localhost.
-	return !initBYOD &&
-		strings.TrimSpace(initUsername) == "" &&
-		strings.TrimSpace(initDomain) == "" &&
-		strings.TrimSpace(initName) == "" &&
-		!initPersistent
 }
 
 // initNeedsFullInitForAddonOnly returns true when an add-on request must
@@ -397,18 +256,6 @@ func initWorkspaceMissing(workingDir string) (bool, error) {
 		return false, fmt.Errorf("invalid local workspace binding: %w", err)
 	}
 	return true, nil
-}
-
-func printGuidedOnboardingReadyMessage(result *guidedOnboardingResult) {
-	if result == nil {
-		return
-	}
-	fmt.Println()
-	fmt.Println("Workspace ready.")
-	fmt.Println()
-	fmt.Println("Tell your agent: please read https://aweb.ai/docs/cli-tutorial.md")
-	fmt.Println()
-	printChannelLaunchInstructions(os.Stdout)
 }
 
 func printChannelLaunchInstructions(out io.Writer) {
@@ -463,75 +310,6 @@ func resolveAliasValue(explicit string) string {
 		return v
 	}
 	return strings.TrimSpace(os.Getenv("AWEB_ALIAS"))
-}
-
-// validateInitInboundMode enforces the aapl.7 contract on the
-// --inbound-mode flag. The user-facing flag values use the
-// hyphen-spelling CLI convention (open, team-and-contacts); the
-// underscored canonical form (team_and_contacts) is the wire-level value
-// translated by canonicalInitInboundModeForWire before the API call.
-//
-// Per Juan c2d25276: --inbound-mode is a real top-level flag of
-// `aw init --global` and every supported global creation path
-// (API-key bootstrap, guided hosted onboarding, BYOD) must forward
-// the value into the create call. This validator only enforces the
-// flag-shape contract; threading through the paths is the runner's
-// responsibility.
-//
-// Two guards:
-//
-//  1. The flag is only meaningful for a global identity (--global);
-//     local workspaces have no inbound delivery mode.
-//  2. Only the two-value set {open, team-and-contacts} is canonical.
-//     The stale contacts-only spelling is accepted as a compatibility
-//     alias and normalized to team-and-contacts. The withdrawn value
-//     "contacts_or_teammates" (or the hyphenated variant) must fail at
-//     parse time so users copying stale commands see a clear error.
-func validateInitInboundMode() error {
-	value := strings.TrimSpace(initInboundMode)
-	if value == "" {
-		return nil
-	}
-	if !initPersistent {
-		return fmt.Errorf("--inbound-mode is only valid with --global; local workspaces do not have an inbound delivery mode")
-	}
-	if initBYOD {
-		// BYOD creates the team certificate locally; there is no
-		// hosted creation endpoint at this stage to carry the
-		// inbound_mode value. Fail fast instead of silently
-		// dropping the user's choice (Juan c2d25276: "fail only
-		// where the path genuinely cannot create/configure a
-		// global identity"). The user can set the mode after the
-		// BYOD identity is up via the dashboard's inbound-mode
-		// surface or the hosted REST API
-		// (`aw inbound-mode <mode>`).
-		return fmt.Errorf("--inbound-mode is not supported on --byod global creation today (no server-side creation endpoint to carry the value); run `aw init --byod --global` first, then set the inbound mode from the dashboard or with `aw inbound-mode <open|team-and-contacts>`")
-	}
-	switch value {
-	case "open":
-		initInboundMode = "open"
-		return nil
-	case "team-and-contacts", "contacts-only":
-		initInboundMode = "team-and-contacts"
-		return nil
-	}
-	return fmt.Errorf("--inbound-mode must be one of {open, team-and-contacts}; got %q", value)
-}
-
-// canonicalInitInboundModeForWire translates the user-facing
-// flag value into the canonical wire form expected by the API:
-// "team-and-contacts" → "team_and_contacts". Returns "" when no value was set.
-func canonicalInitInboundModeForWire(flag string) string {
-	switch strings.TrimSpace(flag) {
-	case "":
-		return ""
-	case "open":
-		return "open"
-	case "team-and-contacts", "contacts-only":
-		return "team_and_contacts"
-	}
-	// Should be unreachable after validateInitInboundMode; defensive only.
-	return strings.TrimSpace(flag)
 }
 
 func resolveRequestedRole(explicit string) string {
