@@ -183,18 +183,33 @@ def _rate_config(bucket: str) -> tuple[int, int]:
 
 
 def _extract_client_ip(request: Request) -> str:
+    import ipaddress
     import os
+
+    direct = request.client.host if request.client and request.client.host else "unknown"
+
     if os.getenv("AWEB_TRUST_PROXY_HEADERS", "").strip().lower() in ("1", "true", "yes"):
+        # When behind a trusted proxy, the proxy APPENDS the real client as the
+        # last hop. Take the RIGHTMOST entry (the nearest hop the proxy added),
+        # not the leftmost (which a remote attacker fully controls), and require
+        # it to be a valid IP — else fall back to the direct peer.
         xff = request.headers.get("x-forwarded-for")
         if xff:
-            return xff.split(",")[0].strip()
-        xrip = request.headers.get("x-real-ip")
+            candidate = xff.split(",")[-1].strip()
+            try:
+                ipaddress.ip_address(candidate)
+                return candidate
+            except ValueError:
+                pass
+        xrip = (request.headers.get("x-real-ip") or "").strip()
         if xrip:
-            return xrip.strip()
+            try:
+                ipaddress.ip_address(xrip)
+                return xrip
+            except ValueError:
+                pass
 
-    if request.client and request.client.host:
-        return request.client.host
-    return "unknown"
+    return direct
 
 
 def build_rate_limiter(*, redis=None, backend: str | None = None) -> RateLimiter:

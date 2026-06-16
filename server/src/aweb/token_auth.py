@@ -49,6 +49,10 @@ from aweb.deps import get_db
 
 logger = logging.getLogger(__name__)
 
+# Minimum seconds between JWKS-cache rebuilds forced by a key-resolution failure
+# (bounds attacker-driven JWKS refetch from unknown-kid token floods).
+_FORCED_JWKS_REBUILD_COOLDOWN = 30.0
+
 
 # ---------------------------------------------------------------------------
 # Errors
@@ -154,6 +158,7 @@ class JWKSVerifier:
         self._lock = threading.Lock()
         self._client: Optional[PyJWKClient] = None
         self._client_built_at: float = 0.0
+        self._last_forced_rebuild: float = 0.0
 
     @property
     def config(self) -> TokenAuthConfig:
@@ -179,10 +184,16 @@ class JWKSVerifier:
         try:
             return client.get_signing_key_from_jwt(token)
         except Exception as exc:  # PyJWKClientError, network, decode, ...
-            # Force a rebuild on the next call in case the cached key set is
-            # stale (e.g. the issuer rotated keys mid-TTL).
+            # Force at most ONE rebuild per cooldown window. Otherwise a flood of
+            # tokens with unknown `kid`s would zero the cache on every request and
+            # drive a JWKS refetch per request (cache-bust amplification against
+            # the issuer). PyJWKClient already refreshes on a genuine key miss, so
+            # this wrapper rebuild only needs to be an occasional safety net.
+            now = time.monotonic()
             with self._lock:
-                self._client_built_at = 0.0
+                if (now - self._last_forced_rebuild) >= _FORCED_JWKS_REBUILD_COOLDOWN:
+                    self._client_built_at = 0.0
+                    self._last_forced_rebuild = now
             raise TokenAuthError(f"Unable to resolve signing key: {exc}") from exc
 
     def verify(self, token: str) -> dict[str, Any]:

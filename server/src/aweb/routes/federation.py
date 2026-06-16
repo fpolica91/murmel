@@ -141,8 +141,11 @@ async def _enforce_assertion_nonce(
 ) -> None:
     """Reject a per-origin assertion nonce already seen inside the skew window.
 
-    Independent anti-replay layer (the nonce is signed but was otherwise unused).
-    No Redis configured → no-op.
+    SUPPLEMENTARY anti-replay layer. The authoritative federation replay defense
+    is the persisted ``federated_message_deliveries`` row (unique message_id), so
+    when no Redis is configured this nonce check is intentionally a no-op rather
+    than a hard requirement; a Redis *error* (store configured but unreachable)
+    still fails closed below.
     """
     redis = getattr(request.app.state, "redis", None)
     if redis is None:

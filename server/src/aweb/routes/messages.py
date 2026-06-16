@@ -96,8 +96,8 @@ class SendMessageRequest(BaseModel):
     to_stable_id: Optional[str] = Field(default=None, min_length=1, max_length=256)
     to_address: Optional[str] = Field(default=None, min_length=1, max_length=256)
     conversation_id: Optional[str] = None
-    subject: str = ""
-    body: str = ""
+    subject: str = Field(default="", max_length=4096)
+    body: str = Field(default="", max_length=65536)
     content_mode: Optional[str] = None
     message_version: Optional[int] = None
     encrypted_envelope: Optional[dict] = None

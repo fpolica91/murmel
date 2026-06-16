@@ -1074,7 +1074,7 @@ class CreateSessionRequest(BaseModel):
     to_aliases: list[str] = Field(default_factory=list, max_length=64)
     to_dids: list[str] = Field(default_factory=list, max_length=64)
     to_addresses: list[str] = Field(default_factory=list, max_length=64)
-    message: str
+    message: str = Field(..., max_length=65536)
     content_mode: str = "legacy_plaintext_v1"
     message_version: int = 1
     encrypted_envelope: dict[str, Any] | None = None
@@ -2285,7 +2285,7 @@ async def stream(
 class SendMessageRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    body: str = ""
+    body: str = Field(default="", max_length=65536)
     content_mode: str = "legacy_plaintext_v1"
     message_version: int = 1
     encrypted_envelope: dict[str, Any] | None = None

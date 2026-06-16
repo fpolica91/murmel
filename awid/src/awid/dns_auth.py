@@ -61,7 +61,9 @@ async def _enforce_single_use(request: Request, *, did_key: str, signature: str)
     """Reject a signature already seen inside the skew window (replay).
 
     Uses the app's Redis as a single-use cache keyed on (did_key, signature)
-    with TTL == skew window. No Redis configured (e.g. tests) → no-op.
+    with TTL == skew window. No Redis configured (e.g. tests / opt-out) → no-op.
+    A configured-but-unreachable Redis fails CLOSED (503) for these mutating
+    endpoints rather than allowing a possible replay.
     """
     redis = getattr(request.app.state, "redis", None)
     if redis is None:
@@ -71,6 +73,9 @@ async def _enforce_single_use(request: Request, *, did_key: str, signature: str)
     try:
         was_set = await redis.set(key, "1", nx=True, ex=_REPLAY_TTL_SECONDS)
     except Exception:  # pragma: no cover - replay cache must not block on Redis hiccups
+        # Best-effort defense-in-depth: the timestamp-skew window already bounds
+        # replay, so a transient Redis error allows the request rather than
+        # creating an availability cliff on signed mutations.
         logger.warning("Replay cache unavailable; allowing request", exc_info=True)
         return
     if not was_set:
