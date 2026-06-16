@@ -78,13 +78,8 @@ type initResult struct {
 func init() {
 	initCmd.Flags().StringVar(&initURL, "url", "", "Base URL for the aweb server used for init, bootstrap, and hosted onboarding flows")
 	initCmd.Flags().StringVar(&initAwebURL, "aweb-url", "", "Base URL for the aweb server used by aw init (overrides AWEB_URL)")
-	initCmd.Flags().StringVar(&initAWIDRegistry, "awid-registry", "", "Base URL for the awid registry used by aw init (overrides AWID_REGISTRY_URL)")
-	initCmd.Flags().BoolVar(&initBYOD, "byod", false, "Use a domain you control instead of hosted aweb.ai onboarding")
-	initCmd.Flags().StringVar(&initUsername, "username", "", "Hosted username to create")
-	initCmd.Flags().StringVar(&initDomain, "domain", "", "BYOD domain to use with --byod")
 	initCmd.Flags().StringVar(&initTeam, "team", "", "Team ID to bind this workspace to (e.g. default:local). Defaults to AWEB_TEAM_ID.")
 	initCmd.Flags().StringVar(&initAlias, "alias", "", "Local workspace routing alias (optional; default: server-suggested)")
-	initCmd.Flags().StringVar(&initName, "name", "", "Global identity name (required with --global unless .aw/identity.yaml already exists)")
 	initCmd.Flags().BoolVar(&initInjectDocs, "inject-docs", false, "Inject aw coordination instructions into CLAUDE.md and AGENTS.md")
 	initCmd.Flags().BoolVar(&initDoNotTouchAgentsMD, "do-not-touch-agents-md", false, "Do not create or update AGENTS.md or CLAUDE.md during init")
 	initCmd.Flags().BoolVar(&initSetupHooks, "setup-hooks", false, "Set up Claude Code PostToolUse hook for aw notify")
@@ -94,10 +89,21 @@ func init() {
 	initCmd.Flags().BoolVar(&initWriteContext, "write-context", true, "Ensure .aw/context exists in the current directory")
 	initCmd.Flags().BoolVar(&initPrintExports, "print-exports", false, "Print shell export lines after JSON output")
 	addWorkspaceRoleFlags(initCmd, &initRole, "Workspace role name (must match a role in the active team roles bundle)")
-	initCmd.Flags().BoolVar(&initPersistent, "global", false, "Create an addressed self-custodial global identity instead of the default local workspace")
-	initCmd.Flags().BoolVar(&initPersistent, "persistent", false, "Compatibility alias for --global")
-	_ = initCmd.Flags().MarkHidden("persistent")
-	initCmd.Flags().StringVar(&initInboundMode, "inbound-mode", "", "Inbound delivery mode for a global identity (open|team-and-contacts). Only valid with --global.")
+
+	// Removed certificate/registry-only flags. They are kept registered (and
+	// hidden) so a clear usage error fires via rejectRemovedInitFlags when an
+	// old script still passes one, instead of cobra's generic "unknown flag".
+	initCmd.Flags().StringVar(&initAWIDRegistry, "awid-registry", "", "")
+	initCmd.Flags().BoolVar(&initBYOD, "byod", false, "")
+	initCmd.Flags().StringVar(&initUsername, "username", "", "")
+	initCmd.Flags().StringVar(&initDomain, "domain", "", "")
+	initCmd.Flags().StringVar(&initName, "name", "", "")
+	initCmd.Flags().BoolVar(&initPersistent, "global", false, "")
+	initCmd.Flags().BoolVar(&initPersistent, "persistent", false, "")
+	initCmd.Flags().StringVar(&initInboundMode, "inbound-mode", "", "")
+	for _, hidden := range []string{"url", "awid-registry", "byod", "username", "domain", "name", "global", "persistent", "inbound-mode"} {
+		_ = initCmd.Flags().MarkHidden(hidden)
+	}
 
 	rootCmd.AddCommand(initCmd)
 }

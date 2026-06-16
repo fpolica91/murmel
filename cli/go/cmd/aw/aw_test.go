@@ -132,12 +132,11 @@ func TestAwTopLevelHelpGroupsCommandsByArchitecture(t *testing.T) {
 		t.Fatalf("expected run in Coordination & Runtime group:\n%s", text)
 	}
 
-	agentsIdx := strings.Index(text, "\n  agents")
-	if agentsIdx < obsoleteIdx || agentsIdx > utilityIdx {
-		t.Fatalf("expected agents in Obsolete / Legacy Compatibility group:\n%s", text)
-	}
-	if !strings.Contains(text, "Obsolete compatibility for repo-local agent layouts") {
-		t.Fatalf("expected agents help to be marked obsolete compatibility:\n%s", text)
+	// The cert/DID/namespace/team cluster (and the `aw agents` repo-local
+	// layout bootstrap that depended on it) is removed under token-only auth,
+	// so neither agents nor spawn should appear in top-level help.
+	if strings.Contains(text, "\n  agents") {
+		t.Fatalf("agents should not appear in top-level help after the token-only port:\n%s", text)
 	}
 	if strings.Contains(text, "\n  spawn") || strings.Contains(text, "\nspawn") {
 		t.Fatalf("spawn should not appear in top-level help:\n%s", text)
@@ -156,12 +155,8 @@ func TestGlobalLocalHelpDoesNotAdvertiseLegacyLifetimeFlags(t *testing.T) {
 
 	legacyPersistentIdentity := "Persistent" + " identity"
 	legacyEphemeralIdentity := "ephemeral" + " identity"
-	legacyPersistentInvite := "persistent" + " member invite"
-	legacyEphemeralInvite := "ephemeral" + " member invite"
 	legacyPersistent := "persistent"
-	legacyEphemeral := "ephemeral"
 	legacyPersistentFlag := "--" + legacyPersistent
-	legacyEphemeralFlag := "--" + legacyEphemeral
 
 	cases := []struct {
 		name       string
@@ -170,22 +165,13 @@ func TestGlobalLocalHelpDoesNotAdvertiseLegacyLifetimeFlags(t *testing.T) {
 		mustAbsent []string
 	}{
 		{
+			// Under token-only auth, init advertises --team / --aweb-url and no
+			// longer surfaces the cert-cluster identity flags (--global, --byod,
+			// --name, --inbound-mode are hidden) or legacy lifetime language.
 			name:       "init",
 			args:       []string{"init", "--help"},
-			want:       []string{"--global", "Global identity name", "Local workspace routing alias"},
-			mustAbsent: []string{legacyPersistentFlag, legacyEphemeralIdentity, legacyPersistentIdentity},
-		},
-		{
-			name:       "team invite",
-			args:       []string{"id", "team", "invite", "--help"},
-			want:       []string{"--global", "--local", "global member invite", "local workspace member invite"},
-			mustAbsent: []string{legacyPersistentFlag, legacyEphemeralFlag, legacyPersistentInvite, legacyEphemeralInvite},
-		},
-		{
-			name:       "team add-member",
-			args:       []string{"id", "team", "add-member", "--help"},
-			want:       []string{"--global", "--local", "Global member address", "local workspace member certificate"},
-			mustAbsent: []string{"--lifetime", legacyPersistent, legacyEphemeral},
+			want:       []string{"--team", "--aweb-url", "Local workspace routing alias"},
+			mustAbsent: []string{"--global", "--byod", legacyPersistentFlag, legacyEphemeralIdentity, legacyPersistentIdentity, "Global identity name"},
 		},
 	}
 

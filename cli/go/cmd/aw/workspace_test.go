@@ -1126,9 +1126,6 @@ func TestAwWorkspaceAddWorktreeRejectsTrackedAwebRuntimeState(t *testing.T) {
 	}
 }
 
-
-
-
 func withoutEnvForTest(env []string, names ...string) []string {
 	blocked := make(map[string]bool, len(names))
 	for _, name := range names {
@@ -1208,8 +1205,6 @@ func TestAwWorkspaceAddWorktreeRejectsAliasAlreadyInUse(t *testing.T) {
 		t.Fatalf("unexpected output:\n%s", string(out))
 	}
 }
-
-
 
 func TestAwWorkspaceAddWorktreeRequiresGitWorktree(t *testing.T) {
 	t.Parallel()
