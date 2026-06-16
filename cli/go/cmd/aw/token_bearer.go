@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -78,12 +79,35 @@ func (sessionRefresher) Refresh(ctx context.Context, refreshToken string) (*awco
 	return mintJWTFromSession(ctx, cached.TokenURL, refreshToken)
 }
 
-// bearerTokenProvider returns a valid (auto-refreshed) SimpleAuth JWT for the
-// current user, or an error wrapping os.ErrNotExist when no token is cached
-// (the user has not run `aw login`). Installed on the coordination client via
+// injectedBearerToken returns an explicitly supplied bearer JWT, preferring
+// the --token flag, then the AW_TOKEN environment variable. An injected token
+// is for non-interactive use (CI/scripts): it bypasses the ~/.aw/token cache
+// and is never refreshed — the caller owns its lifetime. Returns "" when
+// neither source is set.
+func injectedBearerToken() string {
+	if t := strings.TrimSpace(tokenFlag); t != "" {
+		return t
+	}
+	return strings.TrimSpace(os.Getenv("AW_TOKEN"))
+}
+
+// hasInjectedBearerToken reports whether an explicit --token/AW_TOKEN override
+// is present.
+func hasInjectedBearerToken() bool {
+	return injectedBearerToken() != ""
+}
+
+// bearerTokenProvider returns a valid SimpleAuth JWT for the current user. An
+// explicit --token/AW_TOKEN override wins and is returned verbatim (no cache,
+// no refresh). Otherwise it loads and auto-refreshes the cached token, or
+// returns an error wrapping os.ErrNotExist when no token is cached (the user
+// has not run `aw login`). Installed on the coordination client via
 // SetBearerProvider so every command auto-attaches the token when no team
 // certificate is present.
 func bearerTokenProvider(ctx context.Context) (string, error) {
+	if t := injectedBearerToken(); t != "" {
+		return t, nil
+	}
 	return awconfig.LoadValidToken(ctx, sessionRefresher{})
 }
 
@@ -92,8 +116,10 @@ func bearerTokenProvider(ctx context.Context) (string, error) {
 // has no team certificate. Returns an error wrapping os.ErrNotExist when no
 // token is cached, so callers fall back to the certificate-auth error.
 func bearerClientIfAvailable(baseURL, teamID string) (*aweb.Client, error) {
-	if _, err := awconfig.LoadToken(); err != nil {
-		return nil, err
+	if !hasInjectedBearerToken() {
+		if _, err := awconfig.LoadToken(); err != nil {
+			return nil, err
+		}
 	}
 	c, err := aweb.New(baseURL)
 	if err != nil {
@@ -111,8 +137,10 @@ func bearerClientIfAvailable(baseURL, teamID string) (*aweb.Client, error) {
 // when no token is cached or no base URL is configured, so the caller surfaces
 // the original workspace-resolution error instead.
 func resolveWorkspacelessBearerClient() (*aweb.Client, error) {
-	if _, err := awconfig.LoadToken(); err != nil {
-		return nil, err
+	if !hasInjectedBearerToken() {
+		if _, err := awconfig.LoadToken(); err != nil {
+			return nil, err
+		}
 	}
 	baseURL, err := resolveAuthenticatedBaseURL("")
 	if err != nil {

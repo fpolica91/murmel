@@ -10,6 +10,7 @@ import (
 
 var serverFlag string
 var teamFlag string
+var tokenFlag string
 var debugFlag bool
 var jsonFlag bool
 
@@ -99,6 +100,7 @@ func init() {
 	rootCmd.SetCompletionCommandGroupID(groupUtility)
 
 	rootCmd.PersistentFlags().StringVar(&serverFlag, "server-name", "", "Override the server host or name for this command")
+	rootCmd.PersistentFlags().StringVar(&tokenFlag, "token", "", "Bearer JWT to authenticate with (overrides AW_TOKEN and the cached ~/.aw/token; for non-interactive use)")
 	rootCmd.PersistentFlags().BoolVar(&debugFlag, "debug", false, "Log background errors to stderr")
 	rootCmd.PersistentFlags().BoolVar(&jsonFlag, "json", false, "Output as JSON")
 	bindTeamSelector(mailCmd)
