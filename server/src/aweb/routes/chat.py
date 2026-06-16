@@ -40,7 +40,12 @@ from aweb.federation.mail import FederatedMailDeliveryError, deliver_federated_m
 from awid.signing import sign_message
 from aweb.hooks import fire_mutation_hook
 from aweb.identity_metadata import lookup_identity_metadata_by_did, routable_chat_address
-from aweb.identity_auth_deps import MessagingAuth, auth_dids, get_messaging_auth
+from aweb.identity_auth_deps import (
+    MessagingAuth,
+    auth_dids,
+    get_messaging_auth,
+    selected_team_filter,
+)
 from aweb.messaging.alias_targets import (
     AmbiguousLocalAddressError,
     derive_team_address,
@@ -1641,6 +1646,7 @@ async def pending(
             db,
             participant_did=participant_did,
             participant_agent_id=actor_agent_id,
+            team_id=selected_team_filter(auth, actor_dids),
         )
         for row in rows:
             conversations_by_session.setdefault(row["session_id"], row)
@@ -1652,8 +1658,10 @@ async def pending(
         SELECT COUNT(*)::int
         FROM {{tables.messages}}
         WHERE to_did = ANY($1::text[]) AND read_at IS NULL
+          AND ($2::text IS NULL OR team_id IS NULL OR team_id = $2)
         """,
         actor_dids,
+        selected_team_filter(auth, actor_dids),
     )
 
     session_ids = [UUID(item["session_id"]) for item in conversations]
@@ -2658,10 +2666,12 @@ async def list_sessions(
               ON p2.session_id = s.session_id
             LEFT JOIN {{tables.chat_messages}} m
               ON m.session_id = s.session_id
+            WHERE ($2::text IS NULL OR s.team_id IS NULL OR s.team_id = $2)
             GROUP BY s.session_id, s.team_id, s.created_at
             ORDER BY last_activity DESC, s.created_at DESC
             """,
             participant_did,
+            selected_team_filter(auth, actor_dids),
         )
         for row in rows:
             rows_by_session.setdefault(str(row["session_id"]), row)

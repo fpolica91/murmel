@@ -559,6 +559,7 @@ async def get_pending_conversations(
     *,
     participant_did: str,
     participant_agent_id: str | None = None,
+    team_id: str | None = None,
 ) -> list[dict[str, Any]]:
     aweb_db = db.get_manager("aweb")
     participant_agent_uuid = _uuid_or_none(participant_agent_id)
@@ -628,6 +629,7 @@ async def get_pending_conversations(
               AND m.hang_on = TRUE
               AND (s.wait_started_at IS NULL OR m.created_at >= s.wait_started_at)
         ) wait_ext ON TRUE
+        WHERE ($4::text IS NULL OR s.team_id IS NULL OR s.team_id = $4)
         GROUP BY
             s.session_id,
             s.team_id,
@@ -666,10 +668,12 @@ async def get_pending_conversations(
                     > NOW()
             )
         ORDER BY lm.created_at DESC
+        LIMIT 200
         """,
         participant_did,
         HANG_ON_EXTENSION_SECONDS,
         participant_agent_uuid,
+        team_id,
     )
 
     return [

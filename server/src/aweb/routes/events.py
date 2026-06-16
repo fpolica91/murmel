@@ -145,6 +145,7 @@ async def _current_actionable_chat(
             db,
             participant_did=participant_did,
             participant_agent_id=participant_agent_id,
+            team_id=viewer_team_id,
         )
         for item in pending:
             pending_by_session.setdefault(item["session_id"], item)

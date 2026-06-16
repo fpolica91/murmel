@@ -389,6 +389,9 @@ async def chat_send(
     public_origin: str | None = None,
 ) -> str:
     auth = get_auth()
+    # Mirror the REST chat-message cap so the MCP path can't bypass it.
+    if len(message) > 65536:
+        return json.dumps({"error": "message exceeds maximum length (65536)"})
     actor_dids = _actor_dids()
     actor_did = (auth.did_key or "").strip() if auth.trusted_proxy else (actor_dids[0] if actor_dids else "")
     actor_agent = await _resolve_actor_agent(db_infra, actor_dids)
@@ -871,6 +874,9 @@ async def chat_pending(
             db_infra,
             participant_did=actor_did,
             participant_agent_id=actor_agent_id,
+            # Scope to the selected team only for token (synthetic-DID) callers;
+            # real-DID identities legitimately span teams (cross-org).
+            team_id=(auth.team_id if is_keyless_token_identity(auth) else None),
         )
         for row in rows:
             conversations_by_session.setdefault(row["session_id"], row)

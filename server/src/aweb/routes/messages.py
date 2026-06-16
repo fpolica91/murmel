@@ -28,7 +28,12 @@ from aweb.federation.mail import FederatedMailDeliveryError, deliver_federated_m
 from awid.signing import sign_message
 from aweb.hooks import fire_mutation_hook
 from aweb.identity_metadata import lookup_identity_metadata_by_did
-from aweb.identity_auth_deps import MessagingAuth, auth_dids, get_messaging_auth
+from aweb.identity_auth_deps import (
+    MessagingAuth,
+    auth_dids,
+    get_messaging_auth,
+    selected_team_filter,
+)
 from aweb.messaging.alias_targets import (
     AmbiguousLocalAddressError,
     derive_team_address,
@@ -1857,6 +1862,14 @@ async def get_inbox(
 
     where_clause = "WHERE m.to_did = ANY($1::text[])"
     params: list = [inbox_dids]
+
+    # Honor the request-selected team: a multi-team subject's synthetic DID is
+    # the same across teams, so without this the inbox would mix tenants.
+    # (Identity-scoped callers have no team selection -> no filter.)
+    inbox_team_id = selected_team_filter(auth, inbox_dids)
+    if inbox_team_id is not None:
+        params.append(inbox_team_id)
+        where_clause += f" AND (m.team_id IS NULL OR m.team_id = ${len(params)})"
 
     if message_id is not None and message_id.strip():
         try:

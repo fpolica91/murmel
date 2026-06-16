@@ -192,6 +192,12 @@ async def send_mail(
         )
     if not body.strip():
         return json.dumps({"error": "body is required"})
+    # Mirror the REST SendMessageRequest field caps so the MCP path can't bypass
+    # them (body/subject are otherwise bounded only by the 1MB transport cap).
+    if len(body) > 65536:
+        return json.dumps({"error": "body exceeds maximum length (65536)"})
+    if len(subject) > 4096:
+        return json.dumps({"error": "subject exceeds maximum length (4096)"})
 
     recipient_ref = normalize_hosted_handle_reference(to, require_agent=True)
     conversation_ref = (conversation_id or "").strip()

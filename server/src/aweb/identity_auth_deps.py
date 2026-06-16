@@ -45,6 +45,22 @@ def auth_dids(identity: IdentityAuth | MessagingAuth) -> list[str]:
     return dids
 
 
+def selected_team_filter(
+    identity: IdentityAuth | MessagingAuth, dids: list[str]
+) -> str | None:
+    """The team to scope list/inbox reads by, or None for no team filter.
+
+    Only token (Better Auth) callers are scoped: their synthetic routing DID
+    ``did:key:jwt-<subject>`` is provisioned into EVERY team the human joins, so
+    without the filter a team-A request would surface their team-B threads. Real
+    did:aw/did:key identities are unique per identity and legitimately span teams
+    via cross-org/federated sessions, so they stay DID-scoped (no team filter).
+    """
+    if any((d or "").startswith("did:key:jwt-") for d in dids):
+        return getattr(identity, "team_id", None)
+    return None
+
+
 def _get_body_sha256(request: Request) -> str:
     body_sha256 = getattr(request.state, "body_sha256", None)
     if body_sha256 is not None:

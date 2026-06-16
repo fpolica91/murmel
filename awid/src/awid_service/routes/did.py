@@ -27,7 +27,12 @@ from awid_service.routes.dns_addresses import (
     AddressListResponse,
     AddressResponse,
 )
-from awid.dns_auth import enforce_timestamp_skew, parse_didkey_auth, require_timestamp
+from awid.dns_auth import (
+    _enforce_single_use,
+    enforce_timestamp_skew,
+    parse_didkey_auth,
+    require_timestamp,
+)
 
 router = APIRouter(prefix="/v1/did", tags=["did"])
 
@@ -436,6 +441,12 @@ async def publish_encryption_key(
             )
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+        # Defense-in-depth: reject a replayed signed assertion within its window
+        # (best-effort; no-op without Redis). The assertion is also self-expiring.
+        await _enforce_single_use(
+            request, did_key=row["current_did_key"], signature=assertion.signature
+        )
 
         await tx.execute(
             """

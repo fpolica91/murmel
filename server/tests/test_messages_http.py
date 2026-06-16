@@ -7230,3 +7230,40 @@ async def test_send_message_to_private_address_rejects_unverified_client_recipie
 
     assert resp.status_code == 404, resp.text
     assert "Recipient address not found" in resp.text
+
+
+@pytest.mark.asyncio
+async def test_inbox_isolates_token_subject_by_selected_team(aweb_cloud_db):
+    # Security regression (audit round 6): a token subject's synthetic DID
+    # (did:key:jwt-<sub>) is provisioned into every team they join. Reading the
+    # inbox scoped to team A must NOT surface their team-B mail.
+    aweb_db = aweb_cloud_db.aweb_db
+    await _insert_team(aweb_db, "alpha:acme.com")
+    await _insert_team(aweb_db, "beta:globex.com")
+    sub_did = "did:key:jwt-contractor-sub"
+
+    for team, subject in (("alpha:acme.com", "alpha mail"), ("beta:globex.com", "beta mail")):
+        await aweb_db.execute(
+            """
+            INSERT INTO {{tables.messages}}
+                (message_id, from_did, to_did, from_alias, to_alias, subject, body, team_id)
+            VALUES (gen_random_uuid(), 'did:aw:sender', $1, 'sender', 'me', $2, 'x', $3)
+            """,
+            sub_did, subject, team,
+        )
+
+    app = _build_test_app(aweb_db, AsyncMock())
+
+    async def _auth_alpha():
+        return MessagingAuth(
+            did_key=sub_did, did_aw=None, address=None,
+            team_id="alpha:acme.com", alias="me", agent_id=None,
+        )
+
+    app.dependency_overrides[get_messaging_auth] = _auth_alpha
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.get("/v1/messages/inbox")
+
+    assert resp.status_code == 200, resp.text
+    subjects = {m["subject"] for m in resp.json()["messages"]}
+    assert subjects == {"alpha mail"}  # team-B mail is NOT leaked into the team-A scope
