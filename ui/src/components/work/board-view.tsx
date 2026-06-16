@@ -47,9 +47,7 @@ export function BoardView({
                 />
               ))}
               {column.length === 0 && (
-                <p className={styles.empty} style={{ padding: "0.75rem" }}>
-                  No issues
-                </p>
+                <p className={styles.columnEmpty}>No issues</p>
               )}
             </div>
           </section>

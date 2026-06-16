@@ -49,7 +49,7 @@ export function HierarchyBar({
       <button
         type="button"
         className="btn"
-        style={{ width: "auto", marginTop: 0, marginBottom: "1rem" }}
+        style={{ width: "auto", marginTop: 0 }}
         onClick={() => setOpen(true)}
       >
         + Epic / Story

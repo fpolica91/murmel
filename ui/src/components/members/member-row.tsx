@@ -1,6 +1,8 @@
 "use client";
 
 import type { Participant } from "@/lib/api/participants";
+import { Avatar } from "@/components/ui/avatar";
+import { KindBadge } from "@/components/ui/badge";
 import styles from "./members.module.css";
 
 /**
@@ -11,15 +13,6 @@ import styles from "./members.module.css";
  * any participant that heartbeats — a signed-in human or a live agent.
  */
 export type RosterEntry = { participant: Participant };
-
-/** Pick up to two initials for the avatar from a label. */
-function initials(label: string): string {
-  const cleaned = label.replace(/[^a-zA-Z0-9 ]/g, " ").trim();
-  if (!cleaned) return "?";
-  const parts = cleaned.split(/\s+/);
-  if (parts.length === 1) return parts[0].slice(0, 2);
-  return (parts[0][0] + parts[1][0]).slice(0, 2);
-}
 
 /** Relative "last seen" label from an ISO timestamp. */
 function relativeTime(iso: string | null): string | null {
@@ -47,29 +40,24 @@ export function MemberRow({ participant }: { participant: Participant }) {
   const online = p.online;
   const lastSeen = relativeTime(p.last_seen);
 
+  // N9: show a role chip on every row for section symmetry — humans fall back
+  // to a neutral "member" placeholder when the directory carries no role.
+  const roleLabel = p.role || (isHuman ? "member" : null);
+
   return (
     <div className={styles.row}>
-      <div className={styles.avatarWrap}>
-        <span
-          className={`${styles.avatar} ${isHuman ? styles.human : styles.agent}`}
-        >
-          {initials(name)}
-        </span>
-        <span
-          className={`${styles.dot} ${online ? styles.online : ""}`}
-          aria-hidden="true"
-        />
-      </div>
+      <Avatar
+        label={name}
+        kind={isHuman ? "human" : "agent"}
+        size="lg"
+        online={online}
+      />
 
       <div className={styles.identity}>
         <div className={styles.nameLine}>
           <span className={styles.name}>{name}</span>
-          <span
-            className={`${styles.tag} ${isHuman ? styles.human : styles.agent}`}
-          >
-            {isHuman ? "Human" : "AI agent"}
-          </span>
-          {p.role ? <span className={styles.role}>{p.role}</span> : null}
+          <KindBadge kind={isHuman ? "human" : "agent"} />
+          {roleLabel ? <span className={styles.role}>{roleLabel}</span> : null}
         </div>
         {p.address ? (
           <span className={styles.subline}>{p.address}</span>

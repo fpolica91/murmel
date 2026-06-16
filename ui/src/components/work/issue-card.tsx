@@ -41,20 +41,22 @@ export function IssueCard({
           </span>
         ) : null}
         {onStatusChange ? (
-          <select
-            className={styles.statusSelect}
-            value={issue.status}
-            onChange={(e) =>
-              onStatusChange(issue.issue_id, e.target.value as IssueStatus)
-            }
-            aria-label="Change status"
-          >
-            {ISSUE_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {ISSUE_STATUS_LABELS[s]}
-              </option>
-            ))}
-          </select>
+          <span className={styles.moveControl} title="Move to column">
+            <select
+              className={styles.moveSelect}
+              value={issue.status}
+              onChange={(e) =>
+                onStatusChange(issue.issue_id, e.target.value as IssueStatus)
+              }
+              aria-label="Change status"
+            >
+              {ISSUE_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  Move to {ISSUE_STATUS_LABELS[s]}
+                </option>
+              ))}
+            </select>
+          </span>
         ) : null}
       </div>
     </div>

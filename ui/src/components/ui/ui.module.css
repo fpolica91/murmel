@@ -1,0 +1,155 @@
+/* Shared UI primitives: Avatar, KindBadge, MessageBubble. One source of truth
+   for initials colours, human/agent tags, and chat/conversation bubbles so the
+   board, members, chat, and issue detail stay visually consistent. Reuses the
+   theme CSS vars from globals.css; never hardcodes a theme background/border. */
+
+/* ---- Avatar ------------------------------------------------------------ */
+.avatarWrap {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.avatar {
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  color: #fff;
+  font-weight: 600;
+  text-transform: uppercase;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.avatarSm {
+  width: 1.6rem;
+  height: 1.6rem;
+  font-size: 0.62rem;
+}
+
+.avatarMd {
+  width: 1.85rem;
+  height: 1.85rem;
+  font-size: 0.72rem;
+}
+
+.avatarLg {
+  width: 2.25rem;
+  height: 2.25rem;
+  font-size: 0.85rem;
+}
+
+.avatarHuman {
+  background: var(--accent);
+}
+
+.avatarAgent {
+  background: #7b61ff;
+}
+
+.avatarUnassigned {
+  background: #2a2e37;
+  color: var(--muted);
+}
+
+/* presence dot overlaid on the avatar */
+.presenceDot {
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 999px;
+  border: 2px solid var(--panel);
+  background: #4b5160; /* offline / unknown */
+}
+
+.presenceOnline {
+  background: #3fae6b;
+}
+
+/* ---- Kind badge (Human / AI agent) ------------------------------------ */
+.kindBadge {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 0.08rem 0.5rem;
+  font-size: 0.66rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border: 1px solid var(--border);
+  background: #1d2027;
+  white-space: nowrap;
+}
+
+.kindAgent {
+  border-color: #5a4bd1;
+  color: #b3a6ff;
+}
+
+.kindHuman {
+  border-color: #355fb0;
+  color: #9fc0ff;
+}
+
+/* ---- Message bubble ---------------------------------------------------- */
+.msgRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  max-width: 72%;
+}
+
+.msgRow.msgMine {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+
+.msgAvatar {
+  margin-top: 1.35rem; /* align avatar with the bubble, below the meta line */
+}
+
+.msgColumn {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.msgRow.msgMine .msgColumn {
+  align-items: flex-end;
+}
+
+.msgMeta {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.25rem;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.msgAuthor {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.msgTime {
+  color: var(--muted);
+}
+
+.msgBubble {
+  background: #1d2027;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.6rem 0.85rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text);
+}
+
+.msgRow.msgMine .msgBubble {
+  background: #1b2740;
+  border-color: var(--accent);
+}

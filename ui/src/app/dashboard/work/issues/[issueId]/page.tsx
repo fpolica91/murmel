@@ -145,8 +145,8 @@ export default function IssueDetailPage({
 
           <div className={workStyles.sidebarField}>
             <h3>Status</h3>
-            <p className="muted" style={{ margin: 0 }}>
-              {issue.status}
+            <p style={{ margin: 0 }}>
+              <StatusBadge status={issue.status} />
             </p>
           </div>
 

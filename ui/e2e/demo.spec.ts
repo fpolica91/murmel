@@ -189,9 +189,11 @@ test.describe("aweb DEMO-READY — sidebar + presence + chat", () => {
     // --- human -> agent (Ada) ---
     const toAda = `Demo to Ada ${Date.now()}`;
     await startChatAndSend(page, "Ada (agent)", toAda);
-    // Our own message renders as "You"; the peer is tagged "Agent".
+    // Our own message renders as "You"; the peer is tagged "AI agent".
     await expect(page.getByText("You").first()).toBeVisible();
-    await expect(page.getByText("Agent", { exact: true }).first()).toBeVisible({
+    await expect(
+      page.getByText("AI agent", { exact: true }).first(),
+    ).toBeVisible({
       timeout: 15_000,
     });
 

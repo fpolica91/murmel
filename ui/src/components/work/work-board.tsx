@@ -119,13 +119,17 @@ export function WorkBoard() {
         </button>
       </div>
 
-      <HierarchyBar epics={epics} onChanged={() => void load(filters)} />
-
-      <NewIssueForm
-        epics={epics}
-        stories={stories}
-        onCreated={() => void load(filters)}
-      />
+      {/* Create controls grouped on one row (N5): the new-issue form and the
+          "+ Epic / Story" trigger share a left-aligned row instead of the
+          Epic/Story button floating orphaned on its own line. */}
+      <div className={styles.createRow}>
+        <NewIssueForm
+          epics={epics}
+          stories={stories}
+          onCreated={() => void load(filters)}
+        />
+        <HierarchyBar epics={epics} onChanged={() => void load(filters)} />
+      </div>
 
       {error && <div className={styles.error}>{error}</div>}
 

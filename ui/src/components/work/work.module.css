@@ -29,9 +29,12 @@
   cursor: pointer;
 }
 
+/* Neutral selected style so the segmented toggle doesn't compete with the
+   single primary-blue action ("Add issue") on the board (N6). */
 .viewToggle button.active {
-  background: var(--accent);
-  color: #fff;
+  background: #2c3240;
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--accent);
 }
 
 .filterSelect {
@@ -58,16 +61,20 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(220px, 1fr));
   gap: 1rem;
-  align-items: start;
+  /* stretch so every column shares the tallest column's height (M4): an
+     empty column fills to match its siblings instead of collapsing. */
+  align-items: stretch;
   overflow-x: auto;
 }
 
 .column {
+  display: flex;
+  flex-direction: column;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 0.75rem;
-  min-height: 6rem;
+  min-height: 14rem;
 }
 
 .columnHeader {
@@ -94,6 +101,21 @@
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  flex: 1; /* let the stack fill the column so empty states center (M4) */
+}
+
+/* Full-height, centered empty state for a kanban column (M4). */
+.columnEmpty {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  text-align: center;
+  padding: 1rem;
+  min-height: 6rem;
 }
 
 /* ---- Issue card -------------------------------------------------------- */
@@ -189,12 +211,25 @@
   color: var(--muted);
 }
 
-/* ---- New issue form + inline status select ----------------------------- */
+/* ---- Create controls row (new issue + epic/story trigger) -------------- */
+.createRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+/* When the HierarchyBar is open it expands to its own full-width panel. */
+.createRow > .hierarchyBar {
+  flex-basis: 100%;
+  margin-bottom: 0;
+}
+
 .newIssue {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-bottom: 1.25rem;
 }
 
 .newIssueInput {
@@ -209,14 +244,53 @@
 }
 
 .statusSelect {
-  margin-left: auto;
   background: #14161b;
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 6px;
-  font-size: 0.7rem;
-  padding: 0.1rem 0.25rem;
+  font-size: 0.78rem;
+  padding: 0.3rem 0.45rem;
   cursor: pointer;
+}
+
+/* Subtle per-card "move to column" control (M5). Instead of a bordered select
+   that repeats the card's own column, this is an icon-only affordance pinned to
+   the right of the card meta. The native <select> is kept (and keeps its
+   "Change status" aria-label) for accessibility + drag-free column moves; it's
+   visually collapsed to a small ⋯ glyph that only reveals on hover. */
+.moveControl {
+  position: relative;
+  margin-left: auto;
+  display: inline-grid;
+  place-items: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 6px;
+  color: var(--muted);
+}
+
+.moveControl::before {
+  content: "⋯";
+  font-size: 1rem;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.moveControl:hover {
+  color: var(--text);
+  background: #14161b;
+}
+
+.moveSelect {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0; /* invisible hit target over the ⋯ glyph */
+  cursor: pointer;
+  border: none;
+  appearance: none;
+  background: transparent;
 }
 
 .commentCount {

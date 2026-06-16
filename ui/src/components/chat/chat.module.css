@@ -78,6 +78,17 @@
   background: #1b2230;
 }
 
+.convRow {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.convBody {
+  flex: 1;
+  min-width: 0;
+}
+
 .convTop {
   display: flex;
   align-items: center;
@@ -263,13 +274,23 @@
   border: 1px solid var(--accent);
   border-radius: 8px;
   color: #fff;
-  padding: 0.6rem 1.1rem;
+  font-weight: 600;
+  padding: 0.6rem 1.2rem;
   font-size: 0.88rem;
   cursor: pointer;
 }
 
+.sendBtn:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+/* Clearly distinct disabled state (M8): the enabled button stays full
+   primary-blue; only the truly-disabled (empty input) state desaturates to a
+   muted neutral so the resting enabled button never reads as disabled. */
 .sendBtn:disabled {
-  opacity: 0.5;
+  background: #2a2e37;
+  border-color: var(--border);
+  color: var(--muted);
   cursor: not-allowed;
 }
 

@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 
 import type { ChatMessage } from "@/lib/api/chat";
+import { MessageBubble } from "@/components/ui/message-bubble";
 import styles from "./chat.module.css";
 
 function fmtTime(iso: string): string {
@@ -65,29 +66,15 @@ export function MessageThread({
         // lookup, then to "agent" for legacy/unresolved senders.
         const kind =
           m.from_kind ?? kindByAlias.get(m.from_agent) ?? "agent";
-        const isHuman = kind === "human";
         return (
-          <div
+          <MessageBubble
             key={m.message_id}
-            className={`${styles.msgRow} ${mine ? styles.mine : ""}`}
-          >
-            <div className={styles.msgMeta}>
-              <span className={styles.msgAuthor}>
-                {mine ? "You" : m.from_agent}
-              </span>
-              {!mine && (
-                <span
-                  className={`${styles.tag} ${
-                    isHuman ? styles.human : styles.agent
-                  }`}
-                >
-                  {isHuman ? "Human" : "Agent"}
-                </span>
-              )}
-              <span>{fmtTime(m.timestamp)}</span>
-            </div>
-            <div className={styles.bubble}>{m.body || "(no content)"}</div>
-          </div>
+            body={m.body}
+            author={m.from_agent}
+            kind={kind}
+            time={fmtTime(m.timestamp)}
+            mine={mine}
+          />
         );
       })}
       <div ref={bottomRef} />

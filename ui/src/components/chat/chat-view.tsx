@@ -263,6 +263,7 @@ export function ChatView() {
             rows={rows}
             activeSessionId={activeSessionId}
             onSelect={setActiveSessionId}
+            kindByAlias={kindByAlias}
           />
         )}
       </div>

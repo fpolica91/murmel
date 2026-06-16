@@ -159,7 +159,7 @@ export function AssigneePicker({
 
       <button
         type="button"
-        className="btn btn-primary"
+        className="btn"
         style={{ width: "auto", marginTop: 0, fontSize: "0.78rem" }}
         disabled={busy || loading || !dirty}
         onClick={apply}

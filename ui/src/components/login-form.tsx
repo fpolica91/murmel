@@ -54,7 +54,11 @@ export function LoginForm() {
         Continue with Google
       </button>
 
-      <form onSubmit={onCredentials} style={{ marginTop: "1rem" }}>
+      <div className="or-divider" role="separator" aria-label="or">
+        <span>or</span>
+      </div>
+
+      <form onSubmit={onCredentials}>
         <input
           className="btn"
           style={{ textAlign: "left", cursor: "text" }}

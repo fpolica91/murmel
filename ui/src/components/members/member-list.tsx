@@ -93,15 +93,16 @@ export function MemberList() {
   );
 
   const total = participants.length;
-  const onlineCount = agents.filter((a) => a.online).length;
+  // Online count derives from the SAME `online` flag the rows render (B2):
+  // count every participant — human or agent — that is currently online, so
+  // the header agrees with the per-row status badges.
+  const onlineCount = participants.filter((p) => p.online).length;
 
   return (
     <div>
       <div className={styles.toolbar}>
         <span className={styles.countPill}>{total} total</span>
-        {agents.length > 0 ? (
-          <span className={styles.countPill}>{onlineCount} online</span>
-        ) : null}
+        <span className={styles.countPill}>{onlineCount} online</span>
       </div>
 
       {sortedHumans.length > 0 ? (

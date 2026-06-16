@@ -156,7 +156,10 @@ test.describe("aweb — humans as first-class participants (full E2E)", () => {
     await actx.dispose();
 
     await expect(page.getByText(reply)).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText("Agent", { exact: true }).first()).toBeVisible();
+    // The peer's bubble carries the unified "AI agent" kind badge.
+    await expect(
+      page.getByText("AI agent", { exact: true }).first(),
+    ).toBeVisible();
 
     await page.screenshot({
       path: `${ART}/21-chat-human-agent.png`,
@@ -261,22 +264,27 @@ test.describe("aweb — humans as first-class participants (full E2E)", () => {
       page.getByRole("heading", { name: "E2E thread: human + agent comments" }),
     ).toBeVisible({ timeout: 15_000 });
 
-    // Agent's seeded comment shows with an "agent" badge.
+    // Agent's seeded comment shows with the unified "AI agent" badge. The
+    // redundant "Ada (agent):" prefix is stripped (M6) since the author header
+    // already names the sender, so the rendered body is just the message text.
     await expect(
-      page.getByText("Ada (agent): I have started on this."),
+      page.getByText("I have started on this."),
     ).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText("agent", { exact: true }).first()).toBeVisible();
+    await expect(
+      page.getByText("AI agent", { exact: true }).first(),
+    ).toBeVisible();
 
     // Mia posts a comment through the UI.
     await page
       .getByLabel("New comment")
       .fill("Mia (human): thanks Ada, reviewing now.");
     await page.getByRole("button", { name: "Comment" }).click();
+    // The "Mia (human):" prefix is likewise stripped from the rendered body.
     await expect(
-      page.getByText("Mia (human): thanks Ada, reviewing now."),
+      page.getByText("thanks Ada, reviewing now."),
     ).toBeVisible({ timeout: 15_000 });
-    // And it badges as human (authoritative author_kind).
-    await expect(page.getByText("human", { exact: true }).first()).toBeVisible();
+    // And it badges as Human (authoritative author_kind).
+    await expect(page.getByText("Human", { exact: true }).first()).toBeVisible();
 
     await page.screenshot({
       path: `${ART}/23-issue-thread.png`,

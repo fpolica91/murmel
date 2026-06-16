@@ -5,6 +5,9 @@ import { useCallback, useEffect, useState } from "react";
 import { ApiError } from "@/lib/api/http";
 import { addComment, listComments } from "@/lib/api/comments";
 import type { IssueComment } from "@/lib/api/comments";
+import { Avatar } from "@/components/ui/avatar";
+import { KindBadge } from "@/components/ui/badge";
+import { stripAuthorPrefix } from "@/components/ui/message-bubble";
 import styles from "./issue-thread.module.css";
 
 /**
@@ -133,31 +136,24 @@ export function IssueThread({
 
 function CommentRow({ comment }: { comment: IssueComment }) {
   // Authoritative author kind from the server; default "agent" for legacy rows.
-  const isAgent = (comment.author_kind ?? "agent") === "agent";
-  const initial = comment.author.trim().slice(0, 1).toUpperCase() || "?";
+  const kind = (comment.author_kind ?? "agent") === "human" ? "human" : "agent";
+  // Drop a redundant "Author:" prefix when it just repeats the rendered author
+  // (the header already shows the name + kind badge) — fixes M6.
+  const body = stripAuthorPrefix(comment.body, comment.author);
   return (
     <li className={styles.comment}>
-      <div
-        className={`${styles.avatar} ${isAgent ? styles.avatarAgent : styles.avatarHuman}`}
-        aria-hidden
-      >
-        {initial}
-      </div>
+      <Avatar label={comment.author} kind={kind} size="md" />
       <div className={styles.commentBubble}>
         <div className={styles.commentMeta}>
           <span className={styles.commentAuthor}>{comment.author}</span>
-          <span
-            className={`${styles.kindBadge} ${isAgent ? styles.kindAgent : styles.kindHuman}`}
-          >
-            {isAgent ? "agent" : "human"}
-          </span>
+          <KindBadge kind={kind} />
           {comment.created_at ? (
             <span className={styles.commentTime}>
               {formatTime(comment.created_at)}
             </span>
           ) : null}
         </div>
-        <div className={styles.commentBody}>{comment.body}</div>
+        <div className={styles.commentBody}>{body}</div>
       </div>
     </li>
   );

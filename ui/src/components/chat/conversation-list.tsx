@@ -1,6 +1,7 @@
 "use client";
 
 import type { SessionListItem } from "@/lib/api/chat";
+import { Avatar } from "@/components/ui/avatar";
 import styles from "./chat.module.css";
 
 /**
@@ -37,10 +38,13 @@ export function ConversationList({
   rows,
   activeSessionId,
   onSelect,
+  kindByAlias,
 }: {
   rows: ConversationRow[];
   activeSessionId: string | null;
   onSelect: (sessionId: string) => void;
+  /** Authoritative alias -> kind, used to colour the row avatar. */
+  kindByAlias?: Map<string, "human" | "agent">;
 }) {
   if (rows.length === 0) {
     return <div className={styles.empty}>No conversations yet</div>;
@@ -50,11 +54,15 @@ export function ConversationList({
     <ul className={styles.list}>
       {rows.map((row) => {
         const names = row.peers.length > 0 ? row.peers.join(", ") : "Direct chat";
-        const preview = row.preview
-          ? row.lastFrom
-            ? `${row.lastFrom}: ${row.preview}`
-            : row.preview
-          : "No messages yet";
+        const primaryPeer = row.peers[0] ?? "";
+        // Resolve avatar kind from the directory; fall back to the "(agent)"
+        // alias convention, else human.
+        const peerKind =
+          kindByAlias?.get(primaryPeer) ??
+          (/\(agent\)/i.test(primaryPeer) ? "agent" : "human");
+        // Drop the "<sender>:" prefix from the preview — the row already names
+        // the conversation (M6).
+        const preview = row.preview || "No messages yet";
         return (
           <li key={row.sessionId}>
             <button
@@ -64,23 +72,28 @@ export function ConversationList({
               }`}
               onClick={() => onSelect(row.sessionId)}
             >
-              <div className={styles.convTop}>
-                <span className={styles.convNames}>{names}</span>
-                <span className={styles.convTime}>
-                  {row.senderWaiting && (
-                    <span
-                      className={styles.waitingDot}
-                      title="Peer is waiting for a reply"
-                    />
-                  )}{" "}
-                  {relTime(row.lastActivity)}
-                </span>
-              </div>
-              <div className={styles.convTop}>
-                <span className={styles.convPreview}>{preview}</span>
-                {row.unread > 0 && (
-                  <span className={styles.unread}>{row.unread}</span>
-                )}
+              <div className={styles.convRow}>
+                <Avatar label={primaryPeer || names} kind={peerKind} size="md" />
+                <div className={styles.convBody}>
+                  <div className={styles.convTop}>
+                    <span className={styles.convNames}>{names}</span>
+                    <span className={styles.convTime}>
+                      {row.senderWaiting && (
+                        <span
+                          className={styles.waitingDot}
+                          title="Peer is waiting for a reply"
+                        />
+                      )}{" "}
+                      {relTime(row.lastActivity)}
+                    </span>
+                  </div>
+                  <div className={styles.convTop}>
+                    <span className={styles.convPreview}>{preview}</span>
+                    {row.unread > 0 && (
+                      <span className={styles.unread}>{row.unread}</span>
+                    )}
+                  </div>
+                </div>
               </div>
             </button>
           </li>
