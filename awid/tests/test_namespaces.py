@@ -398,7 +398,9 @@ def _bad_signature_headers(signing_key, header_did, *, domain, operation, **extr
 
 
 @pytest.mark.asyncio
-async def test_register_namespace_local_skips_dns_verification(client):
+async def test_register_namespace_local_skips_dns_verification(client, monkeypatch):
+    monkeypatch.setenv("ENVIRONMENT", "development")
+    monkeypatch.setenv("APP_ENV", "development")
     signing_key, public_key = generate_keypair()
     controller_did = did_from_public_key(public_key)
 
@@ -688,7 +690,9 @@ async def test_address_resolution_returns_namespace_route_origin(client, control
 
 
 @pytest.mark.asyncio
-async def test_rotate_local_namespace_controller_skips_dns_verification(client):
+async def test_rotate_local_namespace_controller_skips_dns_verification(client, monkeypatch):
+    monkeypatch.setenv("ENVIRONMENT", "development")
+    monkeypatch.setenv("APP_ENV", "development")
     signing_key, public_key = generate_keypair()
     controller_did = did_from_public_key(public_key)
     await _register_namespace(client, signing_key, controller_did, "local")
@@ -1198,7 +1202,9 @@ async def test_stale_address_dns_failure_does_not_revoke_namespace(
 
 
 @pytest.mark.asyncio
-async def test_local_namespace_behaves_like_normal_namespace(client):
+async def test_local_namespace_behaves_like_normal_namespace(client, monkeypatch):
+    monkeypatch.setenv("ENVIRONMENT", "development")
+    monkeypatch.setenv("APP_ENV", "development")
     ns_key, ns_pub = generate_keypair()
     ns_did = did_from_public_key(ns_pub)
     await _register_namespace(client, ns_key, ns_did, "local")

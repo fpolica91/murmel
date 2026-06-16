@@ -255,7 +255,10 @@ async def register_namespace(
         )
         skip_dns = False
     parent_auth_present = request.headers.get(_PARENT_AUTH_HEADER) is not None
-    domain_is_local = is_reserved_local_domain(domain)
+    # The reserved `local` subtree skips DNS ownership proof — only honor that in
+    # an explicit dev environment, else anyone could claim `local` (and its whole
+    # subtree) on a shared registry without proof.
+    domain_is_local = is_reserved_local_domain(domain) and _is_explicit_development_environment()
     if not skip_dns and not parent_auth_present and not domain_is_local:
         try:
             dns_authority = await verify_domain(domain)
@@ -475,7 +478,10 @@ async def rotate_namespace_controller(
         )
         skip_dns = False
     parent_auth_present = request.headers.get(_PARENT_AUTH_HEADER) is not None
-    domain_is_local = is_reserved_local_domain(domain)
+    # The reserved `local` subtree skips DNS ownership proof — only honor that in
+    # an explicit dev environment, else anyone could claim `local` (and its whole
+    # subtree) on a shared registry without proof.
+    domain_is_local = is_reserved_local_domain(domain) and _is_explicit_development_environment()
     if not skip_dns and not parent_auth_present and not domain_is_local:
         try:
             dns_authority = await verify_domain(domain)
