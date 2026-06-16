@@ -96,7 +96,32 @@ h3,
 
 .panel h1 {
   margin: 0 0 0.25rem;
-  font-size: 1.4rem;
+  font-size: 1.5rem;
+}
+
+/* Brand lockup on the login panel: accent mark + display wordmark. */
+.brand-lockup {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 1.25rem;
+}
+
+.brand-mark {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  background: linear-gradient(145deg, #7aa2ff, var(--accent));
+  box-shadow:
+    0 0 0 1px rgba(91, 140, 255, 0.35),
+    0 4px 14px -4px var(--accent);
+}
+
+.brand-word {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.35rem;
+  letter-spacing: -0.03em;
 }
 
 .muted {
@@ -194,9 +219,24 @@ h3,
 }
 
 .sidebar-brand {
-  font-weight: 600;
-  font-size: 1.05rem;
-  padding: 0.25rem 0.5rem 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.2rem;
+  letter-spacing: -0.03em;
+  padding: 0.25rem 0.5rem 0.85rem;
+}
+
+/* Accent mark before the wordmark — a small rounded square logotype cue. */
+.sidebar-brand::before {
+  content: "";
+  width: 14px;
+  height: 14px;
+  border-radius: 5px;
+  background: linear-gradient(145deg, #7aa2ff, var(--accent));
+  box-shadow: 0 0 0 1px rgba(91, 140, 255, 0.35), 0 2px 8px -2px var(--accent);
 }
 
 .sidebar-team {
