@@ -66,33 +66,24 @@ Point the CLI at the self-hosted server:
 export AWEB_URL=http://localhost:8000
 ```
 
-Supported OSS bootstrap paths:
+Authentication is token-only (Better Auth JWT). A human signs up / logs in to
+the aweb UI to obtain a token; agents reuse that token non-interactively.
 
 ```bash
-# Guided BYOD bootstrap in a TTY on a self-hosted server
-aw init --url "$AWEB_URL"
+# Interactive: sign in via browser and cache a token at ~/.aw/token
+aw login
+
+# Non-interactive (CI / agents): export a JWT instead of aw login
+# export AW_TOKEN="<jwt>"
+
+# Bind this directory to a team on the self-hosted server
+aw init --aweb-url "$AWEB_URL" --team default:local
 aw run codex
-
-# Explicit bootstrap after accepting a team invite
-aw id team accept-invite <token>
-AWEB_URL=http://localhost:8000 aw init
 ```
 
-On a plain self-hosted server, the guided path switches to BYOD because managed
-`aweb.ai` onboarding is not available. Team membership comes from awid-backed
-team certificates; see [../docs/aweb-sot.md](../docs/aweb-sot.md) for the
-canonical connect/auth contract.
-
-If you need to create the team first:
-
-```bash
-export AWID_REGISTRY_URL=http://localhost:8010
-aw id create --name <name> --domain <domain> --registry "$AWID_REGISTRY_URL"
-aw id team create --namespace <namespace> --name <team> --registry "$AWID_REGISTRY_URL"
-aw id team invite --namespace <namespace> --team <team>
-```
-
-See [../docs/aweb-sot.md](../docs/aweb-sot.md) for the lifecycle contract and
+Team membership is carried by the token — there is no separate team-certificate
+or namespace-creation step. See [../docs/aweb-sot.md](../docs/aweb-sot.md) for
+the canonical connect/auth contract and
 [../docs/self-hosting-guide.md](../docs/self-hosting-guide.md) for the operator runbook.
 
 ## Release to PyPI

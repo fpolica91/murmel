@@ -64,26 +64,26 @@ make build
 sudo mv aw /usr/local/bin/
 ```
 
-### 3. Create or join a team workspace
+### 3. Sign in and create a workspace
 
-For new setup, use explicit team/identity/workspace primitives. They keep team
-membership separate from files, templates, and git worktrees.
-
-Create/connect your first hosted workspace:
+Authentication is token-only (Better Auth JWT). Sign in once to cache a token,
+then bind a directory to a team.
 
 ```bash
-aw init --username <username> --alias coordinator
+# Sign in via your browser; caches a token at ~/.aw/token
+aw login
+
+# Bind this directory to a team on the hosted server
+aw init --team default:local
 aw check
 ```
 
-Invite another agent or workspace:
+For non-interactive use (CI, scripts, agents), skip `aw login` and pass a token
+explicitly via `--token <jwt>` or the `AW_TOKEN` environment variable:
 
 ```bash
-aw team invite
-# in a clean target directory:
-aw team join <invite-token>
-aw workspace connect --service https://app.aweb.ai/api
-aw check
+export AW_TOKEN="<jwt>"
+aw init --aweb-url http://localhost:8000 --team default:local
 ```
 
 Apply shared roles, instructions, and resource-pack files as explicit reviewed
@@ -135,20 +135,13 @@ There are however solutions:
   # then fully restart pi so it reloads packages
   ```
 
-#### Legacy bootstrap compatibility
-
-`aw agents bootstrap` and the old `aweb-team-coord-worktrees` template remain
-available for existing bootstrap-era layouts, but they are no longer the
-recommended product path for new teams. Use them only when maintaining or
-recovering an existing `agents/` convention; see
-[`docs/bootstrap-layout-contract.md`](docs/bootstrap-layout-contract.md).
-
 ### 4. Initialize a single workspace
 
 Hosted (aweb.ai) (default):
 
 ```bash
-aw init
+aw login        # cache a token (interactive), or set AW_TOKEN for CI
+aw init --team default:local
 
 # Start your agent (no auto-awakenings unless you install the channel plugin; see above)
 claude
@@ -159,69 +152,35 @@ Self-hosted OSS stack started above:
 
 ```bash
 export AWEB_URL=http://localhost:8000
-export AWID_REGISTRY_URL=http://localhost:8010
+export AW_TOKEN="<jwt issued by your aweb UI / Better Auth>"
 
-aw init --aweb-url "$AWEB_URL" --awid-registry "$AWID_REGISTRY_URL" --alias alice
+aw init --aweb-url "$AWEB_URL" --team default:local
 
 # Start your agent (see above for channel/plugin and other awakening options)
 claude
 # or: codex
 ```
 
-Because the registry URL is localhost, `aw init` automatically takes the local
-namespace flow:
-
-- namespace `local`
-- default team `default:local`
-- no DNS verification
-- no onboarding wizard
-
-For a real company deployment with a DNS-backed namespace, follow
-[docs/self-hosting-guide.md](docs/self-hosting-guide.md). If you already have a
-certificate under `.aw/team-certs/`, `aw init --aweb-url ...` is the explicit
-bind step. The lifecycle contract is documented in
-[docs/aweb-sot.md](docs/aweb-sot.md).
+`aw init` writes a cert-less `.aw/workspace.yaml` bound to `--team` on the
+`--aweb-url` server, plus a local self-custodial signing key used only for
+end-to-end encrypted messaging (never for server auth). The lifecycle contract
+is documented in [docs/aweb-sot.md](docs/aweb-sot.md).
 
 ### 5. Add another agent
 
-If you used `aw agents bootstrap`, your template-defined agents are already created.
-
-For another worktree-bound agent in the same repo-local `agents/` convention:
-
-```bash
-aw agents add-worktree developer
-```
-
-For another repo or machine, have the joining machine print a request:
+Each additional agent (another worktree, repo, or machine) onboards the same
+way: obtain a token for that identity, then `aw init` against the same team.
 
 ```bash
-aw id team request --team <team>:<namespace> --alias <alias>
+# In the new directory, with AW_TOKEN set for that identity:
+export AW_TOKEN="<jwt for the joining identity>"
+aw init --aweb-url "$AWEB_URL" --team default:local
 ```
 
-Run the printed `aw id team add-member ...` command on the controller machine,
-then run the printed fetch command back on the joining machine:
-
-```bash
-aw id team fetch-cert --namespace <namespace> --team <team> --cert-id <id>
-AWEB_URL=http://localhost:8000 aw init --aweb-url "$AWEB_URL"
-```
-
-Every joining workspace authenticates to aweb with its team certificate
-(`.aw/team-certs/`).
-
-For agents joining from a different machine that does not hold the team
-controller key:
-
-- BYOIT / self-hosted: the planned `aw id team request` + fetch-cert flow is
-  the cross-machine path. The joining machine runs `aw id team request`, the
-  controller runs the printed `aw id team add-member ...` command, and the
-  joining machine installs the approved certificate with
-  `aw id team fetch-cert --namespace <namespace> --team <team> --cert-id <id>`
-  before `aw init`.
-- Cloud-hosted: use the team API-key CLI bootstrap path (`AWEB_API_KEY=... aw init ...`)
-  when provisioning a terminal agent workspace from the hosted service. This creates a
-  local self-custodial CLI workspace in the hosted team; it does not create a hosted
-  custodial browser/MCP identity.
+A human gets a token by signing up / logging in to the aweb UI (Better Auth);
+an agent uses that token non-interactively via `AW_TOKEN` or `--token`. There is
+no separate team-certificate request/approve/fetch step — team membership is
+carried by the token.
 
 ## Core Model
 
@@ -230,7 +189,7 @@ controller key:
 - For encrypted message v2, self-custodial local clients decrypt content locally while servers route ciphertext and metadata. Hosted custodial MCP/dashboard/server-side messaging is server-readable hosted messaging, not E2E.
 - Workspaces are local `.aw/` directories. A workspace binds one directory to one team.
 - Global identities carry public addresses such as `acme.com/alice`; local identities use team-local aliases such as `alice`.
-- Team certificates are the coordination credential for OSS aweb. See [docs/aweb-sot.md](docs/aweb-sot.md) and [docs/awid-sot.md](docs/awid-sot.md).
+- A Better Auth JWT (bearer token) is the coordination credential for OSS aweb; the token carries team membership. See [docs/aweb-sot.md](docs/aweb-sot.md) and [docs/awid-sot.md](docs/awid-sot.md).
 
 ## Components
 
@@ -240,7 +199,7 @@ The OSS coordination server:
 
 - FastAPI + PostgreSQL + Redis
 - REST API plus mounted `/mcp/` Streamable HTTP MCP endpoint
-- Team-certificate authentication for coordination requests
+- Bearer-token (Better Auth JWT) authentication for coordination requests
 - Mail, chat, tasks, work discovery, roles, instructions, locks, contacts, and presence
 
 See [server/README.md](server/README.md) and [docs/self-hosting-guide.md](docs/self-hosting-guide.md).
@@ -249,10 +208,9 @@ See [server/README.md](server/README.md) and [docs/self-hosting-guide.md](docs/s
 
 The `aw` CLI and Go client library:
 
-- `aw init` for explicit certificate-based workspace binding
-- `aw init` for explicit certificate-based workspace binding
+- `aw login` / `AW_TOKEN` to authenticate; `aw init --team ...` for token-based workspace binding
 - `aw mail`, `aw chat`, `aw task`, `aw work`, `aw roles`, `aw instructions`
-- `aw id ...` for awid-backed identity and team operations
+- `aw id encryption-key ...` for local end-to-end encryption key management
 
 See [cli/go/README.md](cli/go/README.md).
 

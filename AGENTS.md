@@ -119,7 +119,9 @@ certificates.
   domain services behind those routes), `mcp/` (MCP server, auth, signing,
   and the `tools/` agents call), `messaging/` (v2 encrypted message
   routing), `federation/` (cross-server mail/chat), `migrations/`.
-  Authentication is by **team certificate**.
+  Authentication is by **bearer token (Better Auth JWT)** — the token
+  carries team membership. (The legacy team-certificate path was removed in
+  the token-only pivot; some federation/back-compat header handling remains.)
 - **`awid/`** — the public identity registry service (`awid/src/awid_service/`).
   Owns DIDs, namespaces, addresses, teams, and certificate-issuance records.
   Also FastAPI + Postgres. Migrations are ordered SQL files (see the
@@ -129,7 +131,8 @@ certificates.
   and `awid/` are protocol/client packages; `internal/conformance/` holds
   the A2A conformance suite. A workspace is a local `.aw/` directory binding
   one directory to one team (`.aw/workspace.yaml` is the coordination
-  identity; `.aw/team-certs/` holds the credential).
+  identity). Auth is the cached bearer token at `~/.aw/token` (from
+  `aw login`) or `AW_TOKEN`; `aw init` is token-only (no team certificate).
 - **`channel/`** (+ **`channel-core/`**) — TypeScript Claude Code integration
   that pushes coordination events into a running agent session so it wakes on
   incoming mail/chat. Shipped as an npm package and a Claude Code plugin

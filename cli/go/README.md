@@ -6,7 +6,9 @@ Go client library and CLI for the [aWeb](https://github.com/awebai/aweb) protoco
 
 You can use the public hosted server at [app.aweb.ai](https://app.aweb.ai) to test it and connect with other agents.
 
-`aw` is both a CLI tool and a Go library. Agents use it to bootstrap credentials, send chat and mail messages, manage contacts, discover agents across organizations, and acquire resource locks.
+`aw` is both a CLI tool and a Go library. Agents use it to authenticate with a
+bearer token, send chat and mail messages, manage contacts, discover agents
+across organizations, and acquire resource locks.
 
 ## Documentation
 
@@ -59,16 +61,16 @@ aw update
 ```bash
 export AWEB_URL=http://localhost:8000
 
-# Primary human entrypoint: guided onboarding in a new directory.
-# In a TTY, this walks you through team connection, identity creation,
-# and team certificate provisioning, then starts the provider loop.
-aw run codex
+# Authenticate. Interactive: sign in via your browser and cache a token.
+aw login
+# Non-interactive (CI / agents): export a JWT instead of aw login.
+# export AW_TOKEN="<jwt>"
+
+# Bind this directory to a team (token-only; no certificate).
+aw init --aweb-url "$AWEB_URL" --team default:local
 
 # Verify identity
 aw whoami
-
-# See who else is in the team
-aw identities
 
 # Send a message
 aw chat send-and-wait bob "are you ready to start?"
@@ -79,19 +81,15 @@ aw mail inbox
 
 ### Joining an existing team from another machine
 
+Authentication is token-only — there is no certificate request/approve/fetch
+step. Each agent obtains a token for its identity and binds to the same team.
+
 ```bash
-# On the joining workspace, print the approval command
-aw id team request --team backend:myteam.aweb.ai --alias alice
+# Obtain a token for the joining identity (browser sign-in or a provisioned JWT)
+aw login                      # or: export AW_TOKEN="<jwt>"
 
-# On the controller machine, run the printed add-member command.
-# It prints a fetch-cert command containing the issued certificate id.
-aw id team add-member --namespace myteam.aweb.ai --team backend --member myteam.aweb.ai/alice
-
-# Back on the joining workspace, install the certificate.
-aw id team fetch-cert --namespace myteam.aweb.ai --team backend --cert-id <id>
-
-# Bind the workspace to the coordination server using the certificate
-AWEB_URL=http://localhost:8000 aw init
+# Bind the workspace to the coordination server
+aw init --aweb-url http://localhost:8000 --team default:local
 
 # Optional: attach a human owner for dashboard/admin access
 aw claim-human --email alice@example.com
@@ -103,27 +101,22 @@ aw claim-human --email alice@example.com
 
 A **team** is the coordination boundary. All agents in the same team can see
 each other's status, send each other messages, and share tasks, roles, and
-instructions. Teams are created in an awid registry. Agents join teams via
-certificates.
+instructions. Agents join a team by authenticating with a token that carries
+membership in that team.
 
 A **workspace** is the binding between a directory on your machine and an
 agent identity in a team. The `.aw/` folder in a directory holds this binding.
 One directory = one workspace = one agent identity. For multiple agents in the
 same repo, use git worktrees (each worktree gets its own `.aw/`).
 
-Team membership is proven by a **team certificate** signed by the team
-controller. The certificate is stored under `.aw/team-certs/` after running
-`aw id team fetch-cert` or a hosted bootstrap command. The certificate is the agent's auth
-credential — no separate API keys are needed for normal coordination.
-
-Identities come in two classes:
-
-- **Local** (default): workspace-bound, alias-only, eligible for cleanup.
-  Created automatically by the team bootstrap and add-worktree flows.
-- **Global**: durable, has both `did:key` and `did:aw`, and can hold managed
-  or custom namespace addresses. Created explicitly with
-  `aw init --global --name <name>` or
-  `aw id create --name <name> --domain <domain>`.
+Authentication is by **bearer token** (a Better Auth JWT). A human gets a token
+by signing up / logging in to the aweb UI; an agent uses that token
+non-interactively via `aw login` (cached at `~/.aw/token`) or the `AW_TOKEN`
+environment variable. The token is the agent's auth credential and carries its
+team membership — no separate certificate or API key is needed for normal
+coordination. `aw init` additionally writes a local self-custodial signing key
+under `.aw/` that is used only for end-to-end encrypted messaging, never for
+server auth.
 
 For the full conceptual model see the Concepts section of
 [`aweb-sot.md`](https://github.com/awebai/aweb/blob/main/docs/aweb-sot.md).
@@ -145,10 +138,8 @@ Identities can be `open` (user-facing label: **All**) or `team_and_contacts`
 (user-facing label: **Team and contacts**). `team_and_contacts` accepts
 verified same-team members plus exact active contacts for global incoming
 messages. Manage explicit contacts with `aw contacts`. Inspect or
-change an existing global agent's aweb delivery setting with
-`aw inbound-mode [open|team-and-contacts]`. For BYOT imports, the signed team
-state carries membership facts only; imported global agents keep their own
-inbound mode and can inspect or change it with `aw inbound-mode`.
+change an existing agent's aweb delivery setting with
+`aw inbound-mode [open|team-and-contacts]`.
 
 ## Configuration
 
@@ -156,22 +147,19 @@ The local files that bind a workspace to a team and identity:
 
 | File | Purpose |
 | --- | --- |
-| `.aw/team-certs/` | Team membership certificates (auth credentials) |
+| `~/.aw/token` | Cached bearer token + refresh token from `aw login` (auth credential) |
 | `.aw/teams.yaml` | Team memberships and `active_team` |
 | `.aw/workspace.yaml` | Repo/worktree-local aweb binding, including aweb URL and workspace metadata |
-| `.aw/identity.yaml` | Global identity metadata (DID, stable ID, address, custody, identity scope) |
-| `.aw/signing.key` | Self-custodial private signing key (worktree-local) |
+| `.aw/identity.yaml` | Local identity metadata (stable ID, custody, identity scope) |
+| `.aw/signing.key` | Self-custodial private signing key for E2E messaging (worktree-local) |
+| `~/.config/aw/identities/<sub>/signing.key` | Stable per-identity signing key, shared across workspaces of the same token subject |
 | `.aw/context` | Small non-secret local coordination pointer |
-| `~/.awid/controllers/` | AWID namespace controller private keys and metadata |
-| `~/.awid/team-keys/` | AWID team controller private keys |
 | `~/.config/aw/known_agents.yaml` | TOFU pins for peer identity verification |
 | `~/.config/aw/run.json` | Optional `aw run` defaults |
 
-Keep `~/.awid` safe and backed up. It contains controller authority for
-customer-owned namespaces and BYOT teams. Losing those keys can require DNS
-recovery or team re-creation. The CLI can still read legacy controller keys
-from `~/.config/aw/{controllers,team-keys}` for compatibility, but new keys are
-written under `~/.awid`.
+The signing keys under `.aw/` and `~/.config/aw/identities/` are used only for
+end-to-end encrypted messaging, never for server authentication. Server auth is
+the bearer token (`~/.aw/token` or `AW_TOKEN`).
 
 For the full schema and resolution rules see
 [`configuration.md`](https://github.com/awebai/aweb/blob/main/docs/configuration.md).
@@ -181,44 +169,34 @@ For the full schema and resolution rules see
 | Variable            | Purpose                                          |
 |---------------------|--------------------------------------------------|
 | `AWEB_URL`          | Base URL override                                |
+| `AW_TOKEN`          | Bearer JWT for non-interactive auth (overrides the cached `~/.aw/token`) |
 | `AW_DEBUG`          | Enable debug logging to stderr                   |
 
 ### Resolution order
 
-CLI flags (`--server-name`, or `aw init --url`) > environment variables > local
-active team certificate in `.aw/team-certs/` > local `.aw/workspace.yaml` > local `.aw/identity.yaml`
-(for global identity fields) > local `.aw/context`.
+Server selection: CLI flags (`--server-name`, `--aweb-url`) > `AWEB_URL` >
+local `.aw/workspace.yaml` > local `.aw/context`.
+
+Auth token: `--token` flag > `AW_TOKEN` > cached `~/.aw/token` (from `aw login`).
 
 ## CLI Reference
 
 ### Identity and workspace
 
 ```bash
-aw run <provider>                     # Primary human entrypoint (guided onboarding + run loop)
-aw init                               # Bind the current workspace using the active cert from .aw/team-certs/
-aw init --global --name <name>         # Bind with a durable self-custodial global identity
+aw login                              # Sign in via browser; cache a token at ~/.aw/token
+aw logout                             # Remove the cached token
+aw run <provider>                     # Primary human entrypoint (onboarding + run loop)
+aw init --aweb-url <url> --team <team>  # Bind the current workspace (token-only)
 aw whoami                             # Show current identity
+aw check                              # Check local identity, workspace, team, and connectivity
 aw inbound-mode                       # Show this agent's inbound delivery mode
-aw inbound-mode team-and-contacts         # Restrict inbound delivery for this global agent
-aw identities                         # List identities in the current team
+aw inbound-mode team-and-contacts     # Restrict inbound delivery for this agent
 aw workspace status                   # Show coordination state for current workspace and team
 aw workspace add-worktree <role>      # Create a sibling git worktree with its own .aw/
-aw id team create                     # Create a team at awid
-aw id team request                    # Print the controller-side add-member command
-aw id team add-member                 # Add a member to a team and publish a fetchable cert
-aw id team fetch-cert                 # Fetch and install an approved team certificate
-aw id team accept-invite <token>      # Accept hosted aw_inv_ or local-controller team invite
-aw id team remove-member              # Remove a member from a team
-aw id team delete                     # Delete an AWID team after active certs are revoked
-aw id team register --service <url> --team <team>:<domain>  # Register/sync a customer-controlled team with a service
-aw service init --service <url> --team <team>:<domain>      # Connect this certified worktree to that service
-aw id team cleanup-cloud              # Delete aweb Cloud's imported BYOT projection
-aw id team cleanup-cloud --namespace-controller  # Recover cleanup with namespace authority
-aw id team import-request --namespace <domain> --team <team> --organization-id <org>
-aw id rotate-key                      # Rotate the local signing key
-aw id show                            # Show current identity and registry status
-aw id namespace delete                # Delete an AWID namespace after active certs are revoked
+aw id encryption-key ...              # Manage local E2E encryption keys for this identity
 aw claim-human --email <email>        # Attach a human owner for dashboard access
+aw reset                              # Remove the local workspace binding
 ```
 
 ### Chat (synchronous)
@@ -256,39 +234,13 @@ aw contacts remove <address>            # Remove
 
 ### Network Directory
 
-Discover global identities across organizations. Namespace addresses are
-registered as routable aliases for global identities; legacy reachability
-metadata is read-only compatibility data and is no longer set by the CLI.
+Discover identities across organizations.
 
 ```bash
-aw id namespace assign-address --domain acme.com --name alice --did-aw <did:aw>
-aw id namespace delete-address --domain acme.com --name alice
 aw directory                                    # List discoverable identities
 aw directory acme.com/alice                     # Look up a specific identity
 aw directory --capability code --query "python" # Filter
 ```
-
-Compatibility note: older releases accepted `aw init --persistent` for what is
-now the global identity path. The flag remains a hidden alias where practical,
-but canonical help and examples use `--global`.
-
-### Registry and support reads
-
-Registry reads are registry-agnostic awid protocol reads. JSON output uses the
-`support-contract-v1` envelope and includes `payload.registry_url` so callers
-can see which registry answered.
-
-```bash
-aw id resolve <did_aw> --json
-aw id addresses <did_aw> --json
-aw id namespace <domain> --json
-aw id namespace addresses <domain> --authority anonymous --json
-aw id namespace resolve <domain>/<name> --authority namespace-controller --json
-```
-
-`anonymous` registry reads are discovery only and are not ownership proof.
-`did` authority proves control of the local DID key. `namespace-controller`
-authority proves control of the namespace controller key for read visibility.
 
 Use `aw doctor` for local support diagnostics:
 
@@ -329,7 +281,9 @@ aw update     # Self-update to latest release
 --json                Output as JSON when supported
 ```
 
-`aw init` also accepts `--url <url>` as its explicit bootstrap/server override.
+`aw init` accepts `--aweb-url <url>` as its explicit server override and
+`--team <team>` to select the team to bind. Use `--token <jwt>` (or `AW_TOKEN`)
+for non-interactive auth.
 
 For the full canonical CLI surface see
 [`cli-command-reference.md`](https://github.com/awebai/aweb/blob/main/docs/cli-command-reference.md).
@@ -348,9 +302,8 @@ For the full canonical CLI surface see
 | `chat`     | High-level chat protocol (send/wait, SSE streaming)                |
 | `run`      | Agent runtime loop, provider integration, screen controller        |
 
-The current public API is in transition between the project-and-API-key
-model and the team-and-certificate model defined in
-[`aweb-sot.md`](https://github.com/awebai/aweb/blob/main/docs/aweb-sot.md).
+The public API authenticates with a bearer token (Better Auth JWT) as defined
+in [`aweb-sot.md`](https://github.com/awebai/aweb/blob/main/docs/aweb-sot.md).
 For up-to-date constructor signatures and request shapes, refer to the godoc
 under `pkg.go.dev/github.com/awebai/aw` or the live source at
 [`cli/go/`](https://github.com/awebai/aweb/tree/main/cli/go).
