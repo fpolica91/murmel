@@ -9,6 +9,7 @@ from fastapi import Depends, HTTPException, Request
 from awid.dns_auth import enforce_timestamp_skew, parse_didkey_auth, require_timestamp
 from awid.signing import canonical_json_bytes, verify_did_key_signature
 from aweb.deps import get_db
+from aweb.messaging.alias_targets import derive_team_address
 from aweb.team_auth_deps import TeamIdentity, _aweb_db, get_team_identity
 
 logger = logging.getLogger(__name__)
@@ -189,7 +190,14 @@ async def provision_human_participant(
     alias = name or agent_name or subject
     human_name = name or alias
     did_key = _jwt_synthetic_did_key(subject)
-    address = f"{team_id}/{alias}" if alias else None
+    # Advertise the DOMAIN form (``<domain>/<alias>``) that the recipient and
+    # namespace resolvers expect, NOT the raw team_id form
+    # (``<name>:<domain>/<alias>``). team_id "default:local" parses to
+    # domain "local" + name "default", so a token human "Mia" is reachable at
+    # "local/Mia" — which ``get_agent_by_namespace_alias`` resolves by joining
+    # ``teams.namespace`` to the alias. The old ``f"{team_id}/{alias}"`` produced
+    # "default:local/Mia", which no resolver could match.
+    address = (derive_team_address(team_id, alias) or None) if alias else None
     row = await aweb_db.fetch_one(
         """
         INSERT INTO {{tables.agents}} (team_id, did_key, alias, human_name, agent_type, identity_scope, address)

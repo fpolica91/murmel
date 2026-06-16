@@ -55,14 +55,21 @@ async def get_agent_by_id(db, *, agent_id: str, team_id: str | None = None) -> d
 
 
 async def get_agent_by_alias(db, *, team_id: str, alias: str) -> dict | None:
-    """Look up an agent by alias within a team."""
+    """Look up a participant by alias within a team — human OR agent.
+
+    The ``agents`` table is the participant directory: a human becomes a
+    first-class mail recipient by having a row here (``agent_type='human'``,
+    provisioned on first token auth). Mail-by-alias must reach humans just like
+    chat-by-alias does, so there is NO ``agent_type != 'human'`` exclusion. The
+    previous exclusion made ``aw mail send --to <human-alias>`` 404 on the token
+    path even though the human was a valid, addressable teammate.
+    """
     aweb_db = db.get_manager("aweb")
     row = await aweb_db.fetch_one(
         """
         SELECT agent_id, team_id, alias, did_key, did_aw, address, inbound_mode, status, deleted_at
         FROM {{tables.agents}}
         WHERE team_id = $1 AND alias = $2 AND deleted_at IS NULL
-          AND COALESCE(agent_type, 'agent') != 'human'
         """,
         team_id,
         alias,

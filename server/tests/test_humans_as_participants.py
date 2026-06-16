@@ -3,7 +3,7 @@
 Covers the contract in ai-completion/AUDIT.md:
   - a human is provisioned into the agents (participant) directory with
     agent_type='human', non-empty alias, human_name from the name claim, and
-    address='<team>/<alias>' (and the upsert is idempotent + keeps them in sync);
+    address='<domain>/<alias>' (resolvable form) (and the upsert is idempotent + keeps them in sync);
   - GET /v1/participants returns BOTH humans and agents with an authoritative
     ``kind`` to a non-admin caller;
   - a human is resolvable as a chat recipient by alias (the human filter was
@@ -112,7 +112,9 @@ async def test_provision_human_participant_creates_and_syncs(aweb_cloud_db):
     assert row is not None
     assert row["alias"] == "Alice Human"
     assert row["human_name"] == "Alice Human"
-    assert row["address"] == f"{TEAM_ID}/Alice Human"
+    # Address is the resolvable DOMAIN form (<domain>/<alias>), not the raw
+    # team_id form — team_id "backend:acme.com" -> domain "acme.com".
+    assert row["address"] == "acme.com/Alice Human"
 
     # Exactly one human row, with agent_type='human'.
     got = await aweb_cloud_db.aweb_db.fetch_all(
