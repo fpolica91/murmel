@@ -1,8 +1,28 @@
 # aweb — token-only pivot + full-app status ledger
 
-_Branch: `feature/simple-auth-ui`. Local stack: UI :3030, aweb :8088, Postgres :5544, Redis :6390._
+_Branch: `feature/simple-auth-ui` (== local `main`). Local stack: UI :3030, aweb :8088, Postgres :5544, Redis :6390._
 _Updated as work lands. "Validated" = independently re-run, not just self-reported._
-_Last full E2E validation: 2026-06-15. No code changes were needed — every scenario passed against the existing stack._
+
+## ✅ Verified final state (2026-06-16)
+
+The token-only auth pivot is complete across **all five products** and hardened. Whole matrix re-verified green at this point: **server 652 · awid 218 · CLI build + a2a/a2agw/conformance/awid/awconfig · channel 110 · UI Playwright 15/15 · all 3 OSS e2e journeys green**.
+
+| Capability | State |
+|---|---|
+| Token-only auth | server, UI, CLI, channel, a2a-gateway — certs removed |
+| Web product | sidebar shell, Console home, Work board, Chat, Members; humans + AI agents as peers; presence |
+| Real-time | chat updates live via bearer-authed SSE (`/v1/events/stream`); unread-chat sidebar badge; polling fallback |
+| Encrypted messaging | mail + chat round-trips; mail/chat by alias; signatures verified |
+| Agent↔agent | two independent agents conversed autonomously (verified) |
+| Multi-device | same- and cross-machine (server-anchored key trust) |
+| Federation | cross-server trust (Option A.2) + send + receive — adversarially validated on a live 2-server harness, all 4 attacks rejected |
+
+**Bugs fixed this effort (~8):** cert-cluster removal regressions, `aw whoami` inbound-mode 500, E2E-language guardrail, mail/chat-by-alias resolution, multi-device key mismatch, channel/a2a-gw token auth, **SSE stream crash for all token identities**, real-time event-type mismatch.
+
+**Remaining (deliberate / not autonomous):**
+- `git push origin main` — ~89 commits merged locally; publishing is the owner's call (not pushed).
+- Signed direct-address mail without an awid binding → 404: the **address-authority security model working as designed** (token-only ≠ awid; the send path falls back to the local directory). Reshaping it is a deliberate decision — see `FEDERATION-TOKEN-ONLY.md` / `PIVOT-FOLLOWUPS.md`.
+- Deep SoT/contract docs (low-value conceptual).
 
 ## Multi-device key consistency (2026-06-16)
 
