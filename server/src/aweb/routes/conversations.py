@@ -7,7 +7,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from aweb.deps import get_db
-from aweb.identity_auth_deps import MessagingAuth, auth_dids, get_messaging_auth
+from aweb.identity_auth_deps import (
+    MessagingAuth,
+    auth_dids,
+    get_messaging_auth,
+    selected_team_filter,
+)
 
 router = APIRouter(prefix="/v1/conversations", tags=["aweb-conversations"])
 
@@ -67,6 +72,10 @@ async def list_conversations(
     del request
     aweb_db = db.get_manager("aweb")
     actor_dids = auth_dids(auth)
+    # Scope to the selected team for token (synthetic-DID) callers only (mirrors
+    # the inbox/list_sessions fix); None leaves cross-org did:aw/did:key callers
+    # and legacy NULL-team rows unaffected.
+    team_filter = selected_team_filter(auth, actor_dids)
     actor_agent_id = str(auth.agent_id).strip() if auth.agent_id else None
     actor_address = str(auth.address).strip() if auth.address else None
     if not actor_dids and not actor_agent_id and not actor_address:
@@ -141,6 +150,7 @@ async def list_conversations(
                     )
               )
               AND ($6::timestamptz IS NULL OR m.created_at < $6)
+              AND ($7::text IS NULL OR m.team_id IS NULL OR m.team_id = $7)
             ORDER BY m.created_at DESC, m.message_id DESC
             LIMIT """
             + str(_MAX_CONVERSATION_SCAN)
@@ -152,6 +162,7 @@ async def list_conversations(
             target_did,
             target_address,
             cursor_dt,
+            team_filter,
         )
 
     actor_did_set = set(actor_dids)
@@ -261,6 +272,7 @@ async def list_conversations(
                 ) unread ON TRUE
                 WHERE lm.created_at IS NOT NULL
                   AND ($4::timestamptz IS NULL OR lm.created_at < $4)
+                  AND ($5::text IS NULL OR s.team_id IS NULL OR s.team_id = $5)
                   AND (
                         ($2::text IS NULL AND $3::text IS NULL)
                      OR EXISTS (
@@ -283,6 +295,7 @@ async def list_conversations(
                 target_did,
                 target_address,
                 cursor_dt,
+                team_filter,
             )
             for row in rows:
                 rows_by_session.setdefault(row["conversation_id"], dict(row))

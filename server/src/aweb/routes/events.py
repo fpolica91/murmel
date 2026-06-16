@@ -49,8 +49,15 @@ def _chat_wake_mode(*, sender_waiting: bool) -> str:
     return "interrupt" if sender_waiting else "prompt"
 
 
-async def _current_actionable_mail(aweb_db, *, inbox_dids: list[str]) -> list[dict[str, Any]]:
-    """Return the current actionable unread mail state for an identity."""
+async def _current_actionable_mail(
+    aweb_db, *, inbox_dids: list[str], team_id: str | None = None
+) -> list[dict[str, Any]]:
+    """Return the current actionable unread mail state for an identity.
+
+    ``team_id`` scopes a token subject's synthetic-DID inbox to the selected
+    team (NULL = no filter for cross-org did:aw/did:key callers), mirroring the
+    REST inbox and the chat snapshot.
+    """
     rows = await aweb_db.fetch_all(
         """
         WITH unread AS (
@@ -59,6 +66,7 @@ async def _current_actionable_mail(aweb_db, *, inbox_dids: list[str]) -> list[di
             FROM {{tables.messages}}
             WHERE to_did = ANY($1::text[])
               AND read_at IS NULL
+              AND ($2::text IS NULL OR team_id IS NULL OR team_id = $2)
         ),
         windowed AS (
             SELECT message_id, conversation_id, from_did, from_alias, from_address, subject, priority,
@@ -83,6 +91,7 @@ async def _current_actionable_mail(aweb_db, *, inbox_dids: list[str]) -> list[di
         ORDER BY created_at ASC, message_id ASC
         """,
         inbox_dids,
+        team_id,
     )
     sender_map = await lookup_identity_metadata_by_did(
         aweb_db,
@@ -316,13 +325,19 @@ async def _sse_agent_events(
         yield f"event: error\ndata: {json.dumps({'type': 'error', 'detail': 'identity incomplete'})}\n\n"
         return
 
+    # Scope the unread-mail snapshot to this team for token (synthetic-DID)
+    # viewers only; real did:aw/did:key identities legitimately span teams.
+    mail_team_filter = (
+        team_id if any(d.startswith("did:key:jwt-") for d in viewer_dids) else None
+    )
+
     yield ": keepalive\n\n"
     last_heartbeat_at = datetime.now(timezone.utc)
 
     yield f"event: connected\ndata: {json.dumps({'agent_id': agent_id, 'team_id': team_id})}\n\n"
 
     # Initial snapshot
-    mail_events = await _current_actionable_mail(aweb_db, inbox_dids=viewer_dids)
+    mail_events = await _current_actionable_mail(aweb_db, inbox_dids=viewer_dids, team_id=mail_team_filter)
     chat_events = await _current_actionable_chat(
         db,
         redis,
@@ -352,7 +367,7 @@ async def _sse_agent_events(
             break
 
         try:
-            current_mail = await _current_actionable_mail(aweb_db, inbox_dids=viewer_dids)
+            current_mail = await _current_actionable_mail(aweb_db, inbox_dids=viewer_dids, team_id=mail_team_filter)
             current_chat = await _current_actionable_chat(
                 db,
                 redis,

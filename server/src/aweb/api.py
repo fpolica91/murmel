@@ -353,6 +353,14 @@ def create_app(
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "DENY")
         response.headers.setdefault("Referrer-Policy", "no-referrer")
+        # Pure-JSON API: lock CSP all the way down, and assert HSTS for HTTPS
+        # deployments. Safe — no document/script/style is ever served here.
+        response.headers.setdefault(
+            "Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'"
+        )
+        response.headers.setdefault(
+            "Strict-Transport-Security", "max-age=63072000; includeSubDomains"
+        )
         return response
 
     @app.middleware("http")

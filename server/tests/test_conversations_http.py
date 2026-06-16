@@ -768,3 +768,45 @@ async def test_conversations_lists_identity_scoped_chat_by_participant_did(aweb_
     assert conversations[0]["conversation_type"] == "chat"
     assert conversations[0]["conversation_id"] == "22222222-2222-2222-2222-222222222222"
     assert conversations[0]["last_message_from"] == "alice"
+
+
+@pytest.mark.asyncio
+async def test_conversations_isolate_token_subject_by_selected_team(aweb_cloud_db):
+    # Security regression (audit round 7): a token subject's synthetic DID
+    # (did:key:jwt-<sub>) is in every team they join. /v1/conversations scoped to
+    # team A must NOT surface their team-B mail conversations.
+    db = aweb_cloud_db.aweb_db
+    for tid, ns, nm in (("alpha:acme.com", "acme.com", "alpha"), ("beta:globex.com", "globex.com", "beta")):
+        await db.execute(
+            "INSERT INTO {{tables.teams}} (team_id, namespace, team_name, team_did_key) VALUES ($1,$2,$3,'did:key:z6Mkt')",
+            tid, ns, nm,
+        )
+    sub = "did:key:jwt-contractor"
+    for team, subj in (("alpha:acme.com", "alpha thread"), ("beta:globex.com", "beta thread")):
+        await db.execute(
+            """
+            INSERT INTO {{tables.messages}}
+                (message_id, from_did, to_did, from_alias, to_alias,
+                 subject, body, priority, team_id, created_at)
+            VALUES (gen_random_uuid(), 'did:aw:sender', $1, 'sender', 'me',
+                    $2, 'x', 'normal', $3, NOW())
+            """,
+            sub, subj, team,
+        )
+
+    app = _build_test_app(db, AsyncMock())
+
+    async def _auth():
+        return MessagingAuth(
+            did_key=sub, did_aw=None, address=None,
+            team_id="alpha:acme.com", alias="me", agent_id=None,
+        )
+
+    app.dependency_overrides[get_messaging_auth] = _auth
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.get("/v1/conversations?conversation_type=mail")
+
+    assert resp.status_code == 200, resp.text
+    subjects = {c.get("subject") for c in resp.json()["conversations"]}
+    assert "alpha thread" in subjects
+    assert "beta thread" not in subjects  # team-B thread is NOT leaked into team-A scope

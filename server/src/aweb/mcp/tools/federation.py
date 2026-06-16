@@ -44,14 +44,22 @@ def mcp_federation_request(
     federation_server_key: Any = None,
 ):
     origin = (public_origin or "").strip() or get_settings().public_origin
+    # Load the SAME peer allowlist the REST path uses, so MCP-initiated federated
+    # sends honor the Option A.2 "allowlist configured => fail closed for unpinned
+    # domains" rule instead of falling back to an unpinned recipient origin.
+    import os
+
+    from aweb.federation.server_key import PEERS_ENV, load_federation_peers
+
+    by_domain, by_origin = load_federation_peers(os.getenv(PEERS_ENV))
     state = SimpleNamespace(
         public_origin=origin,
         federation_mail_transport=mail_transport,
         federation_chat_transport=chat_transport,
         federation_message_transport=chat_transport,
         federation_server_key=federation_server_key,
-        federation_peers_by_domain={},
-        federation_peers_by_origin={},
+        federation_peers_by_domain=by_domain,
+        federation_peers_by_origin=by_origin,
     )
     app = SimpleNamespace(state=state)
     return SimpleNamespace(app=app, headers={})

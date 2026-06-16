@@ -10,8 +10,14 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from redis.asyncio import Redis
 
+import logging
+
+from awid.ratelimit import rate_limit_dep
 from aweb.auth import validate_workspace_id
 from aweb.team_auth_deps import TeamIdentity, get_team_identity
+
+logger = logging.getLogger(__name__)
+MAX_STATUS_STREAMS_PER_AGENT = 5
 
 from ..db import DatabaseInfra, get_db_infra
 from ..events import EventCategory, stream_events_multi
@@ -535,7 +541,10 @@ async def status(
     }
 
 
-@router.get("/status/stream")
+@router.get(
+    "/status/stream",
+    dependencies=[Depends(rate_limit_dep("events_stream"))],
+)
 async def status_stream(
     request: Request,
     workspace_id: Optional[str] = Query(None, min_length=1),
@@ -664,13 +673,46 @@ async def status_stream(
                 detail=f"Invalid event types: {invalid}. Valid types: {sorted(VALID_SSE_EVENT_TYPES)}",
             )
 
+    # Per-agent concurrency cap (mirrors the events stream): each connection
+    # holds a Redis pubsub subscription + a polling loop, so an unbounded
+    # fan-out is an amplification vector. Released in the generator's finally.
+    stream_key: Optional[str] = None
+    agent_id = getattr(identity, "agent_id", None)
+    if redis is not None and agent_id:
+        key = f"aweb:status:streams:{agent_id}"
+        try:
+            count = await redis.incr(key)
+            await redis.expire(key, 360)
+        except Exception:  # pragma: no cover - cap is best-effort
+            count = 0
+        else:
+            stream_key = key
+            if count > MAX_STATUS_STREAMS_PER_AGENT:
+                await redis.decr(key)
+                raise HTTPException(
+                    status_code=429, detail="Too many concurrent status streams"
+                )
+
+    inner = stream_events_multi(
+        redis,
+        workspace_ids,
+        event_type_set,
+        check_disconnected=request.is_disconnected,
+    )
+
+    async def _guarded():
+        try:
+            async for chunk in inner:
+                yield chunk
+        finally:
+            if stream_key is not None:
+                try:
+                    await redis.decr(stream_key)
+                except Exception:  # pragma: no cover - cleanup must not raise
+                    logger.warning("Failed to release status-stream slot", exc_info=True)
+
     return StreamingResponse(
-        stream_events_multi(
-            redis,
-            workspace_ids,
-            event_type_set,
-            check_disconnected=request.is_disconnected,
-        ),
+        _guarded(),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
