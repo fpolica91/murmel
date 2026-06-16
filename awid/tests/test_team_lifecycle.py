@@ -94,7 +94,7 @@ async def test_full_team_lifecycle(client, controller_identity):
     headers = _sign(ns_key, ns_did, domain=domain, operation="create_team", name="platform")
     resp = await client.post(
         f"/v1/namespaces/{domain}/teams",
-        json={"name": "platform", "display_name": "Platform Team", "team_did_key": team_did},
+        json={"name": "platform", "display_name": "Platform Team", "team_did_key": team_did, "visibility": "public"},
         headers=headers,
     )
     assert resp.status_code == 200, resp.text

@@ -71,7 +71,8 @@ async def _setup_team(client, ns_signing_key, ns_controller_did, domain, team_na
     )
     resp = await client.post(
         f"/v1/namespaces/{domain}/teams",
-        json={"name": team_name, "team_did_key": team_did_key},
+        # Public so anonymous roster reads in these tests hit the happy path.
+        json={"name": team_name, "team_did_key": team_did_key, "visibility": "public"},
         headers=headers,
     )
     assert resp.status_code == 200, resp.text
@@ -259,6 +260,81 @@ async def test_register_certificate_with_blob_can_be_fetched_by_subject(client, 
     assert body["member_did_aw"] == member_did_aw
     assert body["member_address"] == "blob.cert.com/alice"
     assert body["certificate"] == certificate
+
+
+@pytest.mark.asyncio
+async def test_private_team_roster_endpoints_require_authorization(client, controller_identity):
+    """Regression: a PRIVATE team's member roster (certificates / members / revocations)
+    must not be readable anonymously — only the team controller, namespace controller,
+    or an active member may read it. Public teams stay anonymously readable."""
+    ns_key, ns_did = controller_identity
+    domain = "private.roster.com"
+    await client.post(
+        "/v1/namespaces", json={"domain": domain},
+        headers=_sign(ns_key, ns_did, domain=domain, operation="register"),
+    )
+    # Create a PRIVATE team (default visibility) directly — _setup_team makes public ones.
+    team_key, team_pub = generate_keypair()
+    team_did = did_from_public_key(team_pub)
+    resp = await client.post(
+        f"/v1/namespaces/{domain}/teams",
+        json={"name": "secret", "team_did_key": team_did},  # visibility defaults to private
+        headers=_sign(ns_key, ns_did, domain=domain, operation="create_team", name="secret"),
+    )
+    assert resp.status_code == 200, resp.text
+
+    member_key, member_pub = generate_keypair()
+    member_did_key = did_from_public_key(member_pub)
+    member_did_aw = await _register_member_address(
+        client, ns_key, ns_did, domain, "alice", member_key, member_did_key,
+    )
+    cert_id = str(uuid4())
+    resp = await client.post(
+        f"/v1/namespaces/{domain}/teams/secret/certificates",
+        json={
+            "certificate_id": cert_id, "member_did_key": member_did_key,
+            "member_did_aw": member_did_aw, "member_address": f"{domain}/alice",
+            "alias": "alice", "identity_scope": "global",
+        },
+        headers=_sign(
+            team_key, team_did, domain=domain, operation="register_certificate",
+            team_name="secret", certificate_id=cert_id,
+        ),
+    )
+    assert resp.status_code == 200, resp.text
+
+    cert_path = f"/v1/namespaces/{domain}/teams/secret/certificates"
+    member_path = f"/v1/namespaces/{domain}/teams/secret/members/alice"
+    revoke_path = f"/v1/namespaces/{domain}/teams/secret/revocations"
+
+    # Anonymous reads of every roster endpoint are rejected (no signature -> 401).
+    for path in (cert_path, member_path, revoke_path):
+        resp = await client.get(path)
+        assert resp.status_code == 401, f"{path} anon -> {resp.status_code}: {resp.text}"
+
+    # A signed request from an unrelated DID (not controller/member) is forbidden.
+    stranger_key, stranger_pub = generate_keypair()
+    stranger_did = did_from_public_key(stranger_pub)
+    for path in (cert_path, member_path, revoke_path):
+        resp = await client.get(
+            path, headers=_path_signed_headers(stranger_key, stranger_did, method="GET", path=path),
+        )
+        assert resp.status_code == 403, f"{path} stranger -> {resp.status_code}: {resp.text}"
+
+    # The team controller can read the roster.
+    resp = await client.get(
+        cert_path, headers=_path_signed_headers(team_key, team_did, method="GET", path=cert_path),
+    )
+    assert resp.status_code == 200, resp.text
+    assert any(c["alias"] == "alice" for c in resp.json()["certificates"])
+
+    # An active member can read the roster.
+    resp = await client.get(
+        member_path,
+        headers=_path_signed_headers(member_key, member_did_key, method="GET", path=member_path),
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["alias"] == "alice"
 
 
 @pytest.mark.asyncio

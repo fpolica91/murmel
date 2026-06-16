@@ -126,7 +126,7 @@ async def _rotate_identity(client, old_signing_key, did_aw, old_did_key, new_did
     return resp.json()
 
 
-async def _create_team(client, signing_key, controller_did, domain, team_name):
+async def _create_team(client, signing_key, controller_did, domain, team_name, visibility="private"):
     team_signing_key, team_pub = generate_keypair()
     team_did_key = did_from_public_key(team_pub)
     headers = _sign(
@@ -134,7 +134,7 @@ async def _create_team(client, signing_key, controller_did, domain, team_name):
     )
     resp = await client.post(
         f"/v1/namespaces/{domain}/teams",
-        json={"name": team_name, "team_did_key": team_did_key},
+        json={"name": team_name, "team_did_key": team_did_key, "visibility": visibility},
         headers=headers,
     )
     assert resp.status_code == 200, resp.text
@@ -1209,7 +1209,7 @@ async def test_local_namespace_behaves_like_normal_namespace(client, monkeypatch
     ns_did = did_from_public_key(ns_pub)
     await _register_namespace(client, ns_key, ns_did, "local")
 
-    team_key, team_did, team = await _create_team(client, ns_key, ns_did, "local", "default")
+    team_key, team_did, team = await _create_team(client, ns_key, ns_did, "local", "default", visibility="public")
     address = await _register_address(client, ns_key, ns_did, "local", "alice")
     cert = await _register_certificate(
         client,

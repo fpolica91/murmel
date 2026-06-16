@@ -276,7 +276,24 @@ def test_validate_token_auth_config_dev_missing_only_warns(monkeypatch):
     monkeypatch.delenv("AWEB_TOKEN_AUTH_AUDIENCE", raising=False)
     monkeypatch.delenv("AWEB_TOKEN_AUTH_ISSUER", raising=False)
     monkeypatch.setenv("ENVIRONMENT", "development")
+    # The downgrade requires a genuinely local JWKS (loopback), not just a dev env.
+    monkeypatch.setenv("AWEB_TOKEN_AUTH_JWKS_URL", "http://localhost:3030/api/auth/jwks")
     validate_token_auth_config()  # warns, no raise
+
+
+def test_validate_token_auth_config_dev_with_public_jwks_still_fails_closed(monkeypatch):
+    """A dev-style ENVIRONMENT must NOT skip aud/iss when the JWKS is public —
+    the downgrade is gated on JWKS locality so a leaked dev env on a reachable
+    deploy can't silently disable audience/issuer validation."""
+    from aweb.token_auth import validate_token_auth_config
+
+    _force_token_auth(monkeypatch, True)
+    monkeypatch.delenv("AWEB_TOKEN_AUTH_AUDIENCE", raising=False)
+    monkeypatch.delenv("AWEB_TOKEN_AUTH_ISSUER", raising=False)
+    monkeypatch.setenv("ENVIRONMENT", "development")
+    monkeypatch.setenv("AWEB_TOKEN_AUTH_JWKS_URL", "https://issuer.example/jwks")
+    with pytest.raises(RuntimeError, match="aud/iss|AUDIENCE|ISSUER"):
+        validate_token_auth_config()
 
 
 def test_validate_token_auth_config_ok_when_aud_iss_set(monkeypatch):

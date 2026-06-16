@@ -20,7 +20,9 @@ async def _setup_team(client, ns_key, ns_did, domain, team_name):
     headers = _sign(ns_key, ns_did, domain=domain, operation="create_team", name=team_name)
     resp = await client.post(
         f"/v1/namespaces/{domain}/teams",
-        json={"name": team_name, "team_did_key": team_did},
+        # Public so the anonymous roster-read assertions below exercise the
+        # happy path; private-roster auth gating is covered separately.
+        json={"name": team_name, "team_did_key": team_did, "visibility": "public"},
         headers=headers,
     )
     assert resp.status_code == 200, resp.text

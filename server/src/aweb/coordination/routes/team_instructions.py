@@ -31,7 +31,9 @@ def _generate_etag(resource_id: str, updated_at: datetime) -> str:
 
 
 class TeamInstructionsDocument(BaseModel):
-    body_md: str = ""
+    # Cap well below the 1 MiB global body limit so each stored version (history
+    # is retained) stays bounded and one write can't pin a large blob per team.
+    body_md: str = Field(default="", max_length=262144)
     format: str = "markdown"
 
     @field_validator("format")

@@ -287,7 +287,7 @@ async def test_get_team_member_by_alias(client, controller_identity):
     headers = _sign(signing_key, controller_did, domain="members.com", operation="create_team", name="backend")
     resp = await client.post(
         "/v1/namespaces/members.com/teams",
-        json={"name": "backend", "team_did_key": team_did_key},
+        json={"name": "backend", "team_did_key": team_did_key, "visibility": "public"},
         headers=headers,
     )
     assert resp.status_code == 200, resp.text

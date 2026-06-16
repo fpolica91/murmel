@@ -293,7 +293,23 @@ def _jwks_url_is_safe(url: str) -> bool:
         return False
     if parsed.scheme == "https":
         return True
-    host = (parsed.hostname or "").lower()
+    return _jwks_host_is_local(url)
+
+
+def _jwks_host_is_local(url: str) -> bool:
+    """True only if the JWKS targets a loopback/internal host (not any https).
+
+    Distinct from _jwks_url_is_safe: a public https JWKS is *safe* but not
+    *local*. The dev downgrade of aud/iss + scheme checks keys on locality, so a
+    dev-style ENVIRONMENT leaking onto a deploy with a PUBLIC JWKS still fails
+    closed rather than silently skipping audience/issuer validation.
+    """
+    from urllib.parse import urlparse
+
+    try:
+        host = (urlparse(url).hostname or "").lower()
+    except Exception:
+        return False
     return (
         host in ("localhost", "127.0.0.1", "::1")
         or host.endswith(".localhost")
@@ -312,7 +328,11 @@ def validate_token_auth_config() -> None:
     if not token_auth_enabled():
         return
     cfg = TokenAuthConfig.from_env()
-    is_dev = _current_env() in _DEV_LIKE_ENVS
+    # Downgrade the env-sensitive checks to warnings ONLY for a genuinely local
+    # setup: dev-like ENVIRONMENT *and* a loopback/internal JWKS. A public JWKS
+    # always fails closed, so a dev env-string on a reachable deploy can't skip
+    # aud/iss or https validation.
+    is_dev = _current_env() in _DEV_LIKE_ENVS and _jwks_host_is_local(cfg.jwks_url)
 
     # 1) Symmetric algorithms against a public JWKS are never valid — always fail.
     bad_algs = [a for a in cfg.algorithms if a not in _ASYMMETRIC_ALGS]
