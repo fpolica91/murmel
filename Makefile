@@ -28,7 +28,7 @@ help:
 	@echo "  test-channel Run channel tests"
 	@echo "  test-a2a     Run A2A conformance, gateway, AWID lookup, and CLI command gates"
 	@echo "  test-e2e     Run the end-to-end user journey (requires Docker)"
-	@echo "  test-federation-e2e Run the OSS federation journey (requires Docker)"
+	@echo "  test-federation-e2e Run the token-only (A.2) OSS federation journey (requires Docker)"
 	@echo "  test-a2a-gateway-e2e Run the A2A gateway Docker journey against real aweb+awid"
 	@echo "  check-a2a-copy-guardrails Block premature A2A trust/E2EE copy"
 	@echo "  selfhost-up / -down / -logs   Manage the OSS docker-compose stack (aweb + awid)"
@@ -81,11 +81,15 @@ test-a2a:
 test-e2e:
 	./scripts/e2e-oss-user-journey.sh
 
-# test-federation-e2e / test-a2a-gateway-e2e: QUARANTINED by the token-only
-# pivot. Both scripts now exit 1 with an explanation. Federation onboarding has
-# no token-only path; the A2A gateway's OSS mail transport is still cert-only
-# (a Go change, not a script fix). See ai-completion/PIVOT-FOLLOWUPS.md §2. They
-# are kept as failing gates (not silently green) so the gap stays visible.
+# test-federation-e2e: token-only federation (Option A.2). UN-QUARANTINED —
+# stands up TWO isolated aweb stacks (distinct compose projects + disjoint safe
+# ports), cross-configures them as federation peers (AWEB_FEDERATION_PEERS +
+# AWEB_FEDERATION_SIGNING_SEED), proves cross-server vouched mail delivers +
+# verifies in both directions, and asserts all four attacks are rejected by the
+# LIVE receiver. RAN GREEN on Docker (26/26). See ai-completion/PIVOT-FOLLOWUPS.md §2.
+#
+# test-a2a-gateway-e2e: STILL QUARANTINED by the token-only pivot (exit 1 by
+# design — the bash/Docker rewrite is not done; the Go blocker is cleared).
 test-federation-e2e:
 	./scripts/e2e-oss-federation.sh
 
@@ -345,11 +349,11 @@ ship: release-all-check
 	@echo "=== Running e2e user journey (token-only) ==="
 	$(MAKE) test-e2e
 	@echo ""
-	@echo "=== Running federation e2e journey ==="
-	@echo "    NOTE: federation + A2A-gateway journeys are QUARANTINED by the"
-	@echo "    token-only pivot and exit 1 by design (see PIVOT-FOLLOWUPS.md §2)."
-	@echo "    They will fail this gate until the underlying onboarding/transport"
-	@echo "    gaps are closed; this is intentional, not a regression to hide."
+	@echo "=== Running federation e2e journey (token-only A.2) ==="
+	@echo "    Stands up two cross-pinned aweb stacks and proves vouched"
+	@echo "    cross-server mail + the four attack rejections (see"
+	@echo "    PIVOT-FOLLOWUPS.md §2). The A2A-gateway journey remains"
+	@echo "    QUARANTINED (exit 1 by design)."
 	$(MAKE) test-federation-e2e
 	@echo ""
 	@echo "=== ship: ALL pre-release checks passed ==="

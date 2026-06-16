@@ -103,7 +103,7 @@ isolation; it does not cover token onboarding.
 leave it until the token path lands, then add token coverage alongside (don't
 delete the back-compat tests while the server still honors the cert header).
 
-### 2. The three e2e scripts were built on the removed cert/team CLI — ✅ primary REWRITTEN + RUN GREEN; federation + A2A-gateway QUARANTINED (honest)
+### 2. The three e2e scripts were built on the removed cert/team CLI — ✅ user-journey + federation (A.2) REWRITTEN + RUN GREEN; A2A-gateway QUARANTINED (honest)
 
 **Status (2026-06-16):** Reconciled on `feature/simple-auth-ui`.
 
@@ -158,33 +158,65 @@ here, fixed nowhere — they need server work):**
    recipient must match the chat target` / `[unverified]` (consistent with the
    STATUS.md chat note). The journey reports it non-fatally.
 
-#### `scripts/e2e-oss-federation.sh` + `scripts/e2e-a2a-gateway-docker.sh` — QUARANTINED (cannot pass; not faked)
+#### `scripts/e2e-oss-federation.sh` — REWRITTEN to token-only (A.2) + RAN GREEN (2026-06-16, later pass)
 
-Both were replaced with short, self-documenting scripts that **exit 1** with the
-reason, rather than driving removed commands or pretending to pass:
+Token-only federation (Option A.2) is now **implemented** (commit `7825fe3b`;
+server suite 650; `server/tests/test_federation_assertion.py` 21 passing), so the
+quarantined exit-1 stub was **replaced with a real two-stack journey** and
+**un-quarantined**.
 
-- **Federation:** cross-server delivery needs awid global addresses + namespace
-  delivery-origins, all provisioned by the removed `aw id create` / `aw id team`
-  / `aw id namespace set-delivery-origin` cluster. Token-only onboarding has no
-  headless way to stand up two federated, cross-server-routable identities, so
-  the journey cannot be made green by a script rewrite — it needs a **product
-  decision** on whether/how federation onboarding survives the pivot.
-  - **Scoped (2026-06-16):** full file/function breakdown of what breaks, the
-    design options (server-vouching / key directory / awid-for-addressing-only),
-    a recommendation (**Option A.2** — per-server signing key + peer allowlist +
-    server-vouched delivery assertion wrapping the existing participant-signed
-    envelope, reusing the `a07fd564` server-anchored-trust model across a
-    configured peer edge), the v2 implementation plan, and the two-full-stack
-    test harness it needs are in
-    [FEDERATION-TOKEN-ONLY.md](FEDERATION-TOKEN-ONLY.md).
-  - **Honest verdict:** federation under token-only is a **deliberate v2
-    re-architecture**, not a patchable bug. The existing inbound verification is
-    internally consistent and correctly **fails closed** for token senders
-    (synthetic `did:key:jwt-` → 422; no did:aw → no registry match). **No
-    bounded, safe piece was landable** — every candidate (accepting synthetic
-    keys, populating a fake `delivery_origin`, adding an unverified outer
-    server-signature field) is a half-built trust mechanism. **Nothing was
-    implemented; server suite stays at 629.**
+- **What it now does:** stands up TWO fully isolated aweb stacks (A + B, each =
+  aweb + Better Auth UI issuer + Postgres + Redis) under distinct compose
+  projects (`aweb-fed-e2e-a-$$` / `-b-$$`) on DISJOINT SAFE host ports (UI
+  3036/3037, aweb 8091/8092; pg/redis internal-only) — never touching the dev
+  stack (3030/8088/5544/6390) or the forbidden set. It cross-configures the two
+  as federation peers via `AWEB_FEDERATION_PEERS` (each pins the OTHER's
+  seed-derived server DID) + `AWEB_FEDERATION_SIGNING_SEED` (deterministic
+  per-stack keys), and verifies each live `GET /v1/federation/server-key`
+  advertises exactly the pinned DID. It token-onboards a human on each home
+  server (Better Auth sign-up → membership → JWT → `AW_TOKEN aw init`, cert-less)
+  to exercise the membership/token model, then drives the **real A.2 wire**:
+  the inner participant-signed envelope + outer server-vouched delivery
+  assertion are built by the **server's own modules** (`compose exec aweb python`
+  → byte-identical canonical JSON / Ed25519, no reimplementation), and POSTed to
+  the peer's `/v1/federation/messages`.
+  - **HAPPY PATH:** A vouches + delivers a cross-server mail to B's
+    self-custodial recipient → B returns 200 and stores it for the recipient;
+    reverse B→A for mutuality. Both proven against the live receiver (the full
+    inbound chain ran: allowlist → pinned-key outer sig → inner participant sig →
+    local directory resolution → delivery).
+  - **ATTACKS (each rejected by LIVE B):** un-allowlisted origin → **403**;
+    outer sig from a non-pinned key → **403**; tampered inner payload → **422**;
+    replayed `message_id` → idempotent **200**, then **409** on conflicting
+    content (stored exactly once).
+- **RUN LEDGER (honest):** executed end-to-end against Docker on this machine on
+  2026-06-16 → **`ALL PASSED: 26 tests`** (`EXIT=0`). Both UI+aweb+awid+pg+redis
+  stacks built and came up healthy on the safe ports, both server keys advertised
+  the pinned DIDs, both JWTs minted, both onboarded cert-less, cross-server mail
+  delivered + stored in BOTH directions, all four attacks rejected with the exact
+  expected codes, and `compose down -v` on both projects left no lingering
+  containers/volumes and did not disturb the dev stack. `shellcheck` clean.
+- **Why the cross-stack delivery is driven by a direct federated POST (not
+  `aw mail send`):** commit `7825fe3b` shipped the SERVER receive/send wire +
+  config + 21 tests, but is **server-only** — it did NOT ship a CLI
+  self-custodial federated-send path, and the outbound first-contact `external`
+  trigger in `routes/messages.py` still gates on an awid `resolve_address`, which
+  A.2 deliberately drops from the trust path (`_remote_delivery_origin`'s new
+  peer-domain trigger is wired but only reachable once `recipient["external"]` is
+  set, which without a registry happens only on conversation continuations). The
+  faithful, registry-free way to drive a genuine cross-stack delivery is
+  therefore to build the real signed `FederatedDeliveryRequest` with the server's
+  own code and POST it to the peer — exactly the wire two cooperating aweb
+  servers speak. This exercises the ENTIRE implemented A.2 receive mechanism on a
+  live peer.
+- **Residual (documented, not faked):** a CLI-originated first-contact federated
+  `aw mail send --to-address domain/name` across stacks still needs (a) a
+  CLI self-custodial federated-send slice and (b) a token-only outbound trigger
+  that marks a peer-domain recipient `external` without awid. Until those land,
+  CLI origination is not the e2e's delivery driver; the server-to-server wire
+  (the load-bearing A.2 mechanism) is fully exercised live.
+
+#### `scripts/e2e-a2a-gateway-docker.sh` — STILL QUARANTINED (cannot pass; not faked)
 - **A2A gateway:** the load-bearing **Go blocker is now RESOLVED**; the script
   stays quarantined only for the remaining **bash/Docker** rewrite.
   - **DONE (Go):** the OSS gateway's `workspaceMailClient` previously
@@ -219,12 +251,11 @@ reason, rather than driving removed commands or pretending to pass:
     remains quarantined (exit 1 by design) with its reason updated to say the Go
     blocker is cleared. Reliable A2A signal post-pivot stays `make test-a2a`.
 
-**Makefile:** `test-e2e` now runs the green token-only journey;
-`test-federation-e2e` / `test-a2a-gateway-e2e` are documented as quarantined
-(exit 1 by design). `make ship` runs the green journey first (so its proof is
-captured) and prints a NOTE before the federation gate that it is expected to
-fail until the gaps above are closed — the breakage stays **visible**, not
-hidden.
+**Makefile:** `test-e2e` runs the green token-only user journey;
+`test-federation-e2e` now runs the green token-only **A.2** federation journey
+(un-quarantined); `test-a2a-gateway-e2e` stays quarantined (exit 1 by design).
+`make ship` runs the user journey, then the federation journey (both expected
+green), and notes the still-quarantined A2A-gateway journey.
 
 ### 3. Resource-pack / codex-plugin skills duplicate the removed surface — ✅ DONE
 
