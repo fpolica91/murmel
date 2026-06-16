@@ -137,12 +137,9 @@ func runRun(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	client, sel, onboarding, err := resolveRunClientForDir(cmd, workingDir, screen != nil, promptInput)
+	client, sel, err := resolveRunClientForDir(cmd, workingDir, screen != nil, promptInput)
 	if err != nil {
 		return err
-	}
-	if strings.TrimSpace(initialPrompt) == "" && onboarding != nil && strings.TrimSpace(onboarding.InitialPrompt) != "" {
-		initialPrompt = strings.TrimSpace(onboarding.InitialPrompt)
 	}
 	allowInteractiveEmptyPrompt := screen != nil
 	if strings.TrimSpace(settings.BasePrompt) == "" && initialPrompt == "" && !allowInteractiveEmptyPrompt {
@@ -439,52 +436,20 @@ const (
 	runWorkspaceStateMissing
 )
 
-func resolveRunClientForDir(cmd *cobra.Command, workingDir string, interactive bool, promptInput io.Reader) (*aweb.Client, *awconfig.Selection, *guidedOnboardingResult, error) {
+func resolveRunClientForDir(cmd *cobra.Command, workingDir string, interactive bool, promptInput io.Reader) (*aweb.Client, *awconfig.Selection, error) {
 	state, err := runWorkspaceStateForDir(workingDir)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 	if state == runWorkspaceStateMissing {
-		if !interactive {
-			return nil, nil, nil, usageError("current directory is not initialized for aw; run `aw init`, or join an existing team with `aw id team request` then the printed `aw id team fetch-cert` command")
-		}
-		proceed, promptErr := promptYesNoWithIO(
-			"This directory is not initialized as an aweb workspace. Initialize now?",
-			true,
-			promptInput,
-			cmd.ErrOrStderr(),
-		)
-		if promptErr != nil {
-			return nil, nil, nil, promptErr
-		}
-		if !proceed {
-			return nil, nil, nil, usageError("current directory is not initialized for aw; run `aw init`, or join an existing team with `aw id team request` then the printed `aw id team fetch-cert` command")
-		}
-
-		onboarding, onboardingErr := guidedOnboardingWizard(guidedOnboardingRequest{
-			WorkingDir:         workingDir,
-			PromptIn:           promptInput,
-			PromptOut:          cmd.ErrOrStderr(),
-			ServerName:         serverFlag,
-			HumanName:          resolveHumanName(),
-			AgentType:          resolveAgentType(),
-			AskPostCreateSetup: true,
-		})
-		if onboardingErr != nil {
-			return nil, nil, nil, onboardingErr
-		}
-		client, sel, err := runResolveClientForDir(workingDir)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		return client, sel, onboarding, nil
+		return nil, nil, usageError("current directory is not initialized for aw; run `aw login` (or pass --token) then `aw init --aweb-url <url> --team <team_id>`")
 	}
 
 	client, sel, err := runResolveClientForDir(workingDir)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
-	return client, sel, nil, nil
+	return client, sel, nil
 }
 
 func resolveRunWorkspaceStateForDir(workingDir string) (runWorkspaceState, error) {

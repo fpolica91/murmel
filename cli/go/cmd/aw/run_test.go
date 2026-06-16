@@ -524,30 +524,23 @@ func TestRunNonInteractiveMissingContextPrintsOnboardingHint(t *testing.T) {
 	}
 }
 
-func TestRunInteractiveOnboardsBeforeRunning(t *testing.T) {
+// TestRunInteractiveMissingWorkspaceErrorsWithLoginHint verifies aw run no
+// longer launches a guided onboarding wizard: a missing workspace fails with a
+// clear directive to run `aw login` then `aw init`, even interactively.
+func TestRunInteractiveMissingWorkspaceErrorsWithLoginHint(t *testing.T) {
 	initRunCommandVars()
 
 	oldLoad := runLoadUserConfig
 	oldResolveSettings := runResolveSettings
 	oldResolveClient := runResolveClientForDir
 	oldNewScreen := runNewScreenController
-	oldNewProvider := runNewProvider
-	oldNewLoop := runNewLoop
-	oldExecuteLoop := runExecuteLoop
-	oldNewEventBus := runNewEventBus
 	oldWorkspaceState := runWorkspaceStateForDir
-	oldWizard := guidedOnboardingWizard
 	t.Cleanup(func() {
 		runLoadUserConfig = oldLoad
 		runResolveSettings = oldResolveSettings
 		runResolveClientForDir = oldResolveClient
 		runNewScreenController = oldNewScreen
-		runNewProvider = oldNewProvider
-		runNewLoop = oldNewLoop
-		runExecuteLoop = oldExecuteLoop
-		runNewEventBus = oldNewEventBus
 		runWorkspaceStateForDir = oldWorkspaceState
-		guidedOnboardingWizard = oldWizard
 		initRunCommandVars()
 	})
 
@@ -562,26 +555,10 @@ func TestRunInteractiveOnboardsBeforeRunning(t *testing.T) {
 		resolveCalls++
 		return &aweb.Client{}, &awconfig.Selection{Domain: "team", Alias: "rose"}, nil
 	}
+	// Provide an interactive screen controller so screen != nil (the
+	// previously-interactive path), proving the wizard branch is gone.
 	runNewScreenController = func(in io.Reader, out io.Writer) *awrun.ScreenController {
 		return &awrun.ScreenController{}
-	}
-	runNewProvider = func(name string) (awrun.Provider, error) {
-		return awrun.ClaudeProvider{}, nil
-	}
-	runNewLoop = func(provider awrun.Provider, out io.Writer) *awrun.Loop {
-		return awrun.NewLoop(provider, out)
-	}
-	runExecuteLoop = func(loop *awrun.Loop, ctx context.Context, opts awrun.LoopOptions) error {
-		return nil
-	}
-	runNewEventBus = func(client *aweb.Client) *awrun.EventBus { return nil }
-
-	var capturedReq guidedOnboardingRequest
-	guidedOnboardingWizard = func(req guidedOnboardingRequest) (*guidedOnboardingResult, error) {
-		capturedReq = req
-		return &guidedOnboardingResult{
-			InitialPrompt: "Download and study the agent guide at https://aweb.ai/docs/agent-guide.md before doing anything else.",
-		}, nil
 	}
 
 	cmd := &cobraCommandClone{Command: *runCmd}
@@ -592,26 +569,15 @@ func TestRunInteractiveOnboardsBeforeRunning(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	setRunCommandIO(&cmd.Command, strings.NewReader("\n"), &stdout, &stderr)
 
-	var capturedLoopOpts awrun.LoopOptions
-	runExecuteLoop = func(loop *awrun.Loop, ctx context.Context, opts awrun.LoopOptions) error {
-		capturedLoopOpts = opts
-		return nil
+	err := runRun(&cmd.Command, []string{"codex"})
+	if err == nil {
+		t.Fatal("expected error for missing workspace")
 	}
-
-	if err := runRun(&cmd.Command, []string{"codex"}); err != nil {
-		t.Fatalf("runRun returned error: %v", err)
+	if !strings.Contains(err.Error(), "aw login") || !strings.Contains(err.Error(), "aw init") {
+		t.Fatalf("expected aw login + aw init hint, got: %v", err)
 	}
-	if capturedReq.WorkingDir != tmp {
-		t.Fatalf("working_dir=%q", capturedReq.WorkingDir)
-	}
-	if !capturedReq.AskPostCreateSetup {
-		t.Fatal("expected guided onboarding to keep post-init setup prompts enabled")
-	}
-	if strings.TrimSpace(capturedLoopOpts.InitialPrompt) != "Download and study the agent guide at https://aweb.ai/docs/agent-guide.md before doing anything else." {
-		t.Fatalf("expected onboarding guide prompt, got %q", capturedLoopOpts.InitialPrompt)
-	}
-	if resolveCalls != 1 {
-		t.Fatalf("expected client resolution after onboarding, got %d calls", resolveCalls)
+	if resolveCalls != 0 {
+		t.Fatalf("expected no client resolution for missing workspace, got %d", resolveCalls)
 	}
 }
 
