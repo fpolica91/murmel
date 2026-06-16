@@ -1,74 +1,87 @@
 # aweb Team Membership Reference
 
+Deeper notes for the token-only membership model. The current product
+authenticates every coordination request with a **bearer token** (a Better Auth
+JWT). There are no team certificates, namespace controllers, or BYOT controller
+keys — those were removed in the token-only pivot. If you find older guidance
+referencing `aw id team …`, `aw id namespace …`, `aw team …`, or `.aw/team-certs/`,
+it is stale: those commands no longer exist.
+
 ## Authority layers
 
-- **Namespace authority** controls addresses under a DNS-backed namespace.
-- **Team authority** controls team membership certificates.
-- **Identity custody** controls who holds an agent's signing key.
-- **Workspace binding** controls which local directory acts in which team/server.
+- **Token authority** — possession of a valid bearer token whose subject is a
+  member of the target team. This is the single gate for coordination access.
+- **Membership** — the row (subject → team → role) that authorizes a token to
+  act in a team. Created/managed through the web UI for the deployment.
+- **Workspace binding** — which local directory acts against which team/server
+  (`.aw/workspace.yaml`, written by `aw init`).
+- **Local signing key** — the per-identity Ed25519 key `aw init` writes is used
+  **only** for end-to-end message encryption, never for server auth. See
+  `aweb-identity`.
 
-These layers can combine in multiple ways. Do not assume one from another. The compact custody matrix now lives in the main `SKILL.md` body because it is central to customer comprehension.
+Do not infer one layer from another: a bound workspace with no usable token
+cannot coordinate; a valid token whose subject is not a team member is rejected
+for that team.
 
-## Fully Hosted
+## How tokens are issued and used
 
-Fully Hosted means aweb operates namespace and team authority for hosted domains such as `*.aweb.ai`. It can mint hosted team certificates and provide simple onboarding. This is the simple default for most users.
+- A human signs up / logs in to the web UI (Better Auth) at the UI origin and
+  is issued a short-lived JWT same-origin. Membership in a team grants access.
+- An agent reuses a token via `aw login` (browser device flow; caches it at
+  `~/.aw/token` and auto-refreshes) or via the `AW_TOKEN` env var / `--token`
+  flag for non-interactive use (CI, scripts, headless agents).
+- Bearer precedence: `--token` > `AW_TOKEN` > cached `~/.aw/token`.
 
-Hosted OAuth/MCP flows provision custodial addressed/global identities, personal team membership, and harness credentials before a local CLI workspace exists. Team API-key CLI bootstrap is different: it creates a local self-custodial CLI workspace in a hosted team. In OAuth/MCP flows, use CLI checks for diagnosis only when a local workspace is actually involved; do not force BYOT setup.
-
-## BYOT
-
-BYOT means Bring Your Own Team. It includes older BYOD/BYOIDT terms.
-
-In BYOT, the customer controls the DNS namespace controller and team controller. aweb imports customer-signed facts; it does not receive private controller keys.
-
-Key command surfaces:
+## Onboarding command surface
 
 ```bash
-aw id namespace prepare-controller --domain <domain>
-aw id namespace check-txt --domain <domain>
-aw id create --name <name> --domain <domain>
-aw id team create --namespace <namespace> --name <team>
-aw id team request --team <team>:<namespace> --alias <alias>
-aw id team add-member --team <team> --namespace <namespace> ...
-aw id team fetch-cert --team <team> --namespace <namespace> --cert-id <id>
-aw id team import-request --namespace <domain> --team <team> --organization-id <org>
+aw login                                       # cache a token at ~/.aw/token
+aw init --aweb-url <server-url> --team <team-id>   # bind directory to a team (cert-less)
+aw check                                        # diagnose identity/workspace/team/connectivity
+aw whoami
+aw workspace status
 ```
 
-Use current `aw ... --help` for exact flags. Treat `aw id namespace prepare-controller` as namespace-authority setup, not identity creation. Treat `aw id team add-member` as a controller-side operation; the joining machine commonly runs `request` and `fetch-cert` only.
-
-For the dashboard import/sync path:
-
-- Use `--organization-id <org-id>` only for the first import into an owner organization.
-- Use `--cloud-team-id <cloud-team-id>` for later syncs of an already-imported team.
-- Omit `--apply` for preview; add `--apply` only after the preview is correct.
-- The dashboard's Connect / Sync page should show the exact command for the current team. Prefer that command over reconstructing IDs by hand.
+Use current `aw <cmd> --help` for exact flags. `aw init` is token-only: it
+takes `--aweb-url` and `--team` (plus optional `--role-name`, `--alias`,
+`--setup-channel`, `--setup-hooks`, `--do-not-touch-agents-md`). It does not
+take `--byod`, `--global`, `--username`, `--awid-registry`, or `--url` — those
+were removed.
 
 ## Addressability, inbound mode, and contacts
 
-Addressability and delivery authorization are separate:
+Addressability and delivery authorization are separate (full model in
+`aweb-identity`):
 
 - First contact uses a concrete address route (`domain/alias`).
-- `did:aw` is identity binding, not a first-contact delivery route.
-- `inbound_mode=open|team_and_contacts` controls delivery after route validation.
-- `team_and_contacts` accepts verified same-team senders plus exact active identity contacts for trusted non-team senders. Contacts do not create routes or resolver visibility.
-- Reachability fields that appear in support or migration output are compatibility/audit state, not live delivery authority.
-- `aw contacts ...` manages saved contact relationships.
-- `aw id namespace resolve <domain>/<alias> --json` performs a workspace-free directory lookup.
+- `inbound_mode=open|team-and-contacts` controls delivery after route
+  validation.
+- `team-and-contacts` accepts verified same-team senders (membership in a
+  common team) plus exact active-identity contacts for trusted non-team
+  senders. Contacts do not create routes or resolver visibility.
+- `aw contacts {add,list,remove}` manages saved contact relationships.
+- `aw directory [domain/name]` performs a directory lookup of global
+  identities.
 
 ## Multi-team safety checklist
 
 Before acting in a multi-team identity:
 
 1. Run `aw workspace status`.
-2. Confirm active team.
-3. Confirm server URL.
-4. Confirm recipient address belongs to intended team/context.
-5. Use `--team` only for deliberate one-off overrides.
+2. Confirm the active team.
+3. Confirm the server URL.
+4. Confirm the recipient address belongs to the intended team/context.
+5. Use `--team <team-id>` only for deliberate one-off overrides.
 
-## Fail-closed BYOT posture
+## Fail-closed posture
 
-For BYOT imports, fail closed on stale timestamps, invalid signatures, mismatched team IDs, hosted-controller teams, managed hosted namespaces, or custodial identity mismatches.
-
-## Key rotation notes
-
-Self-custodial rotation depends on access to the existing local signing key. Custodial recovery depends on hosted account recovery. If compromise is suspected, pause sensitive actions and coordinate the new trusted identity/key state with the team.
+- No usable token → 401; do not silently downgrade. Re-authenticate with
+  `aw login` or a fresh `AW_TOKEN`.
+- Token valid but subject not a member of the target team → 403; add the member
+  through the UI before retrying.
+- For E2E messaging, a valid token and team membership are still not enough by
+  themselves: the recipient's encryption public key must be identity-authorized
+  (see `docs/e2e-messaging-contract.md`). If an encryption-key check fails, stop
+  and route to the approved key setup/recovery flow in `aweb-identity`; do not
+  fall back to plaintext unless the human explicitly chooses server-readable
+  plaintext (`--plaintext`).

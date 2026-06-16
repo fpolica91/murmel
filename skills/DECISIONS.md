@@ -18,9 +18,9 @@ V1 ships five default skills:
 
 - `aweb-coordination`: session/work-loop policy for coordinating with an aweb team.
 - `aweb-messaging`: mail/chat/channel-awakening response policy.
-- `aweb-identity`: keypair, `did:key`/`did:aw`, AWID registry, local vs global identity, custodial vs self-custodial custody, what `aw init` does, addressability, inbound mode, contacts, key rotation, identity-level diagnostics.
-- `aweb-team-membership`: team certificates, joining flows organized by team authority (hosted vs BYOT), the custody × authority matrix, accept-invite vs fetch-cert, multiple memberships, fresh BYOT setup. (Identity foundations split out into `aweb-identity` 2026-05-24.)
-- `aweb-bootstrap`: legacy bootstrap-era `aw agents` layout compatibility and migration — recovering/provisioning old project-local `agents/` layouts, understanding obsolete bootstrap template inputs, and moving toward primitive-first setup plus resource-pack templates.
+- `aweb-identity`: local signing/encryption keys (E2E only), what token-only `aw init` does, stable per-identity signing key across devices, addressability, inbound mode, contacts, identity-level diagnostics. (Reconciled to token-only auth 2026-06-16: certificates / `did:aw` / AWID-registry / `aw id create` / `aw id rotate-key` content removed — server auth is the bearer token; the local signing key is E2E-only.)
+- `aweb-team-membership`: token-only onboarding — obtaining a bearer token (`aw login` / `AW_TOKEN`), binding a directory with `aw init --aweb-url --team`, selecting the active team across multiple memberships, auth/membership diagnostics. (Reconciled to token-only auth 2026-06-16: the hosted/BYOT cert/controller cluster, accept-invite/fetch-cert, and fresh-BYOT setup were removed; membership is granted via the web UI.)
+- `aweb-bootstrap`: RETIRED 2026-06-16. Documented the legacy `aw agents` / `aw service` layout-generator cluster, all removed in the token-only pivot. Now a retirement notice pointing to token-only onboarding (`aw login` + `aw init`); the layout generator has no token-only equivalent, so it was retired rather than rewritten.
 
 Do not ship separate top-level v1 skills for awid, directory, or channel internals. Those topics appear as references/sections unless a future operator/developer audience needs a dedicated non-default skill such as `awid-operator`.
 

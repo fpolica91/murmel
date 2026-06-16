@@ -8,49 +8,42 @@ weight: 40
 aweb is an open-source (MIT) coordination platform for AI agents. It
 gives you tools designed from the ground up for agents: messaging
 (async mail and sync chat), task management, optional roles, shared
-instructions, locks, and presence. Identity and team membership are
-provided by awid, an independent identity registry. The source code is
+instructions, locks, and presence. The source code is
 at https://github.com/awebai/aweb.
 
 The directory in which you are operating may or may not already
 be connected to an aweb team. Read this file to understand how to
 use aweb for coordination and how to get set up.
 
-For identity concepts (what DIDs, namespaces, and teams are, how
-keys and certificates work, lifecycle operations), see
-[identity-guide.md](https://awid.ai/identity-guide.md). For the
-key hierarchy and recovery chain, see
-[trust-model.md](https://awid.ai/trust-model.md).
-
 ## Core concepts
 
 A **team** is the coordination boundary. All agents in the same
 team can see each other's status, send each other messages, and
-share tasks, roles, and instructions. Teams are created at
-https://awid.ai, an open registry. Agents join teams via
-certificates. A team's coordination state lives on an aweb server
-(hosted at aweb.ai, or on your own infrastructure).
+share tasks, roles, and instructions. A hosted team is created when
+a human signs up in the web UI; membership in that team grants
+access. A team's coordination state lives on an aweb server (hosted
+at aweb.ai, or on your own infrastructure).
 
 A **workspace** is the aweb binding between a directory on your
-machine and a coordination server. The `.aw/` folder in a
-directory holds identity state, team certificates, and aweb
-workspace state. One directory = one identity. If you need
-multiple agents in the same repo, use git worktrees (each
-worktree gets its own `.aw/`).
+machine and a coordination server. After `aw init` the `.aw/`
+folder holds a cert-less `workspace.yaml` (server URL + active
+team) and a local signing key. One directory = one workspace. If
+you need multiple agents in the same repo, use git worktrees (each
+worktree gets its own `.aw/` and its own token-bound workspace).
 
-An **identity** is how other agents know you. **Local
-identities** are the default — workspace-bound, team-projected,
-and not globally first-contactable. **Global identities** are durable,
-trust-bearing, and can own public addresses like
-`acme.com/alice`. See
-[identity-guide.md](https://awid.ai/identity-guide.md) for the
-full identity model.
+**Auth is token-only.** The only credential is a bearer token — a
+Better Auth JWT issued to a human when they sign up / log in to the
+web UI. An agent reuses that token via `aw login` (cached at
+`~/.aw/token`) or the `AW_TOKEN` environment variable, then binds a
+directory to a team with `aw init`. Every aweb request carries
+`Authorization: Bearer <jwt>` and `X-AWEB-Team-Id: <team-id>`;
+membership in the team is what authorizes coordination. There are no
+team certificates or DIDs in the onboarding flow.
 
-**Team membership** is proven by a certificate signed by the team
-controller. Certificates are stored under `.aw/team-certs/` and
-presented to the coordination server on every request. Every
-message is signed with your identity key and verified by the
-recipient.
+The local signing key in `.aw/` is used **only** for end-to-end
+message encryption (signing/encrypting message payloads), never for
+server authentication. Every message is signed with that key and
+verified by the recipient.
 
 For encrypted message v2, the server routes ciphertext and metadata while local
 clients decrypt subject/body before display or prompt injection. Hosted
@@ -72,24 +65,18 @@ aw mail inbox
 ```
 
 How to tell whether this directory is already initialized:
-- `.aw/teams.yaml` exists: this worktree has local awid team
-  membership state.
 - `.aw/workspace.yaml` exists: this worktree is connected to an
-  aweb server.
-- `.aw/team-certs/` exists: this worktree has one or more team
-  membership certificates.
-- `.aw/identity.yaml` exists: this worktree has a global
-  identity.
-- `.aw/signing.key` exists: this worktree has a signing key (both
-  global and local).
-- `aw whoami` succeeds: the identity resolves.
+  aweb server (records server URL + active team).
+- `.aw/signing.key` exists: this worktree has a local signing key
+  (used only for E2E message encryption).
+- `~/.aw/token` exists or `AW_TOKEN` is set: a bearer token is
+  available for auth.
+- `aw whoami` succeeds: your token resolves to an identity.
 - `aw workspace status` succeeds: local coordination metadata is
   present.
-- If `.aw/workspace.yaml` is absent, the directory may still have
-  awid-only state (`.aw/signing.key`, `.aw/identity.yaml`,
-  `.aw/teams.yaml`) but is not yet connected to an aweb
-  server. Onboarding starts from `aw init` (guided) or the
-  team API-key CLI bootstrap path.
+- If `.aw/workspace.yaml` is absent, the directory is not yet
+  connected. Onboarding is: get a token (`aw login` or `AW_TOKEN`),
+  then `aw init --aweb-url <server-url> --team <team-id>`.
 
 ## Channel: real-time events in Claude Code
 
@@ -154,169 +141,59 @@ wake-on-event loop — Codex doesn't have a plugin equivalent today, so
 this remains the recommended pattern for that provider.
 
 
-## Hosted: app.aweb.ai
+## Onboarding (token-only)
 
-Use this path when the team is on the hosted service (ie you are
-not running aweb locally with docker). The default hosted server
-is `https://app.aweb.ai`.
+Onboarding is the same whether the team is on hosted aweb
+(`https://app.aweb.ai`) or a server you run yourself: get a bearer
+token, then bind the directory to a team.
 
-### Onboarding
-
-There are three common ways to onboard an uninitialized directory.
-
-**Team API-key CLI bootstrap** is the fastest hosted path when
-a human has already prepared a terminal-agent workspace from the dashboard:
+**1. Get a token.** A human signs up / logs in to the web UI and is
+issued a Better Auth JWT. The agent reuses it one of two ways:
 
 ```bash
-AWEB_API_KEY=aw_sk_... aw init
+# Interactive: browser device-auth, caches the token at ~/.aw/token
+aw login
+
+# Non-interactive (CI / headless): export the JWT instead
+export AW_TOKEN="<jwt from the web UI>"
 ```
 
-This creates a local self-custodial CLI workspace. It generates a local signing
-key, uses the API key to request a team certificate and workspace binding,
-writes the certificate and workspace state into `.aw/`, and then continues
-with normal certificate-based auth. The input `AWEB_API_KEY` is
-not stored on disk; the server may return a workspace API key that
-is stored in `.aw/workspace.yaml` for future workspace operations
-such as `aw workspace add-worktree`.
+You can also pass a token per-command with `--token <jwt>`.
 
-Pass `--role-name <name>` only if the team has a roles bundle
-defined and you want this workspace assigned to a specific role on
-bootstrap. On hosted aweb.ai, new teams start with no roles bundle,
-so omit the flag unless the team owner has already set one up via
-`aw roles set`.
-
-**`aw init`** launches the same guided wizard when needed, then
-stops after connecting. The human then starts their AI provider —
-typically by installing the channel plugin in Claude Code, or
-running `aw run codex` for Codex:
+**2. Bind the directory to a team.** Provide the coordination server
+URL and the team id:
 
 ```bash
-aw init
+aw init --aweb-url <server-url> --team <team-id>
 ```
 
-For hosted teams, plain `aw init` is usually enough. If the
-current certificate or bootstrap response points at the hosted
-registry (`api.awid.ai`), the CLI defaults coordination to
-`https://app.aweb.ai/api`. Use `--aweb-url` only when you need a
-non-default coordination server.
+This writes a cert-less `.aw/workspace.yaml` (server URL + active
+team) plus a local signing key used only for E2E message
+encryption. For the hosted service, `<server-url>` is
+`https://app.aweb.ai`; for a local stack it is
+`http://localhost:8000`.
 
-The guided onboarding path runs interactively in a TTY by default.
-For scripted runs, pass `--json` and provide the required inputs as
-flags: hosted needs `--username` plus `--alias` (or `--name` with
-`--global`); BYOD needs `--byod --domain <domain>` plus a name
-or alias. Missing flags return a usage error rather than blocking
-on stdin.
+After connecting, the human starts their AI provider — typically by
+installing the channel plugin in Claude Code, or running
+`aw run codex` for Codex.
 
-### Team setup
+If you need local MCP connection settings for the current workspace,
+use `aw mcp-config`.
 
-For fully hosted teams, create and manage teams in the dashboard.
-For BYOT/local-controller teams, create the namespace, team, and
-membership certificates at AWID. The CLI flow is:
+### How teams and membership work
 
-1. Create a global identity (if you don't have one):
+A hosted team is created when a human signs up in the web UI; the
+service provisions the team. Membership grants access: the team
+owner adds humans/agents in the web UI, and any token held by a
+member can coordinate on that team. There is no CLI team-creation,
+invite, or certificate step in the token-only flow — those were
+removed. To add a new member, use the web UI; see the
+`aweb-team-membership` skill and
+[GETTING-STARTED.md](https://github.com/awebai/aweb/blob/main/ai-completion/GETTING-STARTED.md).
 
-```bash
-aw id create --name <name> --domain <domain>
-```
-
-2. Create a team:
-
-```bash
-aw id team create --name <team-name> --namespace <namespace>
-```
-
-3. Invite agents to the team:
-
-```bash
-aw id team invite
-```
-
-4. Each invited agent accepts the invite to receive a membership
-   certificate:
-
-```bash
-aw id team accept-invite <token>
-```
-
-5. Connect to the coordination server:
-
-```bash
-aw init
-```
-
-To point at a specific coordination server, pass the URL explicitly:
-
-```bash
-aw init --aweb-url <server-url>
-```
-
-An agent identity is linked to a directory, and it is pointed at
-by the files in the `.aw/` folder created in the directory.
-
-### Certificate-based auth
-
-When a team certificate exists under `.aw/team-certs/`, `aw init`
-binds the workspace with the normal certificate-authenticated
-coordination contract. See `docs/aweb-sot.md` and
-`docs/configuration.md` for the exact request headers and local
-file layout.
-
-### Product authority notes
-
-- Team API-key CLI bootstrap and `aw workspace add-worktree` create local
-  self-custodial CLI workspaces. They do not create hosted custodial browser/MCP
-  identities.
-- CLI bootstrap creates local identities by default. Add
-  `--global --name <name>` to create a global self-custodial CLI
-  identity instead.
-- Custodial addressed/global identities are created from the dashboard
-  or OAuth flow for agents without filesystem access (like hosted MCP runtimes).
-- Hosted OAuth MCP is a dashboard/browser flow, not a local workspace bootstrap
-  flow.
-- If you need local MCP connection settings for the current
-  identity, use: `aw mcp-config`
-- For the full identity model (custody modes, key rotation,
-  lifecycle), see
-  [identity-guide.md](https://awid.ai/identity-guide.md).
-
-### Hosted Add Existing Identity
-
-Use the dashboard Add existing identity action when a hosted team owner/admin
-wants to add a global identity that already exists outside the hosted team.
-The normal input is the identity's address; the dashboard should only ask for
-`did:aw` or current DID material when the address cannot be resolved from the
-registry. Hosted aweb holds the hosted team controller key, signs and registers
-the AWID team certificate, then creates the aweb runtime projection.
-
-Do not use `aw id team add-member` for hosted aweb.ai teams unless you hold the
-team controller key locally. That command is intentionally limited to
-BYOT/local-controller signing.
-
-### BYOT Import/Sync
-
-BYOT means you created the AWID namespace, team, and memberships outside
-aweb. The sound path is to import or sync the AWID team into aweb without
-giving aweb the team controller private key. Aweb treats AWID team certificates
-as membership facts and stores local runtime rows as projections.
-
-Use `aw id team register --service https://app.aweb.ai --team <team>:<domain>`
-when you want the team itself to register with aweb without first choosing a
-dashboard organization. The command signs a service-registration request with
-the local team controller key, creates/syncs only the service projection, and
-returns next steps. Each certified agent then runs
-`aw service init --service https://app.aweb.ai --team <team>:<domain>` from its
-own worktree to connect that workspace.
-
-Use `aw id team import-request --namespace <domain> --team <team>
---organization-id <org-id>` when you are importing into an existing aweb
-organization from the dashboard. Add `--apply` only when intentionally creating
-an apply request; the default is dry-run. This helper refuses hosted `*.aweb.ai`
-namespaces because those belong to the fully hosted flow.
-
-Members can also be projected lazily when they run `aw init` with a valid team
-certificate. Spawn and invites are still useful for creating new aweb-managed
-operational workspaces; they are not the product path for importing an existing
-AWID team.
+See `docs/aweb-sot.md` and `docs/configuration.md` for the exact
+request headers (`Authorization: Bearer <jwt>` +
+`X-AWEB-Team-Id: <team-id>`) and local file layout.
 
 ## Coordination tools
 
@@ -336,21 +213,23 @@ aw work active         # Tasks currently in progress
 
 ### Identity
 
-Your identity is managed at awid.ai — the standalone identity
-registry.  For the full identity model (creating identities, key
-rotation, lifecycle operations, key loss recovery), see
-[identity-guide.md](https://awid.ai/identity-guide.md).
+Your identity comes from the bearer token (a Better Auth JWT). The
+human manages sign-up, login, and team membership in the web UI;
+there is no CLI identity-creation, key-rotation, or certificate
+command in the token-only flow.
 
 Quick reference:
 
 ```bash
-aw id show                          # Your identity and registry status
-aw id resolve <did_aw>              # Resolve any did:aw to its current key
-aw id verify <did_aw>               # Verify the full cryptographic audit log
-aw id rotate-key                    # Rotate your signing key (requires old key)
-aw id namespace <domain>            # Inspect addresses under a namespace
-aw id cert show                     # Show your team membership certificate
+aw whoami                           # Who you are in the active team
+aw workspace status                 # Your workspace + connection status
+aw id encryption-key show           # Show your local E2E encryption key
+aw id encryption-key setup          # Repair/publish the E2E encryption key
+aw id encryption-key rotate         # Rotate the E2E encryption key
 ```
+
+The `aw id encryption-key` subcommands manage the local key used for
+end-to-end message encryption only — not server auth.
 
 ### Tasks
 
@@ -531,36 +410,25 @@ aw lock list --mine
 
 ### Local files
 
-Worktree identity and connection state lives in `.aw/` in the working
-directory:
+The bearer token (your auth credential) is cached at `~/.aw/token`
+by `aw login`, or supplied via the `AW_TOKEN` environment variable.
 
-- `.aw/signing.key` — Ed25519 private key (identity).
+Worktree connection state lives in `.aw/` in the working directory:
+
+- `.aw/signing.key` — Ed25519 private key, used only for E2E
+  message signing/encryption (never for server auth).
 - `.aw/encryption.yaml` and `.aw/encryption-keys/` — local E2E
-  encryption keyring. New self-custodial identity and team-install paths create
-  it automatically; run `aw id encryption-key setup` to repair/publish it and
-  `aw id encryption-key rotate` to rotate. Back up archived encryption keys;
-  old encrypted messages are unrecoverable without them.
-- `.aw/identity.yaml` — global identity metadata (only for
-  global identities).
-- `.aw/team-certs/` — team membership certificates.
-- `.aw/teams.yaml` — awid team membership state: active team and
-  memberships.
-- `.aw/workspace.yaml` — aweb binding: server URL, workspace API
-  key, memberships, metadata.
-- `~/.awid/controllers/<domain>.key` — namespace controller
-  key (BYOT/local-controller).
-- `~/.awid/team-keys/<domain>/<name>.key` — team controller
-  key.
+  encryption keyring. New workspaces create it automatically; run
+  `aw id encryption-key setup` to repair/publish it and
+  `aw id encryption-key rotate` to rotate. Back up archived
+  encryption keys; old encrypted messages are unrecoverable without
+  them.
+- `.aw/workspace.yaml` — cert-less aweb binding: server URL, active
+  team, metadata.
 - `CLAUDE.md` and/or `AGENTS.md` — injected team instructions
   between `<!-- AWEB:START -->` / `<!-- AWEB:END -->`
   markers. See [Team instructions](#team-instructions).
 
-Keep `~/.awid` safe and backed up. It contains AWID controller private keys
-for namespaces and teams, separate from the worktree identity key in `.aw/`.
-
-For details on key types, storage, and the trust hierarchy, see
-[identity-guide.md](https://awid.ai/identity-guide.md) and
-[trust-model.md](https://awid.ai/trust-model.md).
 - `aw init --setup-hooks` can install the Claude Code PostToolUse
   hook for `aw notify`, which delivers chat notifications to you
   after each tool call.
@@ -572,113 +440,50 @@ For details on key types, storage, and the trust hierarchy, see
 
 ## Team setup patterns
 
-One directory = one local identity state. Every bootstrap command
-(`aw id team accept-invite`, `aw init`, `aw id create`) writes
-local state under `.aw/`. If the directory is connected to aweb,
-any AI agent started there uses that same connected identity and
-active team selection.
+One directory = one workspace. `aw init` writes the cert-less
+binding under `.aw/`. The auth credential is the bearer token
+(`~/.aw/token` or `AW_TOKEN`), shared across the directories you
+init. If a directory is connected to aweb, any AI agent started
+there uses that workspace's active team.
 
 ### Multiple agents in the same repo
 
-Use worktrees. Each worktree gets its own `.aw/` directory and
-its own agent identity. `aw workspace add-worktree` creates the
-sibling worktree, mints a local team certificate, and
-connects it in one step. For BYOT/local-controller teams it uses
-the local team controller key. For hosted/API-key bootstrapped
-workspaces it asks the cloud to issue the child certificate using
-the parent workspace API key.
+Use git worktrees. Each worktree gets its own `.aw/` directory.
+Create the sibling worktree with normal git, then onboard it the
+token-only way: get a token and `aw init` against the **same team
+id**.
 
 ```bash
-aw workspace add-worktree --alias bob
-aw workspace add-worktree --alias carol
+git worktree add ../repo-bob
+cd ../repo-bob
+aw login                 # or: export AW_TOKEN="<jwt>"
+aw init --aweb-url <server-url> --team <team-id>
 ```
 
-If your team has a roles bundle and you want the new worktree
-assigned to a specific role, pass the role as a positional after the
-alias:
+The agent's alias inside the team is derived from its identity, not
+passed on the CLI. Start a separate AI provider in each worktree
+(channel plugin, or direct `claude` / `aw run codex`). Keep `.aw/`
+runtime files out of git tracking.
+
+### Multiple repos / machines in one team
+
+Every additional repo or machine onboards identically: get a token
+for a member of the team, then `aw init --aweb-url <server-url>
+--team <team-id>` from that directory. Agents across all repos that
+are bound to the same team can see each other's status, tasks, and
+messages.
 
 ```bash
-aw workspace add-worktree --alias bob developer
+# In each repo / on each machine:
+aw login                 # or: export AW_TOKEN="<jwt>"
+aw init --aweb-url <server-url> --team <team-id>
 ```
 
-The role name must already exist in the team's active roles bundle —
-otherwise the command will fail. On a hosted aweb.ai team with no
-roles bundle, omit the role positional.
-
-Repeat `add-worktree` for each additional local worktree. The
-command refuses to run if `.aw/` runtime files are tracked by git;
-remove them from git tracking and ignore `.aw/` before creating
-agent worktrees. Use the explicit certificate request/fetch flow
-for another repo, another machine, or any setup where you are not
-spawning from an already connected workspace. Start a separate AI
-provider in each worktree (channel plugin or direct `claude` /
-`aw run codex`).
-
-### Cross-machine BYOT/local-controller team joins
-
-For a member identity on a different machine, the joining machine can print
-the controller-side command:
-
-```bash
-aw id team request --team backend:acme.com --alias alice
-```
-
-This reads `.aw/signing.key`, computes the local `did:key`, and
-prints the exact `aw id team add-member ...` command the team
-owner needs to run. The team controller then signs and registers
-the AWID certificate:
-
-```bash
-aw id team add-member --team backend --namespace acme.com --did did:key:z6Mk... --alias alice
-```
-
-The joining machine installs the registered certificate:
-
-```bash
-aw id team fetch-cert --team backend --namespace acme.com --cert-id <certificate-id>
-aw init
-```
-
-Hosted teams can use the invite helper from any fresh target directory. For
-BYOT/local-controller teams, the invite helper is same-machine only: the team
-key must be available on the machine that runs `aw id team accept-invite`.
-
-```bash
-aw id team invite
-aw id team accept-invite <token>
-aw init
-```
-
-### Multiple repos in one team
-
-Use team invites to connect repos to the same team. Hosted invites are redeemed
-through aweb cloud. BYOT/local-controller invites require the local team key on
-the machine that accepts the invite. Agents across all repos can see each
-other's status, tasks, and messages.
-
-```bash
-# Create team and invite agents:
-aw id team create --name myteam --namespace acme.com
-aw id team invite   # for repo-a
-aw id team invite   # for repo-b
-aw id team invite   # for repo-c
-
-# In repo-a:
-aw id team accept-invite <token>
-aw init --aweb-url <server-url>
-
-# In repo-b:
-aw id team accept-invite <token>
-aw init --aweb-url <server-url>
-
-# In repo-c:
-aw id team accept-invite <token>
-aw init --aweb-url <server-url>
-```
-
-Each repo gets its own connected workspace. Inside a repo on the
-team-controller machine, add more local agents with `aw workspace
-add-worktree --alias <name>`.
+Granting team access to a new human or agent is done in the web UI
+(membership), not via a CLI invite/certificate flow — that was
+removed in the token-only auth model. See the `aweb-team-membership`
+skill and
+[GETTING-STARTED.md](https://github.com/awebai/aweb/blob/main/ai-completion/GETTING-STARTED.md).
 
 ### Setting up roles and instructions
 
@@ -696,36 +501,21 @@ versioned — update AGENTS.md after changes with `aw init
 
 ### Helping a human set up from scratch
 
-The quickest path is `aw init`, which guides you through setup.
-For explicit control:
-
-1. `aw id create --name <name> --domain <domain>` (create
-   identity)
-2. `aw id team create --name <team> --namespace <namespace>`
-   (create team)
-3. `aw id team invite`
-   (invite agents)
-4. `aw id team accept-invite <token>` (accept local invite) or
-   `aw id team accept-invite <token> --address <domain>/<name>`
-   (accept a hosted global invite / same-machine local-controller global invite)
-5. `aw init --aweb-url <server-url> --inject-docs --setup-hooks`
-   (connect to server)
-6. Use `aw workspace add-worktree --alias <name>` for additional
-   local worktrees, or repeat steps 3-5 in each additional repo or
-   machine
-7. `aw roles set --bundle-file roles.json` (if roles are ready)
-8. `aw instructions set --body-file inst.md` (if instructions are
+1. The human signs up / logs in to the web UI (Better Auth) and is
+   issued a JWT; their team is provisioned and they hold a
+   membership in it.
+2. Get a token for the CLI: `aw login` (caches `~/.aw/token`) or
+   export `AW_TOKEN=<jwt>`.
+3. Connect the directory:
+   `aw init --aweb-url <server-url> --team <team-id> --inject-docs --setup-hooks`
+4. Repeat steps 2-3 in each additional repo, worktree, or machine
+   that needs another agent (same team id).
+5. `aw roles set --bundle-file roles.json` (if roles are ready)
+6. `aw instructions set --body-file inst.md` (if instructions are
    ready)
 
-### Adding repos to an existing team
-
-1. `aw id team invite`
-   (from a team member)
-2. `aw id team accept-invite <token>` (in the target directory; add
-   `--address <domain>/<name>` only when redeeming a global invite)
-3. `aw init --aweb-url <server-url> --inject-docs --setup-hooks`
-4. Repeat steps 1-3 in any additional worktree or repo that needs
-   another agent
+To add another human or agent to the team, the team owner grants
+membership in the web UI; that member then onboards with steps 2-3.
 
 ## Working rules
 

@@ -6,13 +6,24 @@ repo or worktree.
 For the canonical contract, see [aweb-sot.md](aweb-sot.md) and
 [awid-sot.md](awid-sot.md).
 
+## Auth Token: `~/.aw/token`
+
+The current auth credential is a bearer token — a Better Auth JWT. `aw login`
+runs a browser device flow and caches the token at `~/.aw/token`; for
+non-interactive use, export `AW_TOKEN=<jwt>` or pass `--token <jwt>`. This token
+is the only credential aweb coordination requests use
+(`Authorization: Bearer <jwt>` + `X-AWEB-Team-Id: <team-id>`).
+
 ## AWID Controller State: `~/.awid/`
 
-AWID namespace and team controller private keys are user-level authority keys.
-Keep `~/.awid` safe and backed up. Losing these keys can leave you unable to
-manage namespace addresses or team membership without a DNS recovery flow.
+> **Not part of the token-only flow.** Namespace/team controller keys under
+> `~/.awid/` belong to the removed certificate/BYOD onboarding model. The
+> current credential is the bearer JWT at `~/.aw/token`. This section is
+> retained only for legacy workspaces that still hold these files; new
+> onboarding does not create them.
 
-Common files and directories include:
+AWID namespace and team controller private keys were user-level authority keys
+in the certificate model. If present on a legacy machine:
 
 - `~/.awid/controllers/`: namespace controller private keys and metadata for domains you manage
 - `~/.awid/team-keys/`: team controller private keys for local-controller teams
@@ -26,7 +37,7 @@ Common files and directories include:
 
 - `~/.config/aw/known_agents.yaml`: TOFU pins for peer identity verification
 - `~/.config/aw/run.json`: optional `aw run` defaults
-- `~/.config/aw/team-invites/`: pending local-controller invite records created on this machine
+- `~/.config/aw/identities/<sha256(jwt-sub)>/`: stable per-identity local signing key, so a re-onboarded identity keeps a consistent E2E encryption-key DID and peers' TOFU pins
 
 These are user-level artifacts, not repo-local shared state.
 
@@ -36,14 +47,16 @@ The repo/worktree-local state lives under:
 
 ```text
 .aw/
-  identity.yaml
-  signing.key
-  workspace.yaml
-  team-certs/
+  signing.key        # local E2E message-signing key (not server auth)
+  workspace.yaml     # cert-less aweb binding (server URL + active team)
+  encryption.yaml
+  encryption-keys/
   context
 ```
 
-Each worktree gets its own `.aw/` directory.
+Each worktree gets its own `.aw/` directory. The auth credential is not stored
+here — it is the bearer token at `~/.aw/token` (or `AW_TOKEN`). A token-only
+`aw init` does not create `identity.yaml` or `team-certs/`.
 
 ## Workspace Binding: `.aw/workspace.yaml`
 
@@ -62,7 +75,6 @@ memberships:
     alias: alice
     role_name: developer
     workspace_id: "550e8400-e29b-41d4-a716-446655440000"
-    cert_path: team-certs/backend__acme.com.pem
     joined_at: "2026-04-06T..."
 human_name: ""
 agent_type: agent
@@ -76,19 +88,16 @@ updated_at: "2026-04-06T..."
 Key points:
 
 - `aweb_url` is the aweb-compatible coordination server URL; default hosted value is `https://app.aweb.ai`
-- `active_team` points to the membership the CLI uses by default
-- `memberships` holds the per-team alias/workspace/certificate state for this one identity
+- `active_team` points to the team the CLI uses by default; it is sent as `X-AWEB-Team-Id` alongside the bearer token
+- `memberships` holds the per-team alias/workspace state this directory knows about (cert-less)
 - repo/worktree metadata such as `repo_id`, `canonical_origin`, `hostname`, and `workspace_path` are local coordination metadata, not identity data
 
-Multi-team commands:
+Multi-team usage:
 
-- `aw id team add <invite-token>` adds another team membership to the same local identity without switching `active_team`
-- `aw id team switch <team_id>` changes `active_team`
-- `aw id team list` shows all local memberships for the current worktree
-- `aw id team leave <team_id>` removes one local membership and its certificate from this worktree only
-- relevant coordination commands accept `--team <team_id>` to use a non-active membership for that one command
+- To bind a directory to a different team, re-run `aw init --aweb-url <server-url> --team <team-id>`.
+- Relevant coordination commands accept `--team <team_id>` to act under a non-active membership for that one command.
 
-`workspace.yaml` is an aweb binding only. It does not carry:
+`workspace.yaml` is a cert-less aweb binding only. It does not carry:
 
 - `registry_url`
 - registry-specific URL fields
@@ -101,6 +110,11 @@ If your file still uses removed legacy bootstrap/auth fields,
 reinitialize the worktree with `aw init`.
 
 ## Global Identity State: `.aw/identity.yaml`
+
+> **Legacy only.** Token-only `aw init` does not create `.aw/identity.yaml`;
+> identity comes from the bearer token. This section describes the awid side of
+> the older split and applies only to legacy workspaces that still carry the
+> file.
 
 Global identities store their durable identity state in:
 
@@ -171,13 +185,14 @@ server cannot repair or decrypt them.
 
 This key is worktree-local.
 
-## Team Certificates: `.aw/team-certs/`
+## Team Certificates: `.aw/team-certs/` (removed)
 
-`.aw/team-certs/` stores one team membership certificate per team for this
-workspace identity. aweb coordination endpoints authenticate the workspace with:
-
-- a DIDKey signature from the local signing key
-- the active team certificate referenced from `.aw/workspace.yaml`
+> **Not part of the token-only flow.** `.aw/team-certs/` and DIDKey-signature
+> auth belonged to the removed certificate model. Token-only `aw init` does not
+> create this directory. Coordination endpoints now authenticate with the
+> bearer JWT (`Authorization: Bearer <jwt>` + `X-AWEB-Team-Id: <team-id>`).
+> Legacy workspaces may still have a `team-certs/` directory on disk; the server
+> retains a back-compat path for it, but no current onboarding produces one.
 
 ## Local Context: `.aw/context`
 
@@ -201,17 +216,16 @@ worktree.
 
 ## Bootstrap and Updates
 
-Common writes to `.aw/` come from:
+Writes to `.aw/` come from:
 
 ```bash
-aw init
-aw id team accept-invite <token>
-aw workspace add-worktree <role>
+aw init --aweb-url <server-url> --team <team-id>
 ```
 
-- `aw init` writes or refreshes `workspace.yaml`, `context`, and related local binding state
-- `aw id team accept-invite` writes a team certificate under `team-certs/`; hosted invite tokens create a fresh self-custodial signing key, refuse to overwrite an existing `.aw` identity, and can create a hosted global identity when accepted with `--address <domain>/<name>`
-- `aw workspace add-worktree` creates a sibling worktree with its own `.aw/` state
+- `aw init` writes or refreshes the cert-less `workspace.yaml`, `context`, the local E2E signing/encryption keys, and related local binding state. The bearer token it relies on lives at `~/.aw/token` (via `aw login`) or `AW_TOKEN`, not under `.aw/`.
+
+For additional agents, create a git worktree (or a separate directory) and run
+`aw init --aweb-url <server-url> --team <team-id>` again with the same team id.
 
 ## Injected Coordination Docs
 

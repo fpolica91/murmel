@@ -11,13 +11,12 @@ selectors, while cross-team first contact uses a global address such as
 
 ## How a team comes into existence
 
-For hosted users, the team is created automatically when the user signs up at https://app.aweb.ai/connect — the hosted service provisions a team scoped to that user's namespace, like `juan.aweb.ai`. For BYOD users, the team is created when the user runs `aw init --byod` against a domain they control. In both cases the team record is registered in the awid identity registry (https://awid.ai), which is the authoritative store for namespace and team-cert chains; users don't visit awid.ai directly to create teams.
+A hosted team is created when a human signs up in the web UI (Better Auth) — the hosted service provisions a team for that account. Sign-up issues the human a bearer token (a Better Auth JWT) and a membership in the team; that membership is what grants access.
 
 Each team has:
 
-- A **team_id** of the form `<schema>:<domain>` (e.g., `default:aweb.ai`). The schema partitions teams within a domain; most teams use the default schema.
-- A **controller key** held by the team owner (the human or org that created the team).
-- A set of **member certificates** signed by the controller. Each certificate authorizes one agent (by its identity key) to act on behalf of the team.
+- A **team_id** of the form `<schema>:<domain>` (e.g., `default:aweb.ai`, or `default:local` for a local stack). The schema partitions teams within a domain; most teams use the default schema.
+- A set of **membership rows** linking subjects (humans and agents) to the team. A request is authorized when the caller presents a valid bearer token whose subject holds an active membership in the target team. There are no controller keys or member certificates in this model.
 
 The team's coordination state (tasks, roles, locks, instructions, workspace
 presence, and same-team alias state) lives on an aweb coordination server. The
@@ -26,13 +25,18 @@ at your own server.
 
 ## How agents join a team
 
-Two patterns:
+A human signs up / logs in to the web UI, which provisions their team and issues a bearer token. To grant another human or agent access, the team owner adds them as a member in the web UI. Membership is a row, not a certificate.
 
-1. **Hosted**: the user signs up at https://app.aweb.ai/connect, picks a namespace, and gets a team automatically. Subsequent `aw init` invocations in directories on the same account add local CLI workspaces or global identities to that team, each with a unique alias (the agent's name within the namespace).
+An agent reuses a member's token and binds a directory to the team:
 
-2. **BYOD (bring your own domain)**: the user runs `aw init --byod --domain <their-domain>`, picks a domain they own, and proves control via DNS. The team certificate chain is rooted in that domain. The aweb coordination server can be the hosted one (https://app.aweb.ai) or a self-hosted instance — BYOD is about the domain, not the server.
+```bash
+aw login                 # browser device flow; caches the token at ~/.aw/token
+# or, non-interactive:   export AW_TOKEN="<jwt from the web UI>"
 
-In both cases the joining identity gets a **member certificate** signed by the team controller. The certificate is stored locally under `.aw/team-certs/` and presented to the coordination server on every coordination-scoped request. Membership is cryptographically verifiable, not just a database row.
+aw init --aweb-url <server-url> --team <team-id>
+```
+
+Every coordination request then carries `Authorization: Bearer <jwt>` and `X-AWEB-Team-Id: <team-id>`; the server authorizes it against the caller's membership. The cert/DNS/BYOD join flows (`aw init --byod`, controller keys, member certificates) were removed in the token-only auth model. For granting membership, see [GETTING-STARTED.md](https://github.com/awebai/aweb/blob/main/ai-completion/GETTING-STARTED.md) and the `aweb-team-membership` skill.
 
 ## What a team can do
 
@@ -54,9 +58,9 @@ authority inside the team.
 
 ## Identity vs membership
 
-A global identity (DID) is durable across sessions and can hold memberships in multiple teams simultaneously. A local identity is workspace-bound, lasts only as long as the workspace, and typically belongs to exactly one team.
+A subject (a human, or an agent reusing a member's token) can hold memberships in multiple teams simultaneously; the active team for a given directory is recorded in `.aw/workspace.yaml`.
 
-Both kinds of identity can be members of a team. The team certificate is what authorizes team-scoped coordination, not the identity type.
+Membership is what authorizes team-scoped coordination: a valid bearer token plus an active membership row for the target team. Use `--team <team-id>` on a coordination command to act under a non-active membership for that one command.
 
 ## Roles, instructions, locks
 

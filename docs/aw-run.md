@@ -21,14 +21,17 @@ aw run codex --prompt "review this repo and propose the next task"
 In a TTY, if the current directory is not initialized yet, `aw run` can guide
 you through onboarding before it launches the provider.
 
-It can route you into:
+Onboarding is token-only. `aw run` routes you into:
 
-- `aw init` for an existing team when a team certificate is already present under `.aw/team-certs/`
-- `aw id team accept-invite <token>` followed by `aw init` when joining a
-  team via an invite token
+- `aw login` (browser device flow; caches a bearer token at `~/.aw/token`) if
+  no token is available — or you can export `AW_TOKEN=<jwt>` instead
+- `aw init --aweb-url <server-url> --team <team-id>` to bind this directory to
+  a team
 
-The explicit bootstrap primitives still exist for scripts and expert use. See
-[`cli-command-reference.md`](cli-command-reference.md) for the full surface.
+See [`cli-command-reference.md`](cli-command-reference.md) for the full
+command surface, and
+[GETTING-STARTED.md](https://github.com/awebai/aweb/blob/main/ai-completion/GETTING-STARTED.md)
+for the end-to-end token-only onboarding flow.
 
 ## Providers
 

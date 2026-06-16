@@ -9,15 +9,21 @@ Source of truth for this guide:
 
 - [`server/docker-compose.yml`](../server/docker-compose.yml)
 - [`server/.env.example`](../server/.env.example)
-- [`scripts/e2e-oss-user-journey.sh`](../scripts/e2e-oss-user-journey.sh)
+- [`ai-completion/GETTING-STARTED.md`](../ai-completion/GETTING-STARTED.md) — the verified token-only onboarding flow
+
+> **Note:** `scripts/e2e-oss-user-journey.sh` is **not** a source of truth for
+> onboarding anymore. It still drives the removed cert/team/namespace CLI and
+> fails on the first removed command after the token-only pivot (see
+> [`ai-completion/PIVOT-FOLLOWUPS.md`](../ai-completion/PIVOT-FOLLOWUPS.md) §2).
+> Follow GETTING-STARTED.md for the working flow.
 
 ## 1. Try It Locally
 
 This is the fastest path. It uses:
 
 - local Docker services
-- a local `awid` registry on `localhost`
-- the reserved `local` namespace
+- token-only auth (a Better Auth JWT)
+- the default local team `default:local`
 - no DNS records
 - one `aw init` command after the stack is up
 
@@ -43,50 +49,54 @@ If you want different host ports, change `AWEB_PORT` and `AWID_PORT` in
 
 ### Create the First Workspace
 
-Run this from the repo you want to use as an agent workspace:
+Onboarding is token-only. First get a bearer token, then bind a directory to
+the local team.
+
+Get a token. Interactively, `aw login` runs a browser device flow and caches
+the token at `~/.aw/token`. For a headless run, export `AW_TOKEN=<jwt>` (mint
+one from the UI / token issuer — see
+[GETTING-STARTED.md](../ai-completion/GETTING-STARTED.md) for standing up the UI
+overlay and seeding the first membership):
 
 ```bash
-aw init \
-  --awid-registry http://localhost:8010 \
-  --aweb-url http://localhost:8000 \
-  --alias alice
+aw login
+# or:  export AW_TOKEN="<jwt>"
 ```
 
-Because the registry URL is localhost, `aw init` takes the implicit local path
-automatically:
+Then, from the repo you want to use as an agent workspace:
 
-- namespace: `local`
-- team: `default`
-- team ID: `default:local`
-- alias: `alice`
-- no DNS verification
-- no onboarding wizard
+```bash
+aw init --aweb-url http://localhost:8000 --team default:local
+```
 
 What gets written under `.aw/`:
 
-- a global identity in the local test namespace with address `local/alice`
-- a team certificate for `default:local`
-- workspace binding pointing at your local `aweb`
+- a cert-less `workspace.yaml` pointing at your local `aweb`, with active team
+  `default:local`
+- a local signing/encryption key used only for E2E messaging (not server auth)
 
-The default team membership is local. That is fine for local try-it-out use.
+The auth credential itself is the bearer token at `~/.aw/token` (or `AW_TOKEN`),
+not anything under `.aw/`. The default team `default:local` is fine for local
+try-it-out use.
 
 ### Add More Local Agents
 
-Create a sibling worktree for another agent:
+Create a sibling git worktree (or any separate directory) for the second agent,
+then onboard it the same token-only way against the same team:
 
 ```bash
-aw workspace add-worktree developer --alias bob
+git worktree add ../project-bob
+cd ../project-bob
+aw login                 # or: export AW_TOKEN="<jwt>"
+aw init --aweb-url http://localhost:8000 --team default:local
 ```
-
-That creates another local workspace in a sibling git worktree and joins it to
-the same team.
 
 Useful checks:
 
 ```bash
 aw workspace status
-aw id show
-aw id cert show
+aw whoami
+aw check
 aw roles show
 ```
 
@@ -105,15 +115,13 @@ directory or after removing `.aw/`.
 
 ## 2. Company Deployment
 
-Use this path when you are deploying for a real team on a domain you control.
+Use this path when you are deploying for a real team on a server you operate.
 
 This path gives you:
 
-- DNS-backed global namespaces
-- multiple teams under one namespace
-- global identities
-- certificate-based team membership
-- key rotation and normal registry lifecycle
+- your own aweb + awid services on infrastructure you control
+- token-only auth backed by your own Better Auth UI / token issuer
+- multiple teams and agents under one deployment
 
 ### Start `awid` and `aweb`
 
@@ -145,100 +153,42 @@ Its scheme must match how remote servers reach this deployment. If TLS
 terminates at a reverse proxy in front of aweb, set this to the external
 `https://` origin.
 
-### Create a Global Identity
+### Token Issuer (Better Auth UI)
+
+Auth is token-only: a human signs up / logs in to a Better Auth UI and is
+issued a JWT, and membership in a team grants access. For a real deployment you
+run that UI alongside aweb. The compose overlay
+(`server/docker-compose.ui.yml`) wires the UI as the JWT issuer and points aweb
+at its JWKS; the contract (issuer / audience / JWKS env vars, and seeding the
+first team membership) is documented in
+[GETTING-STARTED.md](../ai-completion/GETTING-STARTED.md). The three values that
+must agree end to end are the issuer (`iss` == UI URL), audience
+(`aud` == aweb URL), and the JWKS URL aweb fetches from the UI.
+
+> The DNS-backed namespace / global-identity / certificate-based membership flow
+> (`aw id create`, `aw id namespace`, `aw id team create/invite/accept-invite`,
+> `aw id rotate-key`) was removed in the token-only auth model. There is no
+> token-only replacement for cross-machine certificate joins or namespace
+> controller setup as a user-run procedure; membership is granted in the web UI
+> instead. See [GETTING-STARTED.md](../ai-completion/GETTING-STARTED.md) and the
+> `aweb-team-membership` skill.
+
+### Onboard Agents (token-only)
+
+Each agent onboards the same way against your server: get a bearer token for a
+team member, then bind the directory.
 
 ```bash
-export AWID_REGISTRY_URL=https://registry.acme.internal
 export AWEB_URL=https://aweb.acme.internal
 
-aw id create \
-  --name alice \
-  --domain acme.com \
-  --registry "$AWID_REGISTRY_URL"
+aw login                 # browser device flow; caches ~/.aw/token
+# or, headless:  export AW_TOKEN="<jwt from your UI>"
+
+aw init --aweb-url "$AWEB_URL" --team <team-id>
 ```
 
-`aw id create` prints the DNS TXT record you must publish. Complete that step
-before moving on.
-
-If you are running an internal deployment that cannot perform public DNS
-verification, set `AWID_SKIP_DNS_VERIFY=1` on the `awid` server. That is the
-supported bypass for internal networks without DNS validation.
-
-### Publish the Address Route Delivery Origin
-
-Federated first-contact mail and chat need a delivery origin on the namespace
-address route. Run this from a workspace that holds the namespace controller key:
-
-```bash
-aw id namespace set-delivery-origin \
-  --namespace acme.com \
-  --origin "$AWEB_URL"
-```
-
-The origin must be the public server origin, not the coordination API path. For
-example, use `https://aweb.acme.internal`, not
-`https://aweb.acme.internal/api`. Namespace default delivery origin is inherited
-by addresses in that namespace; it is not a canonical route for bare `did:aw`
-first contact. Hosted aweb.ai namespaces are configured by the hosted service.
-
-### Create a Team
-
-```bash
-aw id team create \
-  --name backend \
-  --namespace acme.com \
-  --registry "$AWID_REGISTRY_URL"
-```
-
-### Invite Members
-
-```bash
-aw id team invite \
-  --team backend \
-  --namespace acme.com
-```
-
-### Accept the Invite
-
-Run this in the target workspace:
-
-```bash
-aw id team accept-invite <token> --alias alice
-```
-
-That writes a certificate under `.aw/team-certs/`.
-
-### Bind the Workspace to `aweb`
-
-After the certificate exists, initialize the workspace against your server:
-
-```bash
-aw init --aweb-url "$AWEB_URL"
-```
-
-`aw init` uses the existing team certificate in `.aw/team-certs/` and connects
-the workspace to `aweb`.
-
-### Additional Teams and Agents
-
-Create more teams with `aw id team create`, then invite and accept as usual.
-For more local agents on one machine, use:
-
-```bash
-aw workspace add-worktree developer --alias bob
-```
-
-For more repos or machines, repeat invite, accept, and init in each target
-directory.
-
-### Key Rotation
-
-Global identities can rotate keys without changing their stable `did:aw`:
-
-```bash
-aw id rotate-key
-aw id verify
-```
+For more agents — additional repos, worktrees, or machines — repeat the same
+two steps (get a token, `aw init` against the same team id) in each directory.
 
 ## Operational Notes
 
@@ -272,8 +222,12 @@ For `awid`:
 ```bash
 curl http://localhost:8000/health
 curl http://localhost:8010/health
-./scripts/e2e-oss-user-journey.sh
 ```
 
-The end-to-end script is the strongest local smoke test. It boots the stack,
-creates identities and teams, and exercises the real OSS workflow.
+> `scripts/e2e-oss-user-journey.sh` is pivot-broken: it still drives the removed
+> cert/team/namespace CLI and fails on the first removed command (see
+> [`ai-completion/PIVOT-FOLLOWUPS.md`](../ai-completion/PIVOT-FOLLOWUPS.md) §2).
+> For a working end-to-end smoke check, follow the token-only onboarding in
+> [GETTING-STARTED.md](../ai-completion/GETTING-STARTED.md): bring up the stack
+> (with the UI overlay), `aw login` / `AW_TOKEN`, `aw init`, then `aw check` and
+> a `aw mail` / `aw task` round-trip.

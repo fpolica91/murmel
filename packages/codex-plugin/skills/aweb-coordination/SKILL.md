@@ -8,7 +8,7 @@ allowed-tools: "Bash(aw *)"
 
 Use this skill when sharing work with a team of agents through aweb. Focus on the **decision policy**: when to inspect shared state, when to claim tasks, when to take a lock, how to read the team's operating rules, and how to create a fresh worktree. Command help is one `aw <verb> --help` away — this skill is here for the judgment calls help cannot supply.
 
-For mail/chat response policy, load `aweb-messaging`. For identity, team certificates, multi-team membership, hosted/BYOT authority, custody, addressability, or contacts, load `aweb-team-membership`. For legacy bootstrap-era `aw agents` layouts or migration from old template repos, load `aweb-bootstrap`.
+For mail/chat response policy, load `aweb-messaging`. For identity, encryption keys, custody, addressability, or contacts, load `aweb-identity`. For team membership, switching the active team, and token onboarding, load `aweb-team-membership`.
 
 ## What aweb gives the team
 
@@ -22,7 +22,7 @@ A short map of the primitives this skill assumes are available. Each has its own
 - **Presence** — `aw workspace status` shows who is online; `aw heartbeat` sends an explicit presence beat.
 - **Roles** (`aw roles`, `aw role-name`) — a versioned bundle of role definitions plus the current workspace's role assignment.
 - **Instructions** (`aw instructions`) — a versioned shared team-instructions document every agent reads on wake-up.
-- **Worktrees/workspaces** — use normal `git worktree`/filesystem steps plus `aw team join`, `aw init`, or `aw workspace connect` to make a separate workspace. `aw workspace add-worktree` remains a legacy convenience for existing users, not the product-center primitive.
+- **Worktrees/workspaces** — use normal `git worktree`/filesystem steps plus `aw init` (token-only) to make a separate workspace. `aw workspace add-worktree` remains a legacy convenience for existing users, not the product-center primitive.
 
 ## Start-of-session loop
 
@@ -35,7 +35,7 @@ aw chat pending       # someone may be blocked waiting on you
 aw work ready         # only after the above; pick the smallest actionable item
 ```
 
-If `aw workspace status` reports the directory is not bound to a team (no `.aw/workspace.yaml`, no certificate, etc.), stop and load `aweb-team-membership` before doing coordination work.
+If `aw workspace status` reports the directory is not bound to a team (no `.aw/workspace.yaml`), stop and load `aweb-team-membership` to onboard with `aw init` before doing coordination work.
 
 ## Seeing what teammates are doing
 
@@ -49,7 +49,7 @@ Before you claim work or send a message, get the team's current state. These are
 - `aw workspace status` — presence for the active team (who is online right now).
 - `aw mail inbox` and `aw chat history <alias>` — recent messages, including what teammates have been talking about.
 
-Some teammates may be members of more than one team. The commands above only show the active team's state. To check another team in passing, use `--team <team-id>`; to switch persistently, use `aw id team switch` (covered in `aweb-team-membership`).
+Some teammates may be members of more than one team. The commands above only show the active team's state. To check another team in passing, use `--team <team-id>` (covered in `aweb-team-membership`).
 
 ## Contacting teammates
 
@@ -186,14 +186,12 @@ When the human (or another agent) needs a second working copy of the same repo �
 ```bash
 git worktree add ../repo-feature -b feature-branch
 cd ../repo-feature
-# then join/connect this directory with the appropriate team primitive:
-aw team join <invite-token>
-aw init
-# or, for an already-certified BYOT/global workspace:
-aw workspace connect --service <service-url> --team <team>:<namespace>
+# then bind this directory to the team (token-only onboarding):
+aw login                                      # or export AW_TOKEN=<jwt>
+aw init --aweb-url <server-url> --team <team-id>
 ```
 
-Ask an existing team member for `aw team invite` when this new worktree needs a fresh local identity. Use `aweb-team-membership` if you need to choose between hosted invite, BYOT request/fetch-cert, or service-init paths.
+`aw init` authenticates with a bearer token (a Better Auth JWT cached at `~/.aw/token` by `aw login`, or `AW_TOKEN`/`--token` for non-interactive use). It writes a cert-less `.aw/workspace.yaml`. Load `aweb-team-membership` for the full token-onboarding details.
 
 `aw workspace add-worktree` remains available as a legacy convenience for existing users. Do not make it the default product path in new guidance unless it has been reduced to a transparent wrapper with no identity/team/template magic.
 

@@ -128,38 +128,102 @@ will not pass until these are rewritten. **They were left intact, not
 half-edited**, so the breakage is honest (they fail loudly on the first removed
 command) rather than silently mid-script.
 
-### 3. Resource-pack / codex-plugin skills duplicate the removed surface
+### 3. Resource-pack / codex-plugin skills duplicate the removed surface — ✅ DONE
 
-`skills/aweb-team-membership/` and `skills/aweb-bootstrap/` (and their copies
-under `packages/codex-plugin/skills/`) document `aw id namespace …`, `aw id team
-…`, and `aw agents bootstrap/provision/add` end to end. `skills/aweb-coordination/`
-references `aw id team switch` and `aw team join`.
+**Status (2026-06-16):** Reconciled on `feature/simple-auth-ui`. The
+`skills/` tree and its lockstep mirror under `packages/codex-plugin/skills/`
+now teach token-only onboarding.
 
-**Why deferred:** these are published skill bundles whose entire premise (BYOT
-team membership, namespace controllers, certificate request/fetch) was removed.
-They need a rewrite to the token model or retirement — a content decision, not a
-mechanical edit. `scripts/check-resource-packs.sh` still passes (it checks
-manifest shape and forbidden secret markers, not command validity), so there is
-no gate forcing the fix yet.
+- `aweb-coordination` — replaced `aw id team switch` / `aw team join` /
+  `aw workspace connect` references with `aw login` + `aw init --aweb-url --team`
+  (token-only). Structure/purpose unchanged.
+- `aweb-team-membership` (SKILL.md + `references/team-membership-reference.md`)
+  — rewritten to the bearer-token model: get a token (`aw login` / `AW_TOKEN`),
+  bind with `aw init --aweb-url --team`, select the active team across
+  memberships, auth/membership diagnostics. The hosted/BYOT cert/controller
+  cluster, accept-invite/fetch-cert, custody×authority matrix, and fresh-BYOT
+  setup were removed; membership is granted via the web UI.
+- `aweb-identity` — kept the genuinely-current content (local E2E
+  signing/encryption keys, `aw id encryption-key {setup,rotate,show}`,
+  addressability, inbound mode, contacts, `aw directory`) and removed the
+  cert/`did:aw`-registry/`aw id create`/`aw id namespace`/`aw id rotate-key`
+  surface. Added the stable-per-identity-signing-key section; clarified server
+  auth is the bearer token and the signing key is E2E-only.
+- `aweb-bootstrap` (SKILL.md + `references/bootstrap-scenarios.md`) — **RETIRED**
+  (the `aw agents`/`aw service` layout-generator cluster has no token-only
+  equivalent). Now a retirement notice pointing to token-only onboarding and the
+  other skills. `skills/DECISIONS.md` and the codex `plugin.json`
+  `longDescription` were updated to match.
+- **Lockstep:** `skills/` and `packages/codex-plugin/skills/` verified identical
+  (`diff -rq` clean) after the edits.
+- **Validation:** built `/tmp/aw`; confirmed the current surface (`aw id` has
+  only `encryption-key`; `aw team`/`aw agents`/`aw service` are gone; `aw init`
+  is token-only). Ran the exact skill onboarding sequence live against aweb
+  :8088 — minted a founder JWT from the UI (:3030), then
+  `AW_TOKEN=$JWT aw init --aweb-url http://localhost:8088 --team default:local`
+  → `Status: connected`, **cert-less** workspace (no `.aw/team-certs/`), local
+  E2E keys written; `aw whoami` / `aw workspace status` (membership active) /
+  `aw work ready` / `aw mail inbox` / `aw task list` all succeed over the bearer
+  token. (Minor: `aw whoami`'s inbound-mode sub-read returns a server 500 — a
+  pre-existing, unrelated quirk; the command and all coordination calls still
+  exit 0.)
+- **Gate:** `scripts/check-resource-packs.sh` and the cli-reference `--check`
+  both pass.
 
-### 4. `docs/` user guides still reference removed commands
+### 4. `docs/` user guides still reference removed commands — ✅ user-facing tutorials DONE; deep SoT/contract docs intentionally left
 
-~24 docs match the removed surface. Some legitimately describe the **awid
-registry service**, which still issues DIDs/namespaces/certificates as a service
-(`docs/awid-sot.md`, `docs/trust-model.md`, `docs/identity-guide.md`) — those
-are not necessarily wrong. But the user-facing onboarding tutorials instruct
-readers to run removed CLI commands and ARE broken:
+**Status (2026-06-16):** The user-facing onboarding **tutorials** were
+reconciled to the token-only flow on `feature/simple-auth-ui`:
 
-- `docs/cli-tutorial.md`, `docs/agent-guide.md`, `docs/team-bootstrap.md`,
-  `docs/teams.md`, `docs/self-hosting-guide.md`, `docs/configuration.md`,
-  `docs/aw-run.md`, `docs/cli-setup-surface-sot.md`.
+- `docs/cli-tutorial.md` — headline "agent gets set up" tutorial. Onboarding is
+  now `aw login` / `AW_TOKEN` then `aw init --aweb-url <server> --team <team-id>`;
+  the `.aw/` description is cert-less workspace + `~/.aw/token` + E2E signing
+  key; the second-agent flow is "same token, separate dir/worktree".
+- `docs/agent-guide.md` — auth changed from team-certificate/DIDKey to bearer
+  JWT; onboarding/team-setup/Add-existing-identity/BYOT blocks collapsed to a
+  token-only onboarding + membership section; messaging/tasks/roles kept.
+- `docs/teams.md` — "how a team comes into existence" now: web-UI sign-up
+  provisions the team, membership rows grant access (dropped `aw init --byod`
+  and controller-key/member-cert framing). team_id format kept.
+- `docs/aw-run.md` — wizard onboarding routes through `aw login` + token-only
+  `aw init` (dropped `team-certs/` / `aw id team accept-invite` routes).
+- `docs/configuration.md` — added `~/.aw/token` (the credential); marked
+  `~/.awid/` controller state and `.aw/team-certs/` as legacy/not-part-of the
+  token-only flow; removed `cert_path` from the `workspace.yaml` sample.
+- `docs/self-hosting-guide.md` — local onboarding is the token-only `aw init`
+  form; the company path replaces the `aw id create`/namespace/team/invite
+  procedure with a token-issuer (Better Auth UI) + token-only agent onboarding;
+  flags `e2e-oss-user-journey.sh` as pivot-broken and points to
+  `GETTING-STARTED.md`.
 
-**Why deferred:** large surface, and disentangling "describes awid-the-service
-(fine)" from "tells the user to run a removed `aw` command (broken)" is a
-careful per-doc judgement. The authoritative entry points were fixed instead
+**Intentionally LEFT (residual — architecture / awid-the-service references,
+not actionable user onboarding):** the SoT and contract docs that describe the
+awid registry service or record historical bootstrap design still mention the
+removed CLI surface, but they are reference/architecture material, not
+step-by-step user onboarding. Left as-is:
+
+- `docs/agents-layout-lifecycle-contract.md`, `docs/team-bootstrap.md`,
+  `docs/bootstrap-layout-contract.md`,
+  `docs/bootstrapping-operating-patterns-worklog.md` — describe the retired
+  bootstrap/layout era (covered by the retired `aweb-bootstrap` skill).
+- `docs/cli-setup-surface-sot.md`, `docs/aweb-sot.md`,
+  `docs/product-authority-sot.md`, `docs/setup-surface-release-gates.md` —
+  setup-surface/authority SoT contracts.
+- `docs/awid-sot.md`, `docs/identity-guide.md`, `docs/identity.md`,
+  `docs/trust-model.md`, `docs/byot-onboarding-contract.md` — awid-registry /
+  DID / namespace / trust-chain service docs (the registry still issues these
+  as a *service*; these are conceptual, not "run this removed `aw` command").
+- `docs/support-tools.md`, `docs/support-contract-v1.md`,
+  `docs/team-blueprints-sot.md`, `docs/resource-pack-template-contract.md`,
+  `docs/hermes-aweb-gateway-integration.md`,
+  `docs/a2a-*`, `docs/federation-architecture.md`,
+  `docs/team-auth-envelope-v2.md` — operator/contract/integration docs.
+
+These need a separate, careful SoT-reconciliation pass (and several encode
+historical decisions worth preserving). The authoritative *user* entry points
 (`README.md`, `cli/go/README.md`, `server/README.md`, regenerated
-`docs/cli-command-reference.md`), and `ai-completion/GETTING-STARTED.md` gives
-the accurate token-only path as the canonical starting point.
+`docs/cli-command-reference.md`, the user tutorials above) and
+`ai-completion/GETTING-STARTED.md` now all give the accurate token-only path.
 
 ---
 

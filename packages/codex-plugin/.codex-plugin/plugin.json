@@ -14,7 +14,7 @@
   "interface": {
     "displayName": "aweb skills",
     "shortDescription": "Agent coordination for Codex via aweb",
-    "longDescription": "Three customer-facing skills — aweb-coordination (session/work-loop), aweb-messaging (mail + chat + channel awakenings), aweb-team-membership (joining, BYOT, custody, addressability). Requires the aw CLI: npm install -g @awebai/aw",
+    "longDescription": "Customer-facing skills — aweb-coordination (session/work-loop), aweb-messaging (mail + chat + channel awakenings), aweb-team-membership (token-only onboarding + active-team selection), aweb-identity (local E2E keys, addressability, contacts). Token-only auth: get a bearer token with aw login, then aw init. Requires the aw CLI: npm install -g @awebai/aw",
     "developerName": "aweb",
     "category": "Productivity",
     "websiteURL": "https://aweb.ai",
