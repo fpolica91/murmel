@@ -16,7 +16,7 @@
 .viewToggle {
   display: inline-flex;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
 }
 
@@ -32,7 +32,7 @@
 /* Neutral selected style so the segmented toggle doesn't compete with the
    single primary-blue action ("Add issue") on the board (N6). */
 .viewToggle button.active {
-  background: #2c3240;
+  background: var(--surface-muted);
   color: var(--text);
   box-shadow: inset 0 0 0 1px var(--accent);
 }
@@ -41,7 +41,7 @@
   background: var(--control);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   padding: 0.45rem 0.7rem;
   font-size: var(--fs-sm);
 }
@@ -50,7 +50,7 @@
   background: var(--control);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   padding: 0.45rem 0.7rem;
   font-size: var(--fs-sm);
   min-width: 12rem;
@@ -72,7 +72,7 @@
   flex-direction: column;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 0.75rem;
   min-height: 14rem;
 }
@@ -92,7 +92,7 @@
 .count {
   background: var(--bg-elev);
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 0.05rem 0.5rem;
   font-size: var(--fs-2xs);
   font-variant-numeric: tabular-nums;
@@ -111,7 +111,7 @@
   display: grid;
   place-items: center;
   border: 1px dashed var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   color: var(--muted);
   font-size: var(--fs-sm);
   text-align: center;
@@ -124,7 +124,7 @@
   display: block;
   background: var(--bg-elev);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   padding: 0.7rem 0.8rem;
   color: var(--text);
   text-decoration: none;
@@ -171,7 +171,7 @@
 .comment {
   background: var(--control);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   padding: 0.7rem 0.85rem;
 }
 
@@ -204,7 +204,7 @@
   padding: 0.9rem;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
 }
 
 .hierarchyRow {
@@ -248,7 +248,7 @@
   background: var(--control);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   padding: 0.5rem 0.7rem;
   font-size: var(--fs-sm);
 }
@@ -281,7 +281,7 @@
 
 .moveControl::before {
   content: "⋯";
-  font-size: 1rem;
+  font-size: var(--fs-md);
   line-height: 1;
   pointer-events: none;
 }
@@ -329,9 +329,9 @@
   place-items: center;
   width: 1.25rem;
   height: 1.25rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font-size: var(--fs-3xs);
   font-weight: 600;
 }
@@ -341,14 +341,14 @@
 }
 
 .avatar.unassigned {
-  background: #2a2e37;
+  background: var(--surface-muted);
   color: var(--muted);
 }
 
 /* ---- Status badge ------------------------------------------------------ */
 .badge {
   display: inline-block;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 0.1rem 0.5rem;
   font-size: var(--fs-3xs);
   border: 1px solid var(--border);
@@ -357,11 +357,11 @@
 }
 
 .badge.todo {
-  border-color: #3a3f4b;
+  border-color: var(--border-strong);
 }
 .badge.in_progress {
-  border-color: #4f8cff;
-  color: #8fb6ff;
+  border-color: var(--accent);
+  color: var(--human-text);
 }
 .badge.in_review {
   border-color: var(--warn);
@@ -407,7 +407,7 @@
 }
 
 .list tbody tr:hover {
-  background: #1a1d23;
+  background: var(--panel-hover);
 }
 
 .groupRow td {
@@ -439,13 +439,13 @@
 .detailMain {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 1.5rem;
 }
 
 .detailTitle {
   margin: 0 0 0.5rem;
-  font-size: 1.3rem;
+  font-size: var(--fs-xl);
 }
 
 .description {
@@ -457,7 +457,7 @@
 .sidebar {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 1.25rem;
 }
 
@@ -483,7 +483,7 @@
 
 .activityThread {
   border: 1px dashed var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   padding: 1.25rem;
   color: var(--muted);
   font-size: var(--fs-sm);
@@ -517,6 +517,6 @@
   font-size: var(--fs-base);
   padding: 1rem;
   border: 1px solid var(--danger-border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--danger-bg);
 }

@@ -11,8 +11,13 @@
   --faint: #7e8694; /* lifted to ~4:1 on panels (was #6b727e ≈ 3.2:1) */
   --accent: #5b8cff;
   --accent-weak: rgba(91, 140, 255, 0.14);
+  --focus-ring: rgba(91, 140, 255, 0.4); /* keyboard/focus outline on accent controls */
   /* Elevated control surface (inputs, selects, chips, bubbles). */
   --control: #1d2027;
+  --on-accent: #fff; /* text/icons on filled accent/agent/colored surfaces */
+  --surface-muted: #2a2e37; /* neutral filled control: disabled/unassigned/selected */
+  --bubble-mine: #1b2740; /* own-message chat bubble (accent-tinted dark) */
+  --offline: #4b5160; /* offline / inactive presence indicator */
 
   /* Semantic colors — base + text/border tints, one source per role. */
   --good: #3fb950;
@@ -57,6 +62,11 @@
   --fs-xs: 0.8125rem; /* 13px — captions/hints/previews */
   --fs-sm: 0.875rem; /* 14px — controls/inputs/list cells */
   --fs-base: 0.9375rem; /* 15px — body/bubbles/buttons */
+  --fs-md: 1rem; /* 16px — large body / section label */
+  --fs-lg: 1.2rem; /* ~19px — sub-heading / brand mark */
+  --fs-xl: 1.35rem; /* ~22px — card/panel titles, brand word */
+  --fs-2xl: 1.5rem; /* 24px — page h1 */
+  --fs-3xl: 2rem; /* 32px — big stat numerals */
   --lh-normal: 1.5;
   --lh-relaxed: 1.55;
 
@@ -140,7 +150,7 @@ h3,
 
 .panel h1 {
   margin: 0 0 0.25rem;
-  font-size: 1.5rem;
+  font-size: var(--fs-2xl);
 }
 
 /* Brand lockup on the login panel: accent mark + display wordmark. */
@@ -164,7 +174,7 @@ h3,
 .brand-word {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 1.35rem;
+  font-size: var(--fs-xl);
   letter-spacing: -0.03em;
 }
 
@@ -207,7 +217,7 @@ h3,
 .btn-primary {
   background: linear-gradient(180deg, #6c97ff, var(--accent));
   border-color: #4d7ef0;
-  color: #fff;
+  color: var(--on-accent);
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.15) inset,
     0 6px 18px -8px rgba(91, 140, 255, 0.7);
@@ -268,7 +278,7 @@ h3,
   gap: 0.5rem;
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 1.2rem;
+  font-size: var(--fs-lg);
   letter-spacing: -0.03em;
   padding: 0.25rem 0.5rem 0.85rem;
 }
@@ -316,7 +326,7 @@ h3,
   align-items: center;
   gap: 0.6rem;
   padding: 0.5rem 0.6rem;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   color: var(--muted);
   text-decoration: none;
   border: 1px solid transparent;
@@ -389,7 +399,7 @@ h3,
   background: var(--control);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   padding: 0.45rem 0.7rem;
   font-size: var(--fs-base);
 }
@@ -415,7 +425,7 @@ h3,
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--accent, #5b8cff);
   color: #fff;
   font-size: var(--fs-3xs);

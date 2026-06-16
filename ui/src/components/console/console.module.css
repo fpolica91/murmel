@@ -18,7 +18,7 @@
 
 .h1 {
   margin: 0;
-  font-size: 1.5rem;
+  font-size: var(--fs-2xl);
 }
 
 .sub {
@@ -50,7 +50,7 @@
   gap: 0.2rem;
   background: linear-gradient(180deg, var(--panel-hover), var(--panel));
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 1.1rem 1.25rem;
   box-shadow: var(--shadow-sm);
 }
@@ -72,7 +72,7 @@
 
 .statValue {
   font-family: var(--font-display);
-  font-size: 2.1rem;
+  font-size: var(--fs-3xl);
   font-weight: 600;
   line-height: 1.05;
   letter-spacing: -0.02em;
@@ -107,7 +107,7 @@
 .panel {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 1.25rem 1.35rem;
 }
 
@@ -121,7 +121,7 @@
 
 .panelTitle {
   margin: 0;
-  font-size: 1rem;
+  font-size: var(--fs-md);
   font-weight: 600;
 }
 
@@ -158,7 +158,7 @@
   padding: 0.6rem 0.7rem;
   background: var(--bg-elev);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   text-decoration: none;
   color: var(--text);
   transition:
@@ -174,15 +174,15 @@
 .statusDot {
   width: 9px;
   height: 9px;
-  border-radius: 999px;
-  background: #3a3f4b;
+  border-radius: var(--radius-pill);
+  background: var(--border-strong);
 }
 
 .statusDot.todo {
-  background: #6b7180;
+  background: var(--faint);
 }
 .statusDot.in_progress {
-  background: #4f8cff;
+  background: var(--accent);
 }
 .statusDot.in_review {
   background: var(--warn);
@@ -193,7 +193,7 @@
 
 .statusCount {
   font-family: var(--font-display);
-  font-size: 1.4rem;
+  font-size: var(--fs-xl);
   font-weight: 600;
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
@@ -341,7 +341,7 @@
   padding: 0.65rem 0.85rem;
   background: var(--control);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   color: var(--text);
   text-decoration: none;
   font-size: var(--fs-base);
@@ -370,7 +370,7 @@
 .emptyPanel {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 2rem;
   color: var(--muted);
   font-size: var(--fs-base);
@@ -383,6 +383,6 @@
   font-size: var(--fs-base);
   padding: 1rem;
   border: 1px solid var(--danger-border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--danger-bg);
 }

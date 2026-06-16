@@ -13,8 +13,8 @@
 .avatar {
   display: inline-grid;
   place-items: center;
-  border-radius: 999px;
-  color: #fff;
+  border-radius: var(--radius-pill);
+  color: var(--on-accent);
   font-weight: 600;
   text-transform: uppercase;
   flex-shrink: 0;
@@ -48,7 +48,7 @@
 }
 
 .avatarUnassigned {
-  background: #2a2e37;
+  background: var(--surface-muted);
   color: var(--muted);
 }
 
@@ -59,9 +59,9 @@
   right: -1px;
   width: 0.7rem;
   height: 0.7rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 2px solid var(--panel);
-  background: #4b5160; /* offline / unknown */
+  background: var(--offline); /* offline / unknown */
 }
 
 .presenceOnline {
@@ -71,7 +71,7 @@
 /* ---- Kind badge (Human / AI agent) ------------------------------------ */
 .kindBadge {
   display: inline-block;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 0.08rem 0.5rem;
   font-size: var(--fs-3xs);
   font-weight: 600;
@@ -88,8 +88,8 @@
 }
 
 .kindHuman {
-  border-color: #355fb0;
-  color: #9fc0ff;
+  border-color: var(--human-border);
+  color: var(--human-text);
 }
 
 /* Verification trust pill tones — quiet by default, warning only on failure. */
@@ -157,7 +157,7 @@
 .msgBubble {
   background: var(--control);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 0.6rem 0.85rem;
   font-size: var(--fs-base);
   line-height: 1.5;
@@ -167,6 +167,6 @@
 }
 
 .msgRow.msgMine .msgBubble {
-  background: #1b2740;
+  background: var(--bubble-mine);
   border-color: var(--accent);
 }

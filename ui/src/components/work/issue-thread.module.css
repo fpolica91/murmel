@@ -23,10 +23,10 @@
   place-items: center;
   width: 1.85rem;
   height: 1.85rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: var(--fs-xs);
   font-weight: 700;
-  color: #fff;
+  color: var(--on-accent);
   margin-top: 0.15rem;
 }
 
@@ -43,7 +43,7 @@
   min-width: 0;
   background: var(--control);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 0.7rem 0.9rem;
 }
 
@@ -77,7 +77,7 @@
 /* ---- Agent vs human badge --------------------------------------------- */
 .kindBadge {
   display: inline-block;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 0.02rem 0.45rem;
   font-size: var(--fs-3xs);
   text-transform: uppercase;
@@ -86,7 +86,7 @@
 }
 
 .kindHuman {
-  color: #8fb6ff;
+  color: var(--human-text);
   border-color: var(--accent);
 }
 
@@ -108,7 +108,7 @@
   resize: vertical;
   background: var(--control);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   color: var(--text);
   padding: 0.6rem 0.75rem;
   font-size: var(--fs-sm);
@@ -136,7 +136,7 @@
 
 .emptyThread {
   border: 1px dashed var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   padding: 1.5rem;
   margin: 0;
   color: var(--muted);
@@ -159,7 +159,7 @@
 .assignSelect {
   background: var(--control);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   color: var(--text);
   padding: 0.4rem 0.5rem;
   font-size: var(--fs-xs);

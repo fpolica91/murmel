@@ -25,7 +25,7 @@
 .listPanel {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 0.75rem;
   display: flex;
   flex-direction: column;
@@ -66,7 +66,7 @@
   text-align: left;
   background: var(--bg-elev);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   padding: 0.65rem 0.75rem;
   color: var(--text);
   cursor: pointer;
@@ -81,7 +81,7 @@
 }
 
 .convItem.active {
-  border-color: rgba(91, 140, 255, 0.4);
+  border-color: var(--focus-ring);
   background: var(--accent-weak);
 }
 
@@ -132,9 +132,9 @@
   min-width: 1.2rem;
   height: 1.2rem;
   padding: 0 0.35rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font-size: var(--fs-3xs);
   font-weight: 600;
   flex-shrink: 0;
@@ -144,7 +144,7 @@
   display: inline-block;
   width: 0.5rem;
   height: 0.5rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--warn-text);
   flex-shrink: 0;
 }
@@ -153,7 +153,7 @@
 .threadPanel {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -167,7 +167,7 @@
 
 .threadTitle {
   margin: 0;
-  font-size: 1.05rem;
+  font-size: var(--fs-md);
   font-weight: 600;
 }
 
@@ -214,7 +214,7 @@
 .bubble {
   background: var(--control);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 0.6rem 0.8rem;
   font-size: var(--fs-base);
   line-height: 1.5;
@@ -223,14 +223,14 @@
 }
 
 .msgRow.mine .bubble {
-  background: #1b2740;
+  background: var(--bubble-mine);
   border-color: var(--accent);
 }
 
 /* sender-type tag (agent vs human) */
 .tag {
   display: inline-block;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 0.02rem 0.4rem;
   font-size: var(--fs-3xs);
   text-transform: uppercase;
@@ -261,7 +261,7 @@
   resize: none;
   background: var(--control);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   color: var(--text);
   padding: 0.6rem 0.75rem;
   font-size: var(--fs-base);
@@ -279,8 +279,8 @@
   align-self: flex-end;
   background: var(--accent);
   border: 1px solid var(--accent);
-  border-radius: 8px;
-  color: #fff;
+  border-radius: var(--radius-sm);
+  color: var(--on-accent);
   font-weight: 600;
   padding: 0.6rem 1.2rem;
   font-size: var(--fs-sm);
@@ -295,7 +295,7 @@
    primary-blue; only the truly-disabled (empty input) state desaturates to a
    muted neutral so the resting enabled button never reads as disabled. */
 .sendBtn:disabled {
-  background: #2a2e37;
+  background: var(--surface-muted);
   border-color: var(--border);
   color: var(--muted);
   cursor: not-allowed;
@@ -305,7 +305,7 @@
 .newBtn {
   background: var(--control);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   color: var(--text);
   padding: 0.3rem 0.7rem;
   font-size: var(--fs-xs);
@@ -328,7 +328,7 @@
 .select {
   background: var(--control);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   color: var(--text);
   padding: 0.45rem 0.6rem;
   font-size: var(--fs-sm);
@@ -363,7 +363,7 @@
   font-size: var(--fs-sm);
   padding: 0.75rem;
   border: 1px solid var(--danger-border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--danger-bg);
   margin: 0.5rem 0;
 }
