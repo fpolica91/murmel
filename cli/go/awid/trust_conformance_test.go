@@ -107,6 +107,7 @@ type tofuVector struct {
 	ReplacementAnnouncement     *replacementAnnouncementVector `json:"replacement_announcement"`
 	AgentMeta                   tofuAgentMeta                  `json:"agent_meta"`
 	RegistryConfirmedCurrentKey bool                           `json:"registry_confirmed_current_key"`
+	RosterConfirmedCurrentKey   bool                           `json:"roster_confirmed_current_key"`
 	PinStoreBefore              pinStoreVector                 `json:"pin_store_before"`
 	ExpectedStatus              string                         `json:"expected_status"`
 	ExpectedPinStoreAfter       *pinStoreVector                `json:"expected_pin_store_after"`
@@ -270,6 +271,7 @@ func TestTOFUConformanceVectors(t *testing.T) {
 				replacement,
 				meta,
 				vector.RegistryConfirmedCurrentKey,
+				vector.RosterConfirmedCurrentKey,
 			)
 			if got != VerificationStatus(vector.ExpectedStatus) {
 				t.Fatalf("status=%q, want %q", got, vector.ExpectedStatus)

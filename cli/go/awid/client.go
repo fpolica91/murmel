@@ -216,6 +216,7 @@ type Client struct {
 	pinStore                *PinStore        // optional; TOFU pin store for sender identity verification
 	pinStorePath            string           // disk path for persisting pin store
 	metaCache               sync.Map         // address → *agentMeta; cached resolver results
+	rosterKeyCache          sync.Map         // trustAddress|alias → string; cached server-published active did:key
 	latestClientVersion     atomic.Value     // last seen X-Latest-Client-Version header (string)
 	// bearerProvider, when set and no certificate/identity key is present,
 	// supplies a SimpleAuth (Better Auth JWT) bearer token per request. It is
@@ -624,7 +625,31 @@ func (c *Client) NormalizeSenderTrust(ctx context.Context, status VerificationSt
 	}
 	var registryConfirmedCurrentKey bool
 	status, registryConfirmedCurrentKey = c.checkStableIdentityRegistry(ctx, status, trustAddress, fromDID, fromStableID)
-	status = c.checkTOFUPinWithMeta(ctx, status, strings.TrimSpace(rawAddress), trustAddress, fromDID, fromStableID, ra, repl, meta, registryConfirmedCurrentKey)
+
+	// Server-anchored key trust (token/custodial model). When the sender has no
+	// did:aw stable identity, they are a token/custodial self-custodial identity
+	// whose authoritative current key is the one the aweb server publishes in its
+	// roster (GET /v1/agents). The signature was already cryptographically
+	// verified against from_did before reaching here (status==Verified gates the
+	// pin check), so a from_did that matches the server's current published key is
+	// a legitimate key — including a rotation or a new device that minted a fresh
+	// key and re-published it. We resolve that published key and pass it through
+	// so the local TOFU pin acts as a cache that follows the server, not a hard
+	// gate that rejects rotations. Forgeries are still caught: a message whose
+	// signature does not validate never reaches Verified, and a key the server has
+	// NOT published yields no confirmation (rosterConfirmedCurrentKey stays false).
+	rosterConfirmedCurrentKey := false
+	if (status == Verified || status == VerifiedCustodial) &&
+		strings.TrimSpace(fromDID) != "" &&
+		!strings.HasPrefix(strings.TrimSpace(fromStableID), "did:aw:") &&
+		meta != nil && meta.Resolved && meta.Lifetime != LifetimeEphemeral {
+		published := c.rosterPublishedKey(ctx, trustAddress, HandleFromAddress(strings.TrimSpace(rawAddress)))
+		if published != "" && published == strings.TrimSpace(fromDID) {
+			rosterConfirmedCurrentKey = true
+		}
+	}
+
+	status = c.checkTOFUPinWithMeta(ctx, status, strings.TrimSpace(rawAddress), trustAddress, fromDID, fromStableID, ra, repl, meta, registryConfirmedCurrentKey, rosterConfirmedCurrentKey)
 	return status, isContact
 }
 
@@ -686,10 +711,10 @@ func (c *Client) CheckTOFUPin(ctx context.Context, status VerificationStatus, fr
 
 	trustAddress := c.canonicalTrustAddress(fromAddress)
 	meta := c.resolveAgentMeta(ctx, trustAddress)
-	return c.checkTOFUPinWithMeta(ctx, status, strings.TrimSpace(fromAddress), trustAddress, fromDID, fromStableID, ra, repl, meta, false)
+	return c.checkTOFUPinWithMeta(ctx, status, strings.TrimSpace(fromAddress), trustAddress, fromDID, fromStableID, ra, repl, meta, false, false)
 }
 
-func (c *Client) checkTOFUPinWithMeta(ctx context.Context, status VerificationStatus, rawAddress, trustAddress, fromDID, fromStableID string, ra *RotationAnnouncement, repl *ReplacementAnnouncement, meta *agentMeta, registryConfirmedCurrentKey bool) VerificationStatus {
+func (c *Client) checkTOFUPinWithMeta(ctx context.Context, status VerificationStatus, rawAddress, trustAddress, fromDID, fromStableID string, ra *RotationAnnouncement, repl *ReplacementAnnouncement, meta *agentMeta, registryConfirmedCurrentKey, rosterConfirmedCurrentKey bool) VerificationStatus {
 	if c.pinStore == nil || (status != Verified && status != VerifiedCustodial) || fromDID == "" || trustAddress == "" || meta == nil {
 		return status
 	}
@@ -784,6 +809,23 @@ func (c *Client) checkTOFUPinWithMeta(ctx context.Context, status VerificationSt
 		c.savePinStore()
 	case PinMismatch:
 		pinnedKey := c.pinStore.Addresses[trustAddress]
+		// Server-anchored key trust (token/custodial self-custodial identities,
+		// no did:aw). The signature already verified against from_did, and the
+		// aweb server roster publishes from_did as this sender's CURRENT active
+		// key — so this is a legitimate rotation or a new device that minted a
+		// fresh key and re-published it, NOT a forgery. Treat the local pin as a
+		// cache: replace the stale did:key pin and accept. Security tradeoff: this
+		// trusts the aweb server to report the correct active key, consistent with
+		// the custodial model where the server already mediates auth and message
+		// routing. A forged from_did never reaches Verified, and a key the server
+		// has not published yields no confirmation (rosterConfirmedCurrentKey is
+		// false), so this does not blanket-pass mismatches.
+		if rosterConfirmedCurrentKey && fromStableID == "" {
+			c.pinStore.RemoveAddress(trustAddress)
+			c.pinStore.StorePin(pinKey, trustAddress, "", "")
+			c.savePinStore()
+			return status
+		}
 		// A verified registry chain proves the address now belongs to this
 		// stable identity and did:key, so replace the stale address pin.
 		// Security assumption: awid enforces a did:aw belongs to one current

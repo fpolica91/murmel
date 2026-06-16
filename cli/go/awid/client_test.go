@@ -6705,3 +6705,103 @@ func TestSignEnvelopeStoredRouteChatGlobalTargetOmitsToDIDWithoutResolver(t *tes
 		t.Fatalf("stored-route signed payload should leave unresolved to_did empty, got %+v", payload)
 	}
 }
+
+// TestServerAnchoredKeyTrustAcceptsRosterConfirmedRotation verifies the
+// multi-device fix: a verified message whose from_did differs from the locally
+// pinned did:key is accepted (and the pin updated) when the aweb server roster
+// confirms from_did as the sender's current published key. With no server
+// confirmation the same mismatch stays IdentityMismatch (forgery/stale guard).
+func TestServerAnchoredKeyTrustAcceptsRosterConfirmedRotation(t *testing.T) {
+	t.Parallel()
+
+	oldPub, _, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	newPub, _, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldDID := ComputeDIDKey(oldPub)
+	newDID := ComputeDIDKey(newPub)
+	const addr = "myco/founder"
+
+	meta := &agentMeta{Lifetime: LifetimePersistent, Custody: CustodySelf, Resolved: true}
+
+	// Server-confirmed rotation (machine B's fresh key, published by the server).
+	psConfirmed := NewPinStore()
+	psConfirmed.StorePin(oldDID, addr, "", "")
+	cConfirmed := &Client{pinStore: psConfirmed}
+	got := cConfirmed.checkTOFUPinWithMeta(
+		context.Background(), Verified, addr, addr, newDID, "",
+		nil, nil, meta, false, true,
+	)
+	if got != Verified {
+		t.Fatalf("roster-confirmed rotation status=%q, want verified", got)
+	}
+	if psConfirmed.Addresses[addr] != newDID {
+		t.Fatalf("pin should follow server to new did:key, got %q", psConfirmed.Addresses[addr])
+	}
+
+	// Control: same mismatch, no server confirmation → IdentityMismatch.
+	psControl := NewPinStore()
+	psControl.StorePin(oldDID, addr, "", "")
+	cControl := &Client{pinStore: psControl}
+	gotControl := cControl.checkTOFUPinWithMeta(
+		context.Background(), Verified, addr, addr, newDID, "",
+		nil, nil, meta, false, false,
+	)
+	if gotControl != IdentityMismatch {
+		t.Fatalf("unconfirmed mismatch status=%q, want identity_mismatch", gotControl)
+	}
+	if psControl.Addresses[addr] != oldDID {
+		t.Fatalf("control pin must not change, got %q", psControl.Addresses[addr])
+	}
+}
+
+// TestRosterPublishedKeyResolvesTokenHumanKey verifies that rosterPublishedKey
+// returns a token human's real self-custodial key (the published assertion's
+// identity_did) even though the roster did_key is a synthetic placeholder.
+func TestRosterPublishedKeyResolvesTokenHumanKey(t *testing.T) {
+	t.Parallel()
+
+	realPub, realPriv, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	realDID := ComputeDIDKey(realPub)
+	rawEncPub := []byte{
+		1, 2, 3, 4, 5, 6, 7, 8,
+		9, 10, 11, 12, 13, 14, 15, 16,
+		17, 18, 19, 20, 21, 22, 23, 24,
+		25, 26, 27, 28, 29, 30, 31, 32,
+	}
+	// Token human: self-custodial identity_did, no did:aw stable id.
+	assertion, err := BuildEncryptionKeyAssertion(realPriv, realDID, "", rawEncPub, "", time.Now().UTC())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(ListAgentsResponse{
+			TeamID: "team-1",
+			Agents: []AgentView{{
+				AgentID:       "agent-1",
+				Alias:         "founder",
+				Address:       "myco/founder",
+				DIDKey:        "did:key:jwt-sub-123",
+				EncryptionKey: assertion,
+			}},
+		})
+	}))
+	t.Cleanup(server.Close)
+
+	c, err := New(server.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := c.rosterPublishedKey(context.Background(), "myco/founder", "founder")
+	if got != realDID {
+		t.Fatalf("rosterPublishedKey=%q, want real self-custodial did %q", got, realDID)
+	}
+}

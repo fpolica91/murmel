@@ -229,6 +229,56 @@ func (c *Client) ListAgents(ctx context.Context) (*ListAgentsResponse, error) {
 	return &out, nil
 }
 
+// rosterPublishedKey returns the sender's CURRENT server-published active
+// signing did:key for a sender address/alias, by consulting GET /v1/agents
+// (the server roster — the trust anchor in the token/custodial model). For a
+// token human the roster's did_key column is a synthetic placeholder, so the
+// real self-custodial key is the published encryption-key assertion's
+// identity_did (encryptionVerificationDID). Results are cached per sender for
+// the lifetime of the client so a single history render makes at most one
+// roster call per distinct sender.
+//
+// Returns "" when the roster cannot be fetched or the sender is not found /
+// has no published key. An empty result means "no server confirmation",
+// which the caller treats as "do not loosen" (fail closed).
+func (c *Client) rosterPublishedKey(ctx context.Context, senderAddress, senderAlias string) string {
+	cacheKey := strings.TrimSpace(senderAddress)
+	if cacheKey == "" {
+		cacheKey = strings.TrimSpace(senderAlias)
+	}
+	if cacheKey == "" {
+		return ""
+	}
+	if v, ok := c.rosterKeyCache.Load(cacheKey); ok {
+		return v.(string)
+	}
+	resp, err := c.ListAgents(ctx)
+	if err != nil || resp == nil {
+		// Do not cache transient failures; retry on the next message.
+		return ""
+	}
+	published := ""
+	wantAddr := strings.TrimSpace(senderAddress)
+	wantAlias := strings.TrimSpace(senderAlias)
+	for i := range resp.Agents {
+		agent := resp.Agents[i]
+		if wantAddr != "" && strings.EqualFold(strings.TrimSpace(agent.Address), wantAddr) {
+			published = strings.TrimSpace(agent.encryptionVerificationDID())
+			break
+		}
+		if wantAlias != "" && strings.EqualFold(strings.TrimSpace(agent.Alias), wantAlias) {
+			published = strings.TrimSpace(agent.encryptionVerificationDID())
+			// Keep scanning for an exact address match if one was requested;
+			// otherwise an alias hit is authoritative.
+			if wantAddr == "" {
+				break
+			}
+		}
+	}
+	c.rosterKeyCache.Store(cacheKey, published)
+	return published
+}
+
 func (c *Client) GetMyInboundMode(ctx context.Context) (*AgentInboundModeResponse, error) {
 	var out AgentInboundModeResponse
 	if err := c.Get(ctx, "/v1/agents/me/inbound-mode", &out); err != nil {
