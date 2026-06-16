@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 
 import { Avatar } from "./avatar";
-import { KindBadge, type ParticipantKind } from "./badge";
+import { KindBadge, VerificationBadge, type ParticipantKind } from "./badge";
 import styles from "./ui.module.css";
 
 /**
@@ -46,6 +46,7 @@ export function MessageBubble({
   kind,
   time,
   mine,
+  verificationStatus,
 }: {
   body: string;
   /** Display name of the sender (shown for incoming; "You" for self). */
@@ -54,6 +55,8 @@ export function MessageBubble({
   kind: ParticipantKind;
   time?: ReactNode;
   mine: boolean;
+  /** Server-resolved per-message trust signal; renders a subtle pill. */
+  verificationStatus?: string;
 }) {
   const text = stripAuthorPrefix(body, author) || "(no content)";
 
@@ -66,6 +69,7 @@ export function MessageBubble({
         <div className={styles.msgMeta}>
           <span className={styles.msgAuthor}>{mine ? "You" : author}</span>
           {!mine && <KindBadge kind={kind} />}
+          <VerificationBadge status={verificationStatus} />
           {time != null && <span className={styles.msgTime}>{time}</span>}
         </div>
         <div className={styles.msgBubble}>{text}</div>

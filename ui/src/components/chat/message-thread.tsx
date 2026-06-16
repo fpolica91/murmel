@@ -74,6 +74,7 @@ export function MessageThread({
             kind={kind}
             time={fmtTime(m.timestamp)}
             mine={mine}
+            verificationStatus={m.verification_status}
           />
         );
       })}

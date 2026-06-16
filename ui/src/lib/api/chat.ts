@@ -116,6 +116,20 @@ export interface ChatMessage {
   to_address: string;
   from_did: string | null;
   from_stable_id: string | null;
+  /**
+   * Per-message trust signal resolved server-side (see server
+   * `message_verification_status`). Optional for back-compat with pre-contract
+   * servers; a missing value renders no badge. Possible values: `verified`
+   * (client-signed), `verified_server` (server-attributed Better Auth token
+   * identity), `verified_legacy` (signed but no conversation binding),
+   * `unverified` (no signature), `failed` (signature mismatch).
+   */
+  verification_status?:
+    | "verified"
+    | "verified_server"
+    | "verified_legacy"
+    | "unverified"
+    | "failed";
   is_contact: boolean;
 }
 

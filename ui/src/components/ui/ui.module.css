@@ -92,6 +92,23 @@
   color: #9fc0ff;
 }
 
+/* Verification trust pill tones — quiet by default, warning only on failure. */
+.verifyOk {
+  border-color: var(--border);
+  color: var(--muted);
+}
+
+.verifyMuted {
+  border-color: var(--border);
+  color: var(--muted);
+  opacity: 0.8;
+}
+
+.verifyFail {
+  border-color: #b04a4a;
+  color: #ff9f9f;
+}
+
 /* ---- Message bubble ---------------------------------------------------- */
 .msgRow {
   display: flex;
