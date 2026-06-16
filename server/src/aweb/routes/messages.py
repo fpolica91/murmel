@@ -505,6 +505,48 @@ def _external_recipient_from_address(address: str, resolution) -> dict:
     }
 
 
+def _peer_for_domain(request: Request, domain: str):
+    """Return the allowlisted federation peer for an addressing domain, if any."""
+    by_domain = getattr(request.app.state, "federation_peers_by_domain", None) or {}
+    domain = str(domain or "").strip().lower()
+    if not domain:
+        return None
+    return by_domain.get(domain)
+
+
+def _peer_external_recipient_from_address(
+    address: str,
+    peer,
+    *,
+    target_did_aw: str = "",
+    target_did_key: str = "",
+) -> dict:
+    """Build an external recipient sourced from an A.2 federation peer config.
+
+    Token-only Option A.2 drops the awid ``resolve_address`` resolution, so the
+    delivery origin comes from the pinned peer allowlist entry instead of a
+    registry record. The target identity (``did_aw``/``did_key``) is sender-
+    vouched: it is taken from the sender-signed payload (``to_stable_id`` /
+    ``to_did``), which the CLI populates for a federated first-contact. The peer
+    server re-verifies ``target_current_did_key`` against its own local agent row
+    on receive, so a forged target is rejected downstream — cross-server trust is
+    not weakened by trusting the sender's stated target here. The recipient has no
+    local agent row; routing keys off ``delivery_origin`` (the peer's POST target)
+    and the ``external`` flag, exactly like the registry-resolved external path.
+    """
+    _, name = address.split("/", 1)
+    return {
+        "agent_id": None,
+        "team_id": None,
+        "alias": name,
+        "address": address,
+        "did_aw": str(target_did_aw or "").strip(),
+        "did_key": str(target_did_key or "").strip(),
+        "delivery_origin": peer.delivery_origin,
+        "external": True,
+    }
+
+
 def _raise_bare_did_first_contact_unsupported() -> None:
     raise HTTPException(
         status_code=422,
@@ -1529,29 +1571,56 @@ async def send_message(
         if recipient is None:
             recipient = await _local_recipient_from_address(db, domain=domain, name=name)
             if recipient is None:
-                if await namespace_exists(db, domain):
-                    raise HTTPException(status_code=404, detail="Recipient agent not found")
-                if registry_client is None:
-                    raise HTTPException(status_code=503, detail="AWID registry unavailable")
-                raise HTTPException(status_code=404, detail="Recipient address not found")
-            if registry_client is not None and requires_registry_address_binding(recipient):
-                if not (
-                    local_recipient_visible_to_auth(recipient, auth)
-                    or _signed_payload_matches_address_binding(
-                        verified_signed_payload_json(
-                            signed_payload=payload.signed_payload,
-                            signature=payload.signature,
-                            did_key=auth.did_key,
-                        ),
-                        address=address,
-                        recipient=recipient,
+                # Option A.2 outbound trigger: the address domain is an allowlisted
+                # federation peer and is not served locally. Source the external
+                # recipient from the pinned peer config (delivery_origin from the
+                # peer entry, target alias from the address) rather than an awid
+                # resolution, which the token-only model drops. This is the *only*
+                # auto-federation path — arbitrary non-peer domains never enter it.
+                peer = _peer_for_domain(request, domain)
+                if peer is not None:
+                    # The sender vouches for the target identity in the signed
+                    # payload (to_stable_id => did:aw, to_did => current did:key).
+                    # B re-verifies the did:key against its local agent row.
+                    recipient = _peer_external_recipient_from_address(
+                        address,
+                        peer,
+                        target_did_aw=str(payload.to_stable_id or "").strip(),
+                        target_did_key=str(payload.to_did or "").strip(),
                     )
-                ):
+                    recipient_did = str(recipient.get("did_aw") or "").strip()
+                if recipient is None:
+                    if await namespace_exists(db, domain):
+                        raise HTTPException(status_code=404, detail="Recipient agent not found")
+                    if registry_client is None:
+                        raise HTTPException(status_code=503, detail="AWID registry unavailable")
                     raise HTTPException(status_code=404, detail="Recipient address not found")
-            recipient = _with_requested_address(recipient, address)
-            recipient_did = (recipient.get("did_aw") or recipient.get("did_key") or "").strip()
-            if not recipient_did:
-                raise HTTPException(status_code=404, detail="Recipient agent not found")
+            if recipient.get("external"):
+                # A.2 peer-external recipient: no local agent row, no awid binding.
+                # Routing keys off delivery_origin + the external flag; the address
+                # is already set from the peer config, so skip registry-binding
+                # checks and the local _with_requested_address rebind. The
+                # sender-vouched target did:aw (set above) drives local projection.
+                recipient_did = str(recipient.get("did_aw") or recipient.get("did_key") or "").strip()
+            else:
+                if registry_client is not None and requires_registry_address_binding(recipient):
+                    if not (
+                        local_recipient_visible_to_auth(recipient, auth)
+                        or _signed_payload_matches_address_binding(
+                            verified_signed_payload_json(
+                                signed_payload=payload.signed_payload,
+                                signature=payload.signature,
+                                did_key=auth.did_key,
+                            ),
+                            address=address,
+                            recipient=recipient,
+                        )
+                    ):
+                        raise HTTPException(status_code=404, detail="Recipient address not found")
+                recipient = _with_requested_address(recipient, address)
+                recipient_did = (recipient.get("did_aw") or recipient.get("did_key") or "").strip()
+                if not recipient_did:
+                    raise HTTPException(status_code=404, detail="Recipient agent not found")
         if payload.to_alias is not None and payload.to_alias.strip():
             if recipient.get("external"):
                 if payload.to_alias.strip() != recipient["alias"]:

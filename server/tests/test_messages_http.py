@@ -929,6 +929,179 @@ async def test_send_message_to_external_address_posts_federated_mail_and_project
 
 
 @pytest.mark.asyncio
+async def test_send_message_to_peer_domain_federates_without_awid_resolution(aweb_cloud_db):
+    """Option A.2 outbound trigger: a recipient whose address domain is an
+    allowlisted federation peer routes through the federated branch sourced from
+    the peer config (delivery_origin from the peer entry), even though awid
+    resolve_address returns nothing. The target identity is sender-vouched via
+    the signed payload (to_stable_id => did:aw, to_did => current did:key)."""
+    alice_sk, _, alice_did_key = _make_keypair()
+    await _insert_team(aweb_cloud_db.aweb_db, "backend:acme.com")
+    alice_agent_id = await _insert_agent(
+        aweb_cloud_db.aweb_db,
+        team_id="backend:acme.com",
+        alias="alice",
+        did_key=alice_did_key,
+        did_aw="did:aw:alice",
+        address="acme.com/alice",
+    )
+    # A.2: no awid resolution. resolve_address yields nothing.
+    registry = AsyncMock()
+    registry.resolve_address = AsyncMock(return_value=None)
+    app = _build_test_app(aweb_cloud_db.aweb_db, registry)
+    # Allowlist the peer domain -> the peer's pinned delivery origin is the target.
+    app.state.federation_peers_by_domain = {
+        "peerco.com": Peer(
+            addressing_domain="peerco.com",
+            delivery_origin="https://peer.example",
+            pinned_server_did=SENDER_SERVER_DID,
+        )
+    }
+    remote_requests = []
+
+    async def _remote_handler(request: httpx.Request) -> httpx.Response:
+        remote_requests.append(request)
+        envelope = json.loads(request.content)["envelope"]
+        return httpx.Response(
+            200,
+            json={
+                "message_id": envelope["message_id"],
+                "conversation_id": envelope["conversation_id"],
+                "status": "delivered",
+                "delivered_at": envelope["timestamp"],
+            },
+        )
+
+    app.state.federation_mail_transport = httpx.MockTransport(_remote_handler)
+
+    async def _auth():
+        return MessagingAuth(
+            did_key=alice_did_key,
+            did_aw="did:aw:alice",
+            address="acme.com/alice",
+            team_id="backend:acme.com",
+            alias="alice",
+            agent_id=alice_agent_id,
+        )
+
+    app.dependency_overrides[get_messaging_auth] = _auth
+    message_id = str(uuid4())
+    conversation_id = str(uuid4())
+    timestamp = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    signed_payload = canonical_json_bytes(
+        {
+            "body": "hello peer",
+            "conversation_id": conversation_id,
+            "from": "acme.com/alice",
+            "from_did": alice_did_key,
+            "from_stable_id": "did:aw:alice",
+            "message_id": message_id,
+            "subject": "peer federation",
+            "timestamp": timestamp,
+            "to": "peerco.com/bob",
+            "to_did": "did:key:bob",
+            "to_stable_id": "did:aw:bob",
+            "type": "mail",
+        }
+    ).decode()
+    payload = {
+        "to_address": "peerco.com/bob",
+        "to_did": "did:key:bob",
+        "to_stable_id": "did:aw:bob",
+        "subject": "peer federation",
+        "body": "hello peer",
+        "conversation_id": conversation_id,
+        "message_id": message_id,
+        "timestamp": timestamp,
+        "from_did": alice_did_key,
+        "signature": sign_message(alice_sk, signed_payload.encode()),
+        "signed_payload": signed_payload,
+    }
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.post("/v1/messages", json=payload)
+
+    assert resp.status_code == 200, resp.text
+    # Federated branch fired off the PEER config, not an awid resolution.
+    assert len(remote_requests) == 1
+    assert str(remote_requests[0].url) == "https://peer.example/v1/federation/messages"
+    remote_body = json.loads(remote_requests[0].content)
+    assert remote_body["envelope"]["target_delivery_origin"] == "https://peer.example"
+    assert remote_body["envelope"]["target_address"] == "peerco.com/bob"
+    assert remote_body["envelope"]["target_did_aw"] == "did:aw:bob"
+    assert remote_body["envelope"]["target_current_did_key"] == "did:key:bob"
+    assert remote_body["envelope"]["sender_did_aw"] == "did:aw:alice"
+    # An outer server-vouched assertion is attached (A.2 trust).
+    assert remote_body["assertion"]["server_origin"] == "http://test"
+    # Locally projected as a remote participant (no local agent row).
+    message = await aweb_cloud_db.aweb_db.fetch_one(
+        """
+        SELECT to_agent_id, to_did
+        FROM {{tables.messages}}
+        WHERE subject = 'peer federation'
+        """
+    )
+    assert message["to_agent_id"] is None
+    assert message["to_did"] == "did:aw:bob"
+
+
+@pytest.mark.asyncio
+async def test_send_message_to_non_peer_external_domain_is_not_auto_federated(aweb_cloud_db):
+    """A non-allowlisted external domain (no awid resolution, no peer entry) must
+    NOT auto-federate. Only allowlisted peers enter the federated branch."""
+    alice_sk, _, alice_did_key = _make_keypair()
+    await _insert_team(aweb_cloud_db.aweb_db, "backend:acme.com")
+    alice_agent_id = await _insert_agent(
+        aweb_cloud_db.aweb_db,
+        team_id="backend:acme.com",
+        alias="alice",
+        did_key=alice_did_key,
+        did_aw="did:aw:alice",
+        address="acme.com/alice",
+    )
+    registry = AsyncMock()
+    registry.resolve_address = AsyncMock(return_value=None)
+    app = _build_test_app(aweb_cloud_db.aweb_db, registry)
+    # No peer entry for the target domain.
+    app.state.federation_peers_by_domain = {}
+    remote_requests = []
+
+    async def _remote_handler(request: httpx.Request) -> httpx.Response:
+        remote_requests.append(request)
+        return httpx.Response(200, json={})
+
+    app.state.federation_mail_transport = httpx.MockTransport(_remote_handler)
+
+    async def _auth():
+        return MessagingAuth(
+            did_key=alice_did_key,
+            did_aw="did:aw:alice",
+            address="acme.com/alice",
+            team_id="backend:acme.com",
+            alias="alice",
+            agent_id=alice_agent_id,
+        )
+
+    app.dependency_overrides[get_messaging_auth] = _auth
+    payload = {
+        "to_address": "stranger.com/bob",
+        "to_did": "did:key:bob",
+        "to_stable_id": "did:aw:bob",
+        "subject": "no auto federate",
+        "body": "hello",
+        "conversation_id": str(uuid4()),
+        "message_id": str(uuid4()),
+        "timestamp": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+        "from_did": alice_did_key,
+    }
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.post("/v1/messages", json=payload)
+
+    # Not found / not delivered: never federated to an un-allowlisted domain.
+    assert resp.status_code in (404, 503), resp.text
+    assert len(remote_requests) == 0
+
+
+@pytest.mark.asyncio
 async def test_send_encrypted_message_to_external_address_posts_ciphertext_only(aweb_cloud_db):
     alice_sk, _, alice_did_key = _make_keypair()
     await _insert_team(aweb_cloud_db.aweb_db, "backend:acme.com")
