@@ -23,8 +23,8 @@ Authentication is by bearer token (no team certificate):
 - pass --token <jwt> / set AW_TOKEN for non-interactive use (CI, scripts).
 
 init writes a cert-less .aw/workspace.yaml bound to --team on the --aweb-url
-server, plus a local self-custodial signing key for end-to-end encrypted
-messaging (never used for server auth).
+server, plus a local signing key for end-to-end encrypted messaging (held only
+on this machine, never used for server auth).
 
 By default, init creates or updates the clearly marked aweb section in
 AGENTS.md or CLAUDE.md. Use --do-not-touch-agents-md to skip that file update.`,
