@@ -24,7 +24,7 @@
 .sub {
   margin: 0.25rem 0 0;
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: var(--fs-base);
 }
 
 .teamName {
@@ -64,7 +64,7 @@
 }
 
 .statLabel {
-  font-size: 0.72rem;
+  font-size: var(--fs-2xs);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--muted);
@@ -80,7 +80,7 @@
 }
 
 .statHint {
-  font-size: 0.78rem;
+  font-size: var(--fs-xs);
   color: var(--muted);
 }
 
@@ -126,7 +126,7 @@
 }
 
 .panelLink {
-  font-size: 0.8rem;
+  font-size: var(--fs-xs);
   color: var(--accent);
   text-decoration: none;
   white-space: nowrap;
@@ -138,7 +138,7 @@
 
 .subhead {
   margin: 1.25rem 0 0.6rem;
-  font-size: 0.72rem;
+  font-size: var(--fs-2xs);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--muted);
@@ -200,7 +200,7 @@
 }
 
 .statusLabel {
-  font-size: 0.72rem;
+  font-size: var(--fs-2xs);
   color: var(--muted);
 }
 
@@ -228,7 +228,7 @@
 .issueTitle {
   flex: 1;
   min-width: 0;
-  font-size: 0.9rem;
+  font-size: var(--fs-base);
   color: var(--text);
   text-decoration: none;
   overflow: hidden;
@@ -241,13 +241,13 @@
 }
 
 .commentCount {
-  font-size: 0.72rem;
+  font-size: var(--fs-2xs);
   color: var(--muted);
   white-space: nowrap;
 }
 
 .issueTime {
-  font-size: 0.72rem;
+  font-size: var(--fs-2xs);
   color: var(--muted);
   white-space: nowrap;
 }
@@ -277,14 +277,14 @@
 .personName {
   flex: 1;
   min-width: 0;
-  font-size: 0.88rem;
+  font-size: var(--fs-sm);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .personKind {
-  font-size: 0.72rem;
+  font-size: var(--fs-2xs);
   color: var(--muted);
   white-space: nowrap;
 }
@@ -303,7 +303,7 @@
 }
 
 .activityFrom {
-  font-size: 0.82rem;
+  font-size: var(--fs-xs);
   font-weight: 600;
   white-space: nowrap;
   max-width: 6rem;
@@ -314,7 +314,7 @@
 .activityPreview {
   flex: 1;
   min-width: 0;
-  font-size: 0.82rem;
+  font-size: var(--fs-xs);
   color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -322,7 +322,7 @@
 }
 
 .activityTime {
-  font-size: 0.7rem;
+  font-size: var(--fs-3xs);
   color: var(--muted);
   white-space: nowrap;
 }
@@ -344,7 +344,7 @@
   border-radius: 8px;
   color: var(--text);
   text-decoration: none;
-  font-size: 0.9rem;
+  font-size: var(--fs-base);
 }
 
 .actionBtn:hover {
@@ -354,7 +354,7 @@
 /* ---- States ---- */
 .empty {
   color: var(--muted);
-  font-size: 0.88rem;
+  font-size: var(--fs-sm);
   padding: 0.5rem 0;
 }
 
@@ -373,14 +373,14 @@
   border-radius: 12px;
   padding: 2rem;
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: var(--fs-base);
   text-align: center;
 }
 
 .errorPanel,
 .errorBanner {
   color: var(--danger-text);
-  font-size: 0.9rem;
+  font-size: var(--fs-base);
   padding: 1rem;
   border: 1px solid var(--danger-border);
   border-radius: 10px;

@@ -24,19 +24,19 @@
 .avatarSm {
   width: 1.6rem;
   height: 1.6rem;
-  font-size: 0.62rem;
+  font-size: var(--fs-3xs);
 }
 
 .avatarMd {
   width: 1.85rem;
   height: 1.85rem;
-  font-size: 0.72rem;
+  font-size: var(--fs-2xs);
 }
 
 .avatarLg {
   width: 2.25rem;
   height: 2.25rem;
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
 }
 
 .avatarHuman {
@@ -73,7 +73,7 @@
   display: inline-block;
   border-radius: 999px;
   padding: 0.08rem 0.5rem;
-  font-size: 0.66rem;
+  font-size: var(--fs-3xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -141,7 +141,7 @@
   align-items: center;
   gap: 0.4rem;
   margin-bottom: 0.25rem;
-  font-size: 0.72rem;
+  font-size: var(--fs-2xs);
   color: var(--muted);
 }
 
@@ -159,7 +159,7 @@
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 0.6rem 0.85rem;
-  font-size: 0.9rem;
+  font-size: var(--fs-base);
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-word;

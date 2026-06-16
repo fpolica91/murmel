@@ -42,7 +42,7 @@
 }
 
 .listTitle {
-  font-size: 0.75rem;
+  font-size: var(--fs-2xs);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--muted);
@@ -105,7 +105,7 @@
 }
 
 .convNames {
-  font-size: 0.88rem;
+  font-size: var(--fs-sm);
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -113,13 +113,13 @@
 }
 
 .convTime {
-  font-size: 0.68rem;
+  font-size: var(--fs-3xs);
   color: var(--muted);
   flex-shrink: 0;
 }
 
 .convPreview {
-  font-size: 0.78rem;
+  font-size: var(--fs-xs);
   color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -135,7 +135,7 @@
   border-radius: 999px;
   background: var(--accent);
   color: #fff;
-  font-size: 0.65rem;
+  font-size: var(--fs-3xs);
   font-weight: 600;
   flex-shrink: 0;
 }
@@ -173,7 +173,7 @@
 
 .threadSub {
   margin: 0.2rem 0 0;
-  font-size: 0.78rem;
+  font-size: var(--fs-xs);
   color: var(--muted);
 }
 
@@ -202,7 +202,7 @@
   align-items: center;
   gap: 0.4rem;
   margin-bottom: 0.25rem;
-  font-size: 0.72rem;
+  font-size: var(--fs-2xs);
   color: var(--muted);
 }
 
@@ -216,7 +216,7 @@
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 0.6rem 0.8rem;
-  font-size: 0.9rem;
+  font-size: var(--fs-base);
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-word;
@@ -232,7 +232,7 @@
   display: inline-block;
   border-radius: 999px;
   padding: 0.02rem 0.4rem;
-  font-size: 0.6rem;
+  font-size: var(--fs-3xs);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   border: 1px solid var(--border);
@@ -264,7 +264,7 @@
   border-radius: 8px;
   color: var(--text);
   padding: 0.6rem 0.75rem;
-  font-size: 0.9rem;
+  font-size: var(--fs-base);
   font-family: inherit;
   line-height: 1.4;
   max-height: 8rem;
@@ -283,7 +283,7 @@
   color: #fff;
   font-weight: 600;
   padding: 0.6rem 1.2rem;
-  font-size: 0.88rem;
+  font-size: var(--fs-sm);
   cursor: pointer;
 }
 
@@ -308,7 +308,7 @@
   border-radius: 8px;
   color: var(--text);
   padding: 0.3rem 0.7rem;
-  font-size: 0.8rem;
+  font-size: var(--fs-xs);
   cursor: pointer;
 }
 
@@ -331,11 +331,11 @@
   border-radius: 8px;
   color: var(--text);
   padding: 0.45rem 0.6rem;
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
 }
 
 .note {
-  font-size: 0.7rem;
+  font-size: var(--fs-3xs);
   color: var(--muted);
   line-height: 1.4;
 }
@@ -343,7 +343,7 @@
 /* ---- States ------------------------------------------------------------ */
 .empty {
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: var(--fs-base);
   padding: 2rem;
   text-align: center;
 }
@@ -353,14 +353,14 @@
   display: grid;
   place-items: center;
   color: var(--muted);
-  font-size: 0.92rem;
+  font-size: var(--fs-base);
   text-align: center;
   padding: 2rem;
 }
 
 .error {
   color: var(--danger-text);
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   padding: 0.75rem;
   border: 1px solid var(--danger-border);
   border-radius: 10px;
@@ -370,6 +370,6 @@
 
 .loadingRow {
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size: var(--fs-sm);
   padding: 1rem 0.4rem;
 }
