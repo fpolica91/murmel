@@ -792,6 +792,23 @@ async def _resolve_session_actor_did(db, *, session_id: UUID, actor_dids: list[s
     return (row.get("did") or "").strip() if row else ""
 
 
+def _reject_cross_team_session(
+    sess_team_id: Any, auth: MessagingAuth, actor_dids: list[str]
+) -> None:
+    """For token (synthetic-DID) callers, reject a single-session read/mutate
+    whose team_id differs from the selected team. The synthetic DID is a
+    participant across ALL the subject's teams, so DID-membership alone would
+    leak a team-B session into a team-A-scoped request (mirrors the list-endpoint
+    + mail-conversation team guards). Non-token / NULL-team callers pass.
+    """
+    team_filter = selected_team_filter(auth, actor_dids)
+    if team_filter is None:
+        return
+    sess_team = str(sess_team_id or "").strip()
+    if sess_team and sess_team != team_filter:
+        raise HTTPException(status_code=403, detail="Session belongs to another team")
+
+
 def _chat_to_address(participant_rows: list[dict[str, Any]], *, from_did: str) -> str:
     refs = [
         (row.get("address") or row["alias"])
@@ -1793,9 +1810,10 @@ async def history(
         raise HTTPException(status_code=422, detail="Invalid id format")
 
     aweb_db = db.get_manager("aweb")
-    sess = await aweb_db.fetch_one("SELECT 1 FROM {{tables.chat_sessions}} WHERE session_id = $1", session_uuid)
+    sess = await aweb_db.fetch_one("SELECT team_id FROM {{tables.chat_sessions}} WHERE session_id = $1", session_uuid)
     if not sess:
         raise HTTPException(status_code=404, detail="Session not found")
+    _reject_cross_team_session(sess["team_id"], auth, actor_dids)
 
     actor_did = await _resolve_session_actor_did(db, session_id=session_uuid, actor_dids=actor_dids)
     if not actor_did:
@@ -1900,9 +1918,10 @@ async def mark_read(
     session_uuid = UUID(session_id.strip())
 
     aweb_db = db.get_manager("aweb")
-    sess = await aweb_db.fetch_one("SELECT 1 FROM {{tables.chat_sessions}} WHERE session_id = $1", session_uuid)
+    sess = await aweb_db.fetch_one("SELECT team_id FROM {{tables.chat_sessions}} WHERE session_id = $1", session_uuid)
     if not sess:
         raise HTTPException(status_code=404, detail="Session not found")
+    _reject_cross_team_session(sess["team_id"], auth, actor_dids)
 
     actor_did = await _resolve_session_actor_did(db, session_id=session_uuid, actor_dids=actor_dids)
     if not actor_did:
@@ -2229,9 +2248,10 @@ async def stream(
         raise HTTPException(status_code=422, detail="Invalid id format")
 
     aweb_db = db.get_manager("aweb")
-    sess = await aweb_db.fetch_one("SELECT 1 FROM {{tables.chat_sessions}} WHERE session_id = $1", session_uuid)
+    sess = await aweb_db.fetch_one("SELECT team_id FROM {{tables.chat_sessions}} WHERE session_id = $1", session_uuid)
     if not sess:
         raise HTTPException(status_code=404, detail="Session not found")
+    _reject_cross_team_session(sess["team_id"], auth, actor_dids)
 
     actor_did = await _resolve_session_actor_did(db, session_id=session_uuid, actor_dids=actor_dids)
     if not actor_did:
@@ -2369,9 +2389,10 @@ async def send_message(
         raise HTTPException(status_code=422, detail="Invalid id format")
 
     aweb_db = db.get_manager("aweb")
-    sess = await aweb_db.fetch_one("SELECT 1 FROM {{tables.chat_sessions}} WHERE session_id = $1", session_uuid)
+    sess = await aweb_db.fetch_one("SELECT team_id FROM {{tables.chat_sessions}} WHERE session_id = $1", session_uuid)
     if not sess:
         raise HTTPException(status_code=404, detail="Session not found")
+    _reject_cross_team_session(sess["team_id"], auth, actor_dids)
 
     actor_did = await _resolve_session_actor_did(db, session_id=session_uuid, actor_dids=actor_dids)
     if not actor_did:

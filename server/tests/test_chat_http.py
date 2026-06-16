@@ -5586,3 +5586,44 @@ async def test_chat_history_exposes_verification_status(aweb_cloud_db):
 
     assert by_id[str(signed_message_id)]["verification_status"] == "verified"
     assert by_id[str(server_message_id)]["verification_status"] == "verified_server"
+
+
+@pytest.mark.asyncio
+async def test_chat_history_rejects_cross_team_session_for_token_caller(aweb_cloud_db):
+    # Security regression (audit round 8): a token subject's synthetic DID is a
+    # participant across all their teams. GET /v1/chat/sessions/{id}/messages
+    # scoped to team A must NOT return a session that belongs to team B.
+    db = aweb_cloud_db.aweb_db
+    sub = "did:key:jwt-contractor"
+    session_id = uuid4()
+    for tid, ns, nm in (("alpha:acme.com", "acme.com", "alpha"), ("beta:globex.com", "globex.com", "beta")):
+        await db.execute(
+            "INSERT INTO {{tables.teams}} (team_id, namespace, team_name, team_did_key) VALUES ($1,$2,$3,'did:key:t')",
+            tid, ns, nm,
+        )
+    await db.execute(
+        "INSERT INTO {{tables.chat_sessions}} (session_id, team_id, created_by) VALUES ($1, 'beta:globex.com', 'me')",
+        session_id,
+    )
+    await db.execute(
+        """
+        INSERT INTO {{tables.chat_participants}} (session_id, did, agent_id, alias, address, delivery_origin, current_did_key)
+        VALUES ($1, $2, NULL, 'me', NULL, NULL, NULL), ($1, 'did:aw:other', NULL, 'other', NULL, NULL, NULL)
+        """,
+        session_id, sub,
+    )
+
+    app = _build_test_app(db, AsyncMock())
+
+    async def _auth():
+        return MessagingAuth(
+            did_key=sub, did_aw=None, address=None,
+            team_id="alpha:acme.com", alias="me", agent_id=None,
+        )
+
+    app.dependency_overrides[get_messaging_auth] = _auth
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp = await client.get(f"/v1/chat/sessions/{session_id}/messages")
+
+    assert resp.status_code == 403, resp.text
+    assert "another team" in resp.text.lower()
