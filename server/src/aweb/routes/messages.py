@@ -767,6 +767,13 @@ def _remote_delivery_origin(request: Request, recipient: dict | None) -> str:
     peer = _peer_for_recipient(request, recipient)
     if peer is not None:
         return peer.delivery_origin
+    # Option A.2: when an allowlist is configured, never POST to an unpinned,
+    # recipient-supplied origin. No pinned peer for the domain => fail closed
+    # (the caller turns an empty origin into a 424). The registry-era fallback
+    # only applies to mixed deployments that have NOT configured peers.
+    by_domain = getattr(request.app.state, "federation_peers_by_domain", None) or {}
+    if by_domain:
+        return ""
     return str((recipient or {}).get("delivery_origin") or "").strip()
 
 

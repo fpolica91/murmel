@@ -11,6 +11,8 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+
+from awid.ratelimit import rate_limit_dep
 from fastapi.responses import StreamingResponse
 
 from aweb.deps import get_db, get_redis
@@ -26,6 +28,7 @@ router = APIRouter(prefix="/v1/events", tags=["aweb-events"])
 EVENTS_POLL_INTERVAL = 1.0  # seconds between polls
 EVENTS_HEARTBEAT_INTERVAL = 30.0  # seconds between idle SSE heartbeat comments
 MAX_STREAM_DURATION = 300  # maximum stream lifetime in seconds
+MAX_STREAMS_PER_AGENT = 5  # concurrent SSE connections per agent
 
 
 def _parse_deadline(raw: str) -> datetime:
@@ -392,7 +395,7 @@ async def _sse_agent_events(
         previous_chat = _index_events(current_chat, key_field="session_id")
 
 
-@router.get("/stream")
+@router.get("/stream", dependencies=[Depends(rate_limit_dep("events_stream"))])
 async def event_stream(
     request: Request,
     deadline: str = Query(..., min_length=1),
@@ -413,16 +416,42 @@ async def event_stream(
     if deadline_dt > max_deadline:
         deadline_dt = max_deadline
 
+    # Per-agent concurrency cap: each open stream sustains a polling loop, so an
+    # unbounded fan-out of connections is a real amplification vector. Count live
+    # streams in Redis (TTL'd so a crashed worker can't leak the slot) and reject
+    # once the cap is hit; the slot is released in the generator's finally.
+    stream_key: str | None = None
+    if redis is not None and identity.agent_id:
+        stream_key = f"aweb:events:streams:{identity.agent_id}"
+        count = await redis.incr(stream_key)
+        await redis.expire(stream_key, MAX_STREAM_DURATION + 60)
+        if count > MAX_STREAMS_PER_AGENT:
+            await redis.decr(stream_key)
+            raise HTTPException(
+                status_code=429, detail="Too many concurrent event streams"
+            )
+
+    async def _guarded_stream():
+        try:
+            async for chunk in _sse_agent_events(
+                request=request,
+                db=db,
+                redis=redis,
+                team_id=identity.team_id,
+                agent_id=identity.agent_id,
+                identity=identity,
+                deadline=deadline_dt,
+            ):
+                yield chunk
+        finally:
+            if stream_key is not None:
+                try:
+                    await redis.decr(stream_key)
+                except Exception:  # pragma: no cover - cleanup must not raise
+                    logger.warning("Failed to release event-stream slot", exc_info=True)
+
     return StreamingResponse(
-        _sse_agent_events(
-            request=request,
-            db=db,
-            redis=redis,
-            team_id=identity.team_id,
-            agent_id=identity.agent_id,
-            identity=identity,
-            deadline=deadline_dt,
-        ),
+        _guarded_stream(),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )

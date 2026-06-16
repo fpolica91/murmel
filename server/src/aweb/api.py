@@ -364,9 +364,7 @@ def create_app(
             request.state.body_sha256 = _hashlib.sha256(b"").hexdigest()
             return await call_next(request)
 
-        # Bound the body before buffering it into memory. Reject an oversized
-        # declared Content-Length up front; still cap the actual read so a
-        # missing/lying header can't exhaust memory.
+        # Reject an oversized declared Content-Length up front...
         declared = request.headers.get("content-length")
         if declared is not None:
             try:
@@ -375,9 +373,13 @@ def create_app(
             except ValueError:
                 return JSONResponse(status_code=400, content={"detail": "Invalid Content-Length"})
 
-        body = await request.body()
-        if len(body) > MAX_REQUEST_BODY_BYTES:
-            return JSONResponse(status_code=413, content={"detail": "Request body too large"})
+        # ...and bound the ACTUAL read so a missing/lying Content-Length (e.g.
+        # chunked transfer-encoding) can't buffer an unbounded body into memory.
+        body = b""
+        async for chunk in request.stream():
+            body += chunk
+            if len(body) > MAX_REQUEST_BODY_BYTES:
+                return JSONResponse(status_code=413, content={"detail": "Request body too large"})
         request.state.cached_body = body
         request.state.body_sha256 = _hashlib.sha256(body).hexdigest() if body else _hashlib.sha256(b"").hexdigest()
         request._receive = _cached_body_receive(body)

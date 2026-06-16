@@ -326,6 +326,7 @@ async def list_tasks(
     priority: int | None = None,
     labels: list[str] | None = None,
     q: str | None = None,
+    limit: int = 1000,
 ) -> list[dict[str, Any]]:
     slug = _get_team_slug(team_id)
     aweb_db = db.get_manager("aweb")
@@ -372,6 +373,9 @@ async def list_tasks(
         params.append(slug)
         idx += 2
 
+    # Bound the result so a large team can't materialize an unbounded response.
+    bounded_limit = max(1, min(int(limit), 5000))
+    params.append(bounded_limit)
     rows = await aweb_db.fetch_all(
         f"""
         SELECT task_id, task_number, task_ref_suffix, title, status, priority, task_type,
@@ -380,6 +384,7 @@ async def list_tasks(
         FROM {{{{tables.tasks}}}}
         WHERE {' AND '.join(conditions)}
         ORDER BY task_number ASC
+        LIMIT ${idx}
         """,
         *params,
     )

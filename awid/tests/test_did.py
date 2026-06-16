@@ -250,8 +250,11 @@ async def test_register_did_state_hash_tamper_breaks_signature(client, register_
 
     response = await client.post("/v1/did", json=body)
 
-    assert response.status_code == 401, response.text
-    assert response.json()["detail"] == "invalid proof"
+    # The server now validates the client-supplied state_hash against the
+    # canonical value and rejects a mismatch (400) before it can be baked into
+    # the stored entry_hash — stricter than relying on the signature path (401).
+    assert response.status_code == 400, response.text
+    assert "state_hash" in response.json()["detail"].lower()
 
 
 @pytest.mark.asyncio

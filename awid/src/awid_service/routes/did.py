@@ -240,6 +240,13 @@ async def register_did(request: Request, req: DidRegisterRequest) -> dict:
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    # Compute the canonical state_hash and reject a mismatching client-supplied
+    # value BEFORE it is baked into the signed payload / entry_hash — otherwise
+    # the stored entry_hash (over req.state_hash) and the stored canonical
+    # state_hash column would disagree, breaking audit-log integrity.
+    state_hash = awid_identity_state_hash(did_aw=req.did_aw, current_did_key=req.new_did_key)
+    if state_hash != req.state_hash:
+        raise HTTPException(status_code=400, detail="state_hash mismatch")
     entry_payload = awid_log_entry_payload(
         did_aw=req.did_aw,
         seq=req.seq,
@@ -247,12 +254,11 @@ async def register_did(request: Request, req: DidRegisterRequest) -> dict:
         previous_did_key=req.previous_did_key,
         new_did_key=req.new_did_key,
         prev_entry_hash=req.prev_entry_hash,
-        state_hash=req.state_hash,
+        state_hash=state_hash,
         authorized_by=req.authorized_by,
         timestamp=req.timestamp,
     )
     entry_hash = awid_sha256_hex(entry_payload)
-    state_hash = awid_identity_state_hash(did_aw=req.did_aw, current_did_key=req.new_did_key)
 
     db = _db(request)
     created_at = _now()
