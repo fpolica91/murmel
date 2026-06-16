@@ -163,6 +163,11 @@ _BUCKET_DEFAULTS: dict[str, tuple[int, int]] = {
     "certificate_fetch": (60, 60),
     "certificate_revoke": (30, 3600),
     "revocation_list": (60, 60),
+    # aweb coordination write paths — generous enough for active agents, but
+    # bounded so a single caller can't amplify load without limit.
+    "mail_send": (120, 60),
+    "chat_send": (120, 60),
+    "chat_create": (60, 60),
 }
 
 
@@ -205,9 +210,12 @@ def ip_bucket_key(request: Request) -> str:
 
 
 async def get_rate_limiter(request: Request) -> RateLimiter:
+    # A missing/None limiter means "not configured" — fall back to NoOp rather
+    # than failing the request. Production always sets a real limiter in the
+    # app lifespan; tests that leave it None opt out of rate limiting.
     limiter = getattr(request.app.state, "rate_limiter", None)
     if limiter is None:
-        raise RuntimeError("rate_limiter not initialized on app.state")
+        return NoOpRateLimiter()
     return limiter
 
 

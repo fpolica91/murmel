@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
@@ -11,7 +12,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from awid.dns_verify import DomainVerifier
+from awid.dns_verify import DomainVerifier, _is_explicit_development_environment
 from awid_service.deps import get_db, get_domain_verifier
 from awid.dns_verify import DnsVerificationError
 from awid.pagination import encode_cursor, validate_pagination_params
@@ -28,6 +29,11 @@ router = APIRouter(prefix="/v1/namespaces", tags=["namespaces"])
 logger = logging.getLogger(__name__)
 
 _MAX_DOMAIN_LENGTH = 256
+# Strict DNS hostname: labels of a-z/0-9/hyphen, dot-separated. Rejects SQL
+# LIKE wildcards (_ and %) and any other non-hostname character.
+_DOMAIN_RE = re.compile(
+    r"^[a-z0-9]([a-z0-9-]{0,62})(\.[a-z0-9]([a-z0-9-]{0,62}))*$"
+)
 _PARENT_AUTH_HEADER = "X-AWEB-Parent-Authorization"
 _PARENT_TIMESTAMP_HEADER = "X-AWEB-Parent-Timestamp"
 
@@ -58,7 +64,7 @@ def _verify_controller_signature(
 def _validate_domain(domain: str) -> str:
     """Validate and canonicalize a domain string."""
     domain = domain.lower().rstrip(".")
-    if not domain or len(domain) > _MAX_DOMAIN_LENGTH:
+    if not domain or len(domain) > _MAX_DOMAIN_LENGTH or not _DOMAIN_RE.match(domain):
         raise HTTPException(status_code=400, detail="Invalid domain")
     return domain
 
@@ -81,13 +87,16 @@ def _verify_controller_rotation_signature(
 
 
 async def _find_parent_namespace(db, *, domain: str, lock_for_share: bool = False):
+    # Literal suffix match — NOT LIKE — so a stored domain containing LIKE
+    # wildcards (_/%) can never act as a wildcard parent. $1 is a child of
+    # `domain` iff it ends with ".<domain>".
     query = """
         SELECT namespace_id, domain, controller_did
         FROM {{tables.dns_namespaces}}
         WHERE deleted_at IS NULL
           AND verification_status = 'verified'
           AND domain <> $1
-          AND $1 LIKE ('%.' || domain)
+          AND right($1, length(domain) + 1) = ('.' || domain)
         ORDER BY LENGTH(domain) DESC
         LIMIT 1
     """
@@ -238,6 +247,13 @@ async def register_namespace(
         )
 
     skip_dns = os.environ.get("AWID_SKIP_DNS_VERIFY", "").strip() == "1"
+    if skip_dns and not _is_explicit_development_environment():
+        # Never honor the DNS-verification bypass outside an explicit dev env —
+        # otherwise anyone could register any namespace without ownership proof.
+        logger.warning(
+            "AWID_SKIP_DNS_VERIFY ignored: not an explicit development environment"
+        )
+        skip_dns = False
     parent_auth_present = request.headers.get(_PARENT_AUTH_HEADER) is not None
     domain_is_local = is_reserved_local_domain(domain)
     if not skip_dns and not parent_auth_present and not domain_is_local:
@@ -451,6 +467,13 @@ async def rotate_namespace_controller(
         new_controller_did=new_controller_did,
     )
     skip_dns = os.environ.get("AWID_SKIP_DNS_VERIFY", "").strip() == "1"
+    if skip_dns and not _is_explicit_development_environment():
+        # Never honor the DNS-verification bypass outside an explicit dev env —
+        # otherwise anyone could register any namespace without ownership proof.
+        logger.warning(
+            "AWID_SKIP_DNS_VERIFY ignored: not an explicit development environment"
+        )
+        skip_dns = False
     parent_auth_present = request.headers.get(_PARENT_AUTH_HEADER) is not None
     domain_is_local = is_reserved_local_domain(domain)
     if not skip_dns and not parent_auth_present and not domain_is_local:
