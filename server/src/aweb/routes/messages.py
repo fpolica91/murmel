@@ -57,10 +57,12 @@ from aweb.messaging.mail_routing import (
 )
 from aweb.messaging.messages import (
     MessagePriority,
+    active_encryption_identity_did,
     authorize_message_delivery,
     deliver_message,
     get_agent_by_alias,
     get_agent_by_id,
+    is_synthetic_jwt_did_key,
     resolve_agent_by_did,
     utc_iso as _utc_iso,
 )
@@ -621,9 +623,10 @@ def _require_remote_mail_signature(payload: SendMessageRequest) -> None:
         )
 
 
-def _validate_encrypted_payload(
+async def _validate_encrypted_payload(
     payload: SendMessageRequest,
     *,
+    db,
     auth: MessagingAuth,
     sender_did: str,
     recipient: dict | None,
@@ -639,6 +642,29 @@ def _validate_encrypted_payload(
     expected_recipient_did = str((recipient or {}).get("did_key") or recipient_did).strip()
     recipient_stable_id = str((recipient or {}).get("did_aw") or "").strip()
     recipient_address = _recipient_envelope_address(recipient, payload)
+    # Token humans are stored with a synthetic routing did:key that cannot sign
+    # or be wrapped to. Their E2EE envelope is addressed with the real
+    # self-custodial did:key from their published encryption key, so validate
+    # against that real did rather than the synthetic placeholder.
+    expected_sender_did = (auth.did_key or sender_did).strip()
+    if is_synthetic_jwt_did_key(expected_sender_did):
+        real_sender_did = await active_encryption_identity_did(
+            db, agent_id=getattr(auth, "agent_id", None), team_id=getattr(auth, "team_id", None)
+        )
+        if real_sender_did:
+            expected_sender_did = real_sender_did
+    if is_synthetic_jwt_did_key(expected_recipient_did) and recipient:
+        real_recipient_did = await active_encryption_identity_did(
+            db,
+            agent_id=recipient.get("agent_id"),
+            team_id=recipient.get("team_id") or getattr(auth, "team_id", None),
+        )
+        if real_recipient_did:
+            expected_recipient_did = real_recipient_did
+            # Token humans are local self-custodial identities with no did:aw and
+            # no address authority in the encrypted recipient binding.
+            recipient_stable_id = ""
+            recipient_address = None
     if expected_recipient_did.startswith("did:key:") and not recipient_stable_id.startswith("did:aw:"):
         # For remote local-only participants, any stored address is a transport
         # hint. It is not an AWID address authority and must not be required in
@@ -650,7 +676,7 @@ def _validate_encrypted_payload(
             payload.encrypted_envelope or {},
             message_id=payload.message_id,
             conversation_id=payload.conversation_id,
-            sender_did=(auth.did_key or sender_did).strip(),
+            sender_did=expected_sender_did,
             sender_stable_id=(auth.did_aw or "").strip() or None,
             recipient_did=expected_recipient_did,
             recipient_stable_id=recipient_stable_id or None,
@@ -721,8 +747,9 @@ async def _deliver_remote_mail_and_project_locally(
             status_code=424,
             detail="Recipient address has no federated delivery origin",
         )
-    encrypted_metadata = _validate_encrypted_payload(
+    encrypted_metadata = await _validate_encrypted_payload(
         payload,
+        db=db,
         auth=auth,
         sender_did=sender_did,
         recipient=recipient,
@@ -1038,8 +1065,9 @@ async def _send_mail_conversation_continuation(
                 conversation_id=conversation_id,
             )
             created_at = _parse_signed_timestamp(payload.timestamp)
-        encrypted_metadata = _validate_encrypted_payload(
+        encrypted_metadata = await _validate_encrypted_payload(
             payload,
+            db=db,
             auth=auth,
             sender_did=sender_did,
             recipient=recipient,
@@ -1558,8 +1586,9 @@ async def send_message(
                 sender_verified_team_id=auth.verified_team_id,
                 sender_verified_dids=auth_dids(auth),
             )
-        encrypted_metadata = _validate_encrypted_payload(
+        encrypted_metadata = await _validate_encrypted_payload(
             payload,
+            db=db,
             auth=auth,
             sender_did=sender_did,
             recipient=recipient,

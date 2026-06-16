@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/ed25519"
 	"fmt"
 	"os"
 	"strings"
@@ -399,7 +400,11 @@ var mailSendCmd = &cobra.Command{
 					targetValue = conversation.conversationID
 					req.ConversationID = conversation.conversationID
 					if sendEncryptE2EE {
-						req.ToAlias = targetValue
+						// Thread into the existing conversation but keep the real
+						// recipient alias so the E2EE key path can resolve the
+						// recipient's published encryption key. targetValue is the
+						// conversation id here, not an alias.
+						req.ToAlias = strings.TrimSpace(agent.Alias)
 					} else {
 						applyMailRecipientTarget(req, conversation.kind, conversation.value)
 						if !mailRecipientTargetApplied(req) {
@@ -754,6 +759,49 @@ func configureClientE2EE(ctx context.Context, c *aweb.Client, sel *awconfig.Sele
 		return err
 	}
 	c.Client.SetE2EEKey(assertion, privateKey)
+	if err := wireBearerE2EESigningKey(c, sel); err != nil {
+		return err
+	}
+	return nil
+}
+
+// wireBearerE2EESigningKey gives a bearer (SimpleAuth/JWT) client the local
+// self-custodial signing key + did:key it needs to sign and address E2EE
+// envelopes, WITHOUT touching transport auth. Token humans authenticate by
+// bearer token; their `.aw/signing.key` (custody=self, written by `aw init
+// --token`) is the identity published to the server (custody=self) and is the
+// envelope signer + recipient DID — but it must never become the transport
+// signing key, or the auth selector would sign requests as a DIDKey the server
+// has no participant for. Certificate/identity clients already carry a
+// transport signing key, so this is a no-op for them (the E2EE paths fall back
+// to it). Missing key material is non-fatal here: the E2EE send path still
+// fails closed with the "requires a local self-custodial signing key" error.
+func wireBearerE2EESigningKey(c *aweb.Client, sel *awconfig.Selection) error {
+	if c == nil || c.Client == nil || sel == nil {
+		return nil
+	}
+	// Only bearer clients lack a transport signing key. For cert/identity
+	// clients the E2EE paths already fall back to it; do not override.
+	if c.Client.SigningKey() != nil {
+		return nil
+	}
+	signingKeyPath := awconfig.WorktreeSigningKeyPath(sel.WorkingDir)
+	if identity, err := awconfig.ResolveIdentity(sel.WorkingDir); err == nil {
+		if p := strings.TrimSpace(identity.SigningKeyPath); p != "" {
+			signingKeyPath = p
+		}
+	}
+	signingKey, err := awid.LoadSigningKey(signingKeyPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// No local self-custodial key; leave E2EE material unset so the send
+			// path fails closed with a clear error rather than mis-signing.
+			return nil
+		}
+		return fmt.Errorf("load E2EE signing key: %w", err)
+	}
+	did := awid.ComputeDIDKey(signingKey.Public().(ed25519.PublicKey))
+	c.Client.SetE2EESigningKey(signingKey, did)
 	return nil
 }
 

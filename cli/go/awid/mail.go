@@ -166,7 +166,7 @@ func (c *Client) prepareE2EEMail(ctx context.Context, payload *SendMessageReques
 	if c == nil || payload == nil {
 		return errors.New("aweb: request is required")
 	}
-	if c.signingKey == nil || strings.TrimSpace(c.did) == "" {
+	if !c.hasE2EESigningMaterial() {
 		return errors.New("E2E messaging requires a local self-custodial signing key")
 	}
 	if c.e2eeEncryptionKey == nil {
@@ -199,11 +199,11 @@ func (c *Client) prepareE2EEMail(ctx context.Context, payload *SendMessageReques
 	envelope, err := EncryptE2EEMail(E2EEEncryptMailParams{
 		Sender: E2EESenderKey{
 			Address:       fromAddress,
-			DID:           c.did,
+			DID:           c.e2eeEnvelopeDID(),
 			StableID:      c.stableID,
 			TeamID:        c.teamID,
 			EncryptionKey: c.e2eeEncryptionKey,
-			SigningKey:    c.signingKey,
+			SigningKey:    c.e2eeEnvelopeSigningKey(),
 		},
 		Recipients:          []E2EERecipientKey{recipient},
 		Subject:             payload.Subject,
@@ -219,9 +219,22 @@ func (c *Client) prepareE2EEMail(ctx context.Context, payload *SendMessageReques
 	}
 	payload.MessageID = envelope.MessageID
 	payload.Timestamp = envelope.CreatedAt
-	payload.FromDID = c.did
-	payload.ToDID = envelope.Routing.ToDID
-	payload.ToStableID = envelope.Routing.ToStableID
+	payload.FromDID = c.e2eeEnvelopeDID()
+	// The envelope addresses the recipient by their real self-custodial did:key
+	// (for the key wrap), but the server routes token humans on a synthetic
+	// local routing did and cannot resolve them by alias (alias lookup excludes
+	// humans). When the recipient has a distinct routing did, route on it and
+	// drop the alias/envelope-did from the outer fields so the server resolves
+	// the recipient consistently.
+	if strings.TrimSpace(recipient.RoutingDID) != "" {
+		payload.ToDID = strings.TrimSpace(recipient.RoutingDID)
+		payload.ToStableID = ""
+		payload.ToAlias = ""
+		payload.ToAgentID = ""
+	} else {
+		payload.ToDID = envelope.Routing.ToDID
+		payload.ToStableID = envelope.Routing.ToStableID
+	}
 	payload.ConversationID = envelope.ConversationID
 	payload.ContentMode = ContentModeEncryptedV2
 	payload.MessageVersion = E2EEMessageVersion

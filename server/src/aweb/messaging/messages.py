@@ -88,6 +88,42 @@ async def resolve_agent_by_did(db, did: str) -> dict | None:
     return None if not row else dict(row)
 
 
+# Token humans are stored with a synthetic local routing did:key
+# (``did:key:jwt-<subject>``) that no one holds the private key for. Their real
+# self-custodial did:key — the one that signs E2EE envelopes and is bound in
+# their published encryption-key assertion — is recorded as identity_did on
+# their active encryption key. E2EE envelope validation must use that real did,
+# not the synthetic placeholder.
+SYNTHETIC_JWT_DID_KEY_PREFIX = "did:key:jwt-"
+
+
+def is_synthetic_jwt_did_key(did: str | None) -> bool:
+    return str(did or "").strip().startswith(SYNTHETIC_JWT_DID_KEY_PREFIX)
+
+
+async def active_encryption_identity_did(db, *, agent_id, team_id) -> str | None:
+    """Return the real self-custodial did:key from an agent's active encryption
+    key, or None when the agent has no active published key."""
+    if not agent_id or not team_id:
+        return None
+    aweb_db = db.get_manager("aweb")
+    row = await aweb_db.fetch_one(
+        """
+        SELECT identity_did
+        FROM {{tables.agent_encryption_keys}}
+        WHERE agent_id = $1 AND team_id = $2
+          AND revoked_at IS NULL
+          AND not_before_at <= NOW()
+          AND expires_at > NOW()
+        ORDER BY assertion_created_at DESC, not_before_at DESC, encryption_key_id DESC
+        LIMIT 1
+        """,
+        agent_id,
+        team_id,
+    )
+    return None if not row else str(row["identity_did"] or "").strip() or None
+
+
 INBOUND_MODE_OPEN = "open"
 INBOUND_MODE_TEAM_AND_CONTACTS = "team_and_contacts"
 INBOUND_MODE_CONTACTS_ONLY_LEGACY = "contacts_only"

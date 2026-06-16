@@ -185,16 +185,26 @@ type agentMeta struct {
 // - the `aw` CLI
 // - higher-level coordination products built on the same transport
 type Client struct {
-	baseURL                 string
-	httpClient              *http.Client
-	sseClient               *http.Client       // No response timeout; SSE connections are long-lived.
-	signingKey              ed25519.PrivateKey // nil for legacy/custodial
-	did                     string             // empty for legacy/custodial
-	teamCertHeader          string             // base64-encoded team certificate for X-AWID-Team-Certificate
-	teamID                  string             // team identifier from certificate, used in auth signature
-	certAlias               string             // certificate alias, used for signed payloads in cert-auth mode
-	address                 string             // namespace/alias, used in signed envelopes
-	e2eeSenderAddress       string             // explicit address for E2EE envelopes; empty for addressless local/team identities
+	baseURL    string
+	httpClient *http.Client
+	sseClient  *http.Client       // No response timeout; SSE connections are long-lived.
+	signingKey ed25519.PrivateKey // nil for legacy/custodial; ALSO selects DIDKey transport auth
+	did        string             // empty for legacy/custodial
+	// e2eeSigningKey / e2eeDID decouple the E2EE envelope-signing key from the
+	// transport-auth key. Bearer (SimpleAuth/JWT) clients authenticate by token
+	// — they must NOT set c.signingKey (that would flip the auth selector to the
+	// DIDKey branch and fail transport auth). Instead they wire their local
+	// self-custodial signing key + DID here so the E2EE prepare/encrypt/decrypt
+	// paths can sign and address envelopes while transport auth stays on the JWT.
+	// Certificate/identity clients leave these nil and the E2EE paths fall back
+	// to signingKey/did. Set via SetE2EESigningKey.
+	e2eeSigningKey          ed25519.PrivateKey
+	e2eeDID                 string
+	teamCertHeader          string // base64-encoded team certificate for X-AWID-Team-Certificate
+	teamID                  string // team identifier from certificate, used in auth signature
+	certAlias               string // certificate alias, used for signed payloads in cert-auth mode
+	address                 string // namespace/alias, used in signed envelopes
+	e2eeSenderAddress       string // explicit address for E2EE envelopes; empty for addressless local/team identities
 	e2eeSenderAddressSet    bool
 	stableID                string // did:aw:..., set on outgoing signed envelopes as from_stable_id
 	e2eeEncryptionKey       *EncryptionKeyAssertion
@@ -416,6 +426,52 @@ func (c *Client) SetE2EEKey(assertion *EncryptionKeyAssertion, privateKey *ecdh.
 	}
 	c.e2eeEncryptionKey = assertion
 	c.e2eePrivateKey = privateKey
+}
+
+// SetE2EESigningKey wires a dedicated Ed25519 key + did:key used ONLY to sign
+// and address E2EE envelopes. It is the bearer (JWT) client's path to E2EE: the
+// token human holds a local self-custodial signing key whose did:key is the
+// recipient identity published to the server (custody=self). Transport auth is
+// unaffected — c.signingKey stays nil so requests still authenticate by bearer
+// token, not by a DIDKey signature the server has no participant for. A nil key
+// or empty DID clears the override (E2EE paths then fall back to signingKey/did).
+func (c *Client) SetE2EESigningKey(signingKey ed25519.PrivateKey, did string) {
+	if c == nil {
+		return
+	}
+	did = strings.TrimSpace(did)
+	if signingKey == nil || did == "" {
+		c.e2eeSigningKey = nil
+		c.e2eeDID = ""
+		return
+	}
+	c.e2eeSigningKey = signingKey
+	c.e2eeDID = did
+}
+
+// e2eeEnvelopeSigningKey returns the key to sign E2EE envelopes with: the
+// dedicated E2EE key when set (bearer clients), else the transport signing key
+// (certificate/identity clients).
+func (c *Client) e2eeEnvelopeSigningKey() ed25519.PrivateKey {
+	if c.e2eeSigningKey != nil {
+		return c.e2eeSigningKey
+	}
+	return c.signingKey
+}
+
+// e2eeEnvelopeDID returns the did:key to address E2EE envelopes from: the
+// dedicated E2EE DID when set (bearer clients), else the transport DID.
+func (c *Client) e2eeEnvelopeDID() string {
+	if strings.TrimSpace(c.e2eeDID) != "" {
+		return strings.TrimSpace(c.e2eeDID)
+	}
+	return strings.TrimSpace(c.did)
+}
+
+// hasE2EESigningMaterial reports whether the client can sign/address E2EE
+// envelopes via either the dedicated E2EE key or the transport signing key.
+func (c *Client) hasE2EESigningMaterial() bool {
+	return c.e2eeEnvelopeSigningKey() != nil && c.e2eeEnvelopeDID() != ""
 }
 
 func (c *Client) ResolveIdentity(ctx context.Context, identifier string) (*ResolvedIdentity, error) {

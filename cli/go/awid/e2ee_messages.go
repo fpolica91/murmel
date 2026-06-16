@@ -116,10 +116,17 @@ type E2EEInnerPayload struct {
 }
 
 type E2EERecipientKey struct {
-	Address        string
-	DID            string
-	StableID       string
-	TeamID         string
+	Address  string
+	DID      string
+	StableID string
+	TeamID   string
+	// RoutingDID, when set, is the did the server routes on for this recipient
+	// (a synthetic local routing key for token humans). It differs from DID,
+	// which is the recipient's real self-custodial did:key used in the key wrap
+	// and verified against their published assertion. When empty, DID is used
+	// for both wrapping and routing. Kept out of the signed envelope: it is a
+	// transport hint only.
+	RoutingDID     string
 	DeliveryOrigin string
 	InboundMode    string
 	EncryptionKey  *EncryptionKeyAssertion
@@ -175,7 +182,7 @@ func (c *Client) DecryptE2EEEnvelope(envelope *E2EEMessageEnvelope) (*E2EEInnerP
 	}
 	return DecryptE2EEMessage(envelope, E2EEDecryptIdentity{
 		Address:         c.address,
-		DID:             c.did,
+		DID:             c.e2eeEnvelopeDID(),
 		StableID:        stableID,
 		EncryptionKeyID: encryptionKeyID,
 		PrivateKey:      c.e2eePrivateKey,

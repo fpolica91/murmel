@@ -36,14 +36,45 @@ type AgentView struct {
 	EncryptionKey *EncryptionKeyAssertion `json:"encryption_key,omitempty"`
 }
 
+// syntheticJWTDIDKeyPrefix marks the placeholder did:key the aweb server mints
+// for token-authenticated humans (`did:key:jwt-<subject>`). It is a local
+// routing key only and is NEVER used for signature verification — the human's
+// real self-custodial did:key is carried in their published encryption-key
+// assertion's identity_did. See server routes/agents.py.
+const syntheticJWTDIDKeyPrefix = "did:key:jwt-"
+
+func isSyntheticJWTDIDKey(didKey string) bool {
+	return strings.HasPrefix(strings.TrimSpace(didKey), syntheticJWTDIDKeyPrefix)
+}
+
+// encryptionVerificationDID returns the did:key an agent's encryption-key
+// assertion must verify against. For token humans the roster did_key is a
+// synthetic placeholder, so the assertion's own self-asserted identity_did (the
+// real self-custodial key that signed it) is authoritative — the server vouches
+// for that binding by publishing it under the authenticated token. For everyone
+// else the roster did_key is authoritative.
+func (a AgentView) encryptionVerificationDID() string {
+	didKey := strings.TrimSpace(a.DIDKey)
+	if isSyntheticJWTDIDKey(didKey) && a.EncryptionKey != nil {
+		return strings.TrimSpace(a.EncryptionKey.IdentityDID)
+	}
+	return didKey
+}
+
 func (a AgentView) VerifyEncryptionKey(now time.Time) error {
 	if a.EncryptionKey == nil {
 		return nil
 	}
+	stableID := strings.TrimSpace(a.DIDAW)
+	if isSyntheticJWTDIDKey(a.DIDKey) {
+		// Token humans are local self-custodial identities with no did:aw; their
+		// assertion intentionally omits identity_stable_id.
+		stableID = ""
+	}
 	return VerifyEncryptionKeyAssertion(
 		a.EncryptionKey,
-		strings.TrimSpace(a.DIDKey),
-		strings.TrimSpace(a.DIDAW),
+		a.encryptionVerificationDID(),
+		stableID,
 		now,
 	)
 }
@@ -63,9 +94,23 @@ func (c *Client) e2eeRecipientFromAgent(ctx context.Context, agent AgentView) (E
 		return c.e2eeGlobalRecipientFromAgent(ctx, agent)
 	}
 	if assertion, err := agent.RequireEncryptionKey(time.Now().UTC()); err == nil {
+		// For token humans the roster did_key is a synthetic placeholder; the key
+		// wrap must address the real self-custodial did:key the recipient decrypts
+		// with (the assertion's identity_did), while the server still routes on
+		// the synthetic placeholder. Carry both so the envelope is correct AND
+		// delivery resolves. Token humans are addressless local identities: their
+		// roster address is a display/routing hint they cannot present at decrypt
+		// time, so it must not be bound into the key wrap.
+		address := strings.TrimSpace(agent.Address)
+		routingDID := ""
+		if isSyntheticJWTDIDKey(agent.DIDKey) {
+			routingDID = strings.TrimSpace(agent.DIDKey)
+			address = ""
+		}
 		return E2EERecipientKey{
-			Address:       strings.TrimSpace(agent.Address),
-			DID:           strings.TrimSpace(agent.DIDKey),
+			Address:       address,
+			DID:           agent.encryptionVerificationDID(),
+			RoutingDID:    routingDID,
 			EncryptionKey: assertion,
 			InboundMode:   strings.TrimSpace(agent.InboundMode),
 		}, nil
@@ -109,7 +154,7 @@ func (c *Client) learnedE2EERecipientFromEnvelope(envelope *E2EEMessageEnvelope)
 	if strings.TrimSpace(from.DID) == "" {
 		return E2EERecipientKey{}, false, nil
 	}
-	for _, self := range []string{c.did, c.stableID, c.address} {
+	for _, self := range []string{c.e2eeEnvelopeDID(), c.stableID, c.address} {
 		self = strings.TrimSpace(self)
 		if self == "" {
 			continue

@@ -305,7 +305,7 @@ func (c *Client) prepareE2EEChatCreate(ctx context.Context, payload *ChatCreateS
 	if c == nil || payload == nil {
 		return errors.New("aweb: request is required")
 	}
-	if c.signingKey == nil || strings.TrimSpace(c.did) == "" {
+	if !c.hasE2EESigningMaterial() {
 		return errors.New("E2E messaging requires a local self-custodial signing key")
 	}
 	if c.e2eeEncryptionKey == nil {
@@ -334,11 +334,11 @@ func (c *Client) prepareE2EEChatCreate(ctx context.Context, payload *ChatCreateS
 	envelope, err := EncryptE2EEChat(E2EEEncryptMessageParams{
 		Sender: E2EESenderKey{
 			Address:       c.e2eeAddress(),
-			DID:           c.did,
+			DID:           c.e2eeEnvelopeDID(),
 			StableID:      c.stableID,
 			TeamID:        c.teamID,
 			EncryptionKey: c.e2eeEncryptionKey,
-			SigningKey:    c.signingKey,
+			SigningKey:    c.e2eeEnvelopeSigningKey(),
 		},
 		Recipients:       recipients,
 		Body:             payload.Message,
@@ -352,7 +352,7 @@ func (c *Client) prepareE2EEChatCreate(ctx context.Context, payload *ChatCreateS
 	}
 	payload.MessageID = envelope.MessageID
 	payload.Timestamp = envelope.CreatedAt
-	payload.FromDID = c.did
+	payload.FromDID = c.e2eeEnvelopeDID()
 	payload.ContentMode = ContentModeEncryptedV2
 	payload.MessageVersion = E2EEMessageVersion
 	payload.Encrypted = envelope
@@ -366,7 +366,7 @@ func (c *Client) prepareE2EEChatSend(ctx context.Context, sessionID string, payl
 	if c == nil || payload == nil {
 		return errors.New("aweb: request is required")
 	}
-	if c.signingKey == nil || strings.TrimSpace(c.did) == "" {
+	if !c.hasE2EESigningMaterial() {
 		return errors.New("E2E messaging requires a local self-custodial signing key")
 	}
 	if c.e2eeEncryptionKey == nil {
@@ -387,11 +387,11 @@ func (c *Client) prepareE2EEChatSend(ctx context.Context, sessionID string, payl
 	envelope, err := EncryptE2EEChat(E2EEEncryptMessageParams{
 		Sender: E2EESenderKey{
 			Address:       c.e2eeAddress(),
-			DID:           c.did,
+			DID:           c.e2eeEnvelopeDID(),
 			StableID:      c.stableID,
 			TeamID:        c.teamID,
 			EncryptionKey: c.e2eeEncryptionKey,
-			SigningKey:    c.signingKey,
+			SigningKey:    c.e2eeEnvelopeSigningKey(),
 		},
 		Recipients:       recipients,
 		Body:             payload.Body,
@@ -405,7 +405,7 @@ func (c *Client) prepareE2EEChatSend(ctx context.Context, sessionID string, payl
 	}
 	payload.MessageID = envelope.MessageID
 	payload.Timestamp = envelope.CreatedAt
-	payload.FromDID = c.did
+	payload.FromDID = c.e2eeEnvelopeDID()
 	payload.ContentMode = ContentModeEncryptedV2
 	payload.MessageVersion = E2EEMessageVersion
 	payload.Encrypted = envelope
