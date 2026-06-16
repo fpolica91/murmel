@@ -1,12 +1,5 @@
-/**
- * Browser consumer for the aweb SSE event stream (GET /v1/events/stream).
- *
- * `EventSource` can't attach an Authorization header, and the stream is
- * bearer-authed, so this uses fetch streaming (ReadableStream) to carry the
- * JWT — mirroring how channel-core consumes the same endpoint. It reconnects
- * with a short backoff until aborted; callers keep their existing polling as a
- * fallback so a dropped/blocked stream never regresses liveness.
- */
+// SSE consumer for GET /v1/events/stream. Uses fetch streaming (not EventSource)
+// to carry the bearer JWT, and reconnects with backoff until aborted.
 import { getAccessToken } from "@/lib/api/http";
 
 const API_BASE = (
@@ -85,10 +78,7 @@ async function pumpStream(
   }
 }
 
-/**
- * Subscribe to the team's live event stream. Returns an unsubscribe function;
- * call it on unmount / team change to close the connection.
- */
+// Subscribe to the team's live event stream; returns an unsubscribe function.
 export function subscribeEvents(
   teamId: string,
   onEvent: (e: AwebEvent) => void,

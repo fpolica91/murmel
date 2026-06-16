@@ -58,13 +58,8 @@ export function ChatView() {
   const activeRef = useRef<string | null>(null);
   activeRef.current = activeSessionId;
 
-  // Auto-open the most recent conversation once per team. Landing on /chat with
-  // an empty thread pane (and having to click a card) was reported as "I can't
-  // see the conversation" — and a click that lands inside React's hydration
-  // window is silently dropped. Opening the top row by default makes the thread
-  // appear with no click at all, the way Slack/Linear behave. We only do this
-  // while nothing is selected and reset the latch per team so switching teams
-  // re-opens that team's most recent thread.
+  // Auto-open the most recent conversation per team (Slack/Linear style), so the
+  // thread shows with no click. Latched per team; reset on team switch.
   const autoSelectedTeam = useRef<string | null>(null);
 
   // Directory-backed alias -> authoritative kind map. Used only as a fallback
@@ -155,15 +150,13 @@ export function ChatView() {
       .sort((a, b) => b.lastActivity.localeCompare(a.lastActivity));
   }, [sessions, conversations]);
 
-  // Switching teams clears the selection so the latch below re-opens the new
-  // team's most recent conversation (and never shows a stale cross-team thread).
+  // Switching teams clears the selection so the latch re-opens fresh.
   useEffect(() => {
     if (autoSelectedTeam.current !== activeTeam) {
       setActiveSessionId(null);
     }
   }, [activeTeam]);
 
-  // Auto-open the most recent conversation once the list arrives for a team.
   useEffect(() => {
     if (!activeTeam) return;
     if (autoSelectedTeam.current === activeTeam) return;
@@ -214,10 +207,7 @@ export function ChatView() {
     return () => clearInterval(id);
   }, [activeSessionId, activeTeam, loadMessages]);
 
-  // ---- Live updates via the SSE event stream -----------------------------
-  // Instant: an actionable_chat event refreshes the conversation list and, if it
-  // belongs to the open thread, the messages. The polling effects above remain
-  // as a fallback so a dropped/blocked stream never regresses liveness.
+  // Live updates via SSE; the polling effects above are the fallback.
   useEffect(() => {
     if (!activeTeam) return;
     return subscribeEvents(activeTeam, (e) => {

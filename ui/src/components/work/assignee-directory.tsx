@@ -12,18 +12,8 @@ import {
 import { listParticipants, type Participant } from "@/lib/api/participants";
 import { useTeam } from "@/components/team-context";
 
-/**
- * Resolves an issue `assignee_id` to a human-readable display name.
- *
- * An issue's `assignee_id` is meant to be the team-unique alias, but issues
- * claimed by an agent over the MCP/token path store the caller's opaque Better
- * Auth subject (the JWT `sub`, e.g. "ULxKUSOPtj7yZT3qWUySVfe4kVI9akcv") rather
- * than its alias. Rendering that raw on the board made agent-owned cards show a
- * meaningless token instead of "Ada (agent)". We resolve it against the
- * participant directory by BOTH keys — the alias and the JWT subject extracted
- * from the participant's synthetic routing DID ("did:key:jwt-<subject>") — so
- * either form maps back to the same display name.
- */
+// Resolves an issue `assignee_id` to a display name. MCP-claimed issues store
+// the JWT subject rather than the alias, so we key the directory on both.
 export type ResolvedAssignee = {
   label: string;
   kind: "human" | "agent" | null;
@@ -33,6 +23,8 @@ type Resolver = (assigneeId: string | null) => ResolvedAssignee;
 
 const AssigneeDirectoryContext = createContext<Resolver | null>(null);
 
+// Server-set routing DID for token identities; the subject is the assignee_id
+// MCP-claimed issues persist.
 const JWT_DID_PREFIX = "did:key:jwt-";
 
 function subjectFromDid(did: string | null): string | null {
@@ -84,11 +76,7 @@ export function AssigneeDirectoryProvider({ children }: { children: ReactNode })
   );
 }
 
-/**
- * Resolve an assignee id to its display name + kind. Falls back to the raw id
- * (so it degrades gracefully when used outside a provider or before the
- * directory loads).
- */
+// Falls back to the raw id outside a provider or before the directory loads.
 export function useAssignee(assigneeId: string | null): ResolvedAssignee {
   const resolve = useContext(AssigneeDirectoryContext);
   if (!resolve) {
