@@ -30,7 +30,7 @@ from aweb.messaging.handle_addresses import normalize_hosted_handle_reference
 from aweb.messaging.messages import authorize_message_delivery
 from aweb.messaging.verification import message_verification_status, require_conversation_not_legacy_bound
 from aweb.messaging.waiting import register_waiting, unregister_waiting
-from aweb.mcp.auth import auth_dids, get_auth, primary_auth_did
+from aweb.mcp.auth import auth_dids, get_auth, is_keyless_token_identity, primary_auth_did
 from aweb.mcp.signing import (
     HostedMessageDecryptor,
     HostedMessageDecryptionError,
@@ -251,6 +251,21 @@ async def _resolve_actor_agent(db_infra, actor_dids: list[str]) -> dict | None:
     return None
 
 
+def _actor_agent_id(auth, actor_agent: dict | None) -> str | None:
+    """Return the agents-table UUID for the caller (never the JWT subject).
+
+    For trusted-proxy callers ``auth.agent_id`` already IS the agents-table UUID.
+    For keyless token subjects ``auth.agent_id`` is the Better Auth subject (an
+    opaque, non-UUID string), so we must use the agents row resolved from the
+    caller's synthetic routing DID instead — otherwise downstream ``UUID(...)``
+    casts (send_in_session, get_pending_conversations) crash with a base-16
+    error.
+    """
+    if is_keyless_token_identity(auth):
+        return str(actor_agent["agent_id"]) if actor_agent else None
+    return auth.agent_id or (str(actor_agent["agent_id"]) if actor_agent else None)
+
+
 async def _resolve_session_actor_did(db_infra, *, session_id: UUID, actor_dids: list[str]) -> str:
     if not actor_dids:
         return ""
@@ -377,7 +392,7 @@ async def chat_send(
     actor_dids = _actor_dids()
     actor_did = (auth.did_key or "").strip() if auth.trusted_proxy else (actor_dids[0] if actor_dids else "")
     actor_agent = await _resolve_actor_agent(db_infra, actor_dids)
-    actor_agent_id = auth.agent_id or (str(actor_agent["agent_id"]) if actor_agent else None)
+    actor_agent_id = _actor_agent_id(auth, actor_agent)
     actor_alias = _actor_alias(actor_agent)
     sender_address = _sender_address(auth)
     aweb_db = db_infra.get_manager("aweb")
@@ -549,6 +564,12 @@ async def chat_send(
                 return json.dumps({"error": str(exc)})
             encrypted_envelope, encrypted_metadata = _encrypted_chat_storage(encrypted)
             content_mode, message_version = _encrypted_chat_result_fields(encrypted)
+        elif is_keyless_token_identity(auth):
+            # Server-attributed plaintext: the JWT subject has no signing key for
+            # its synthetic routing DID, so we send unsigned. The server has
+            # already verified the JWT + membership; the message is attributed to
+            # and routed for the authenticated participant via actor_did below.
+            signed = None
         else:
             try:
                 signed = await sign_hosted_message(
@@ -737,6 +758,9 @@ async def chat_send(
                 return json.dumps({"error": str(exc)})
             encrypted_envelope, encrypted_metadata = _encrypted_chat_storage(encrypted)
             content_mode, message_version = _encrypted_chat_result_fields(encrypted)
+        elif is_keyless_token_identity(auth):
+            # Server-attributed plaintext continuation for keyless token subjects.
+            signed = None
         else:
             try:
                 signed = await sign_hosted_message(
@@ -839,7 +863,7 @@ async def chat_pending(
     auth = get_auth()
     actor_dids = _actor_dids()
     actor_agent = await _resolve_actor_agent(db_infra, actor_dids)
-    actor_agent_id = auth.agent_id or (str(actor_agent["agent_id"]) if actor_agent else None)
+    actor_agent_id = _actor_agent_id(auth, actor_agent)
 
     conversations_by_session: dict[str, dict] = {}
     for actor_did in actor_dids:
@@ -959,7 +983,7 @@ async def chat_read(db_infra, *, session_id: str, up_to_message_id: str) -> str:
     auth = get_auth()
     actor_dids = _actor_dids()
     actor_agent = await _resolve_actor_agent(db_infra, actor_dids)
-    actor_agent_id = auth.agent_id or (str(actor_agent["agent_id"]) if actor_agent else None)
+    actor_agent_id = _actor_agent_id(auth, actor_agent)
 
     try:
         session_uuid = UUID(session_id.strip())

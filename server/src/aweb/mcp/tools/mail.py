@@ -7,7 +7,7 @@ import uuid as uuid_mod
 from datetime import datetime, timezone
 from typing import cast
 
-from aweb.mcp.auth import auth_dids, get_auth, primary_auth_did
+from aweb.mcp.auth import auth_dids, get_auth, is_keyless_token_identity, primary_auth_did
 from aweb.mcp.signing import (
     HostedMessageDecryptor,
     HostedMessageDecryptionError,
@@ -61,6 +61,27 @@ from aweb.routes.messages import SendMessageRequest, _deliver_remote_mail_and_pr
 from aweb.service_errors import ForbiddenError, NotFoundError, ServiceError, ValidationError
 
 VALID_PRIORITIES: set[str] = set(MessagePriority.__args__)  # type: ignore[attr-defined]
+
+
+async def _sender_agent_id(db_infra, auth) -> str | None:
+    """Return the sender's agents-table UUID (never the JWT subject).
+
+    For trusted-proxy callers ``auth.agent_id`` already IS the agents-table
+    UUID. For keyless token subjects ``auth.agent_id`` is the Better Auth
+    subject (a non-UUID string); passing it to ``deliver_message`` /
+    ``create_conversation`` (which cast it with ``UUID(...)``) crashes with
+    "Invalid agent_id format". Resolve the agents row from the caller's
+    synthetic routing DID instead.
+    """
+    if not is_keyless_token_identity(auth):
+        return auth.agent_id
+    for did in auth_dids(auth):
+        if not did:
+            continue
+        agent = await resolve_agent_by_did(db_infra, did)
+        if agent is not None and agent.get("agent_id"):
+            return str(agent["agent_id"])
+    return None
 
 
 def mcp_mail_message_from_row(
@@ -179,6 +200,8 @@ async def send_mail(
     if not recipient_ref and not conversation_ref:
         return json.dumps({"error": "Recipient or conversation_id is required"})
 
+    sender_agent_id = await _sender_agent_id(db_infra, auth)
+
     if conversation_ref:
         message_id = uuid_mod.uuid4()
         created_at = datetime.now(timezone.utc).replace(microsecond=0)
@@ -239,9 +262,14 @@ async def send_mail(
             db_infra,
             recipient_participant,
         )
+        # Keyless token subjects send server-attributed plaintext: no client
+        # envelope signature (their synthetic routing DID has no key bytes), but
+        # the message is attributed to / routed for the authenticated participant
+        # via sender_did = primary_auth_did(auth) above.
+        keyless = is_keyless_token_identity(auth)
         encrypted = None
         encrypted_metadata = None
-        if not plaintext:
+        if not plaintext and not keyless:
             try:
                 encrypted = await encrypt_hosted_message(
                     auth=auth,
@@ -254,7 +282,7 @@ async def send_mail(
                 return json.dumps({"error": str(exc)})
             if encrypted is not None:
                 encrypted_metadata = encrypted_message_storage_metadata(encrypted.encrypted_envelope)
-        if encrypted is None:
+        if encrypted is None and not keyless:
             try:
                 signed = await sign_hosted_message(
                     auth=auth,
@@ -320,7 +348,7 @@ async def send_mail(
                 from_did=sender_did,
                 to_did=recipient_did,
                 team_id=continuation.conversation.get("team_id") or auth.team_id,
-                from_agent_id=auth.agent_id,
+                from_agent_id=sender_agent_id,
                 from_alias=auth.alias,
                 sender_address=sender_address,
                 to_agent_id=recipient_participant.get("agent_id"),
@@ -438,9 +466,11 @@ async def send_mail(
     if priority != "normal":
         signed_fields["priority"] = priority
 
+    # Keyless token subjects send server-attributed plaintext first contact.
+    keyless = is_keyless_token_identity(auth)
     encrypted = None
     encrypted_metadata = None
-    if not plaintext:
+    if not plaintext and not keyless:
         try:
             encrypted = await encrypt_hosted_message(
                 auth=auth,
@@ -453,7 +483,7 @@ async def send_mail(
             return json.dumps({"error": str(exc)})
         if encrypted is not None:
             encrypted_metadata = encrypted_message_storage_metadata(encrypted.encrypted_envelope)
-    if encrypted is None:
+    if encrypted is None and not keyless:
         try:
             signed = await sign_hosted_message(
                 auth=auth,
@@ -530,7 +560,7 @@ async def send_mail(
             conversation_id=initial_conversation_id,
             initiator={
                 "did": sender_did,
-                "agent_id": auth.agent_id,
+                "agent_id": sender_agent_id,
                 "alias": auth.alias or sender_address or sender_did,
                 "address": sender_address,
                 "transport_hint": "sender",
@@ -553,7 +583,7 @@ async def send_mail(
             from_did=sender_did,
             to_did=recipient_did,
             team_id=auth.team_id,
-            from_agent_id=auth.agent_id,
+            from_agent_id=sender_agent_id,
             from_alias=auth.alias,
             sender_address=sender_address,
             to_agent_id=str(recipient["agent_id"]) if recipient.get("agent_id") else None,

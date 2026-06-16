@@ -3,6 +3,60 @@
 _Branch: `feature/simple-auth-ui` (== local `main`). Local stack: UI :3030, aweb :8088, Postgres :5544, Redis :6390._
 _Updated as work lands. "Validated" = independently re-run, not just self-reported._
 
+## ✅ MCP messaging for token identities — agents coordinate over `/mcp/` (2026-06-16)
+
+**Problem:** MCP task/issue tools already worked for Better Auth (JWT) token
+callers, but `send_chat`/`send_mail` were **broken** for them — first
+`"Authenticated identity is missing a routing DID"`, then
+`invalid literal for int() with base 16: '<subject>'`.
+
+**Root causes (two):**
+1. `mcp/auth.py::_resolve_token_auth` set `did_key=""` for token callers, so
+   `primary_auth_did()` was empty → messaging/contacts tools rejected the
+   caller. Fixed: `did_key=f"did:key:jwt-{auth.subject}"` (the synthetic routing
+   DID their participant row is already keyed by; `did_aw`/`address` stay empty).
+2. The token caller's `auth.agent_id` is the **Better Auth subject** (a non-UUID
+   string), not the agents-table UUID. It leaked into `send_in_session` /
+   `get_pending_conversations` / `deliver_message` / `create_conversation`, all
+   of which `UUID(...)`-cast it → the base-16 crash. Fixed: new helpers
+   `chat._actor_agent_id(auth, actor_agent)` and `mail._sender_agent_id(...)`
+   resolve the real agents-table UUID from the synthetic routing DID for keyless
+   token callers (trusted-proxy/cert paths unchanged).
+
+**Server-attributed plaintext:** `mcp/auth.py::is_keyless_token_identity(auth)`
+detects a token caller (`not trusted_proxy` AND did_key empty/`did:key:jwt-*`).
+For those callers `send_chat`/`send_mail` **skip the client envelope signature
+entirely** (`signed=None`, `legacy_plaintext_v1`) — no `sign_hosted_message`
+with a key that can't exist, no forged signature. The message is attributed to
+and routed for the authenticated participant via the synthetic routing DID. The
+server (which already verified the JWT + membership in MCP middleware) is the
+trust anchor — consistent with the server-anchored trust model (commit
+a07fd564). Recipients render these as `verification_status: "unverified"`
+(server-attributed, not client-signed) — accepted. Cert/proxy/real-DID paths are
+untouched.
+
+**Dogfood (real MCP JSON-RPC over `:8088/mcp/` under bearer JWTs, no SQL/CLI):**
+all five steps green —
+1. Ada `send_chat` → Bob → `{delivered:true}`.
+2. Bob `check_chats`/`read_chat` → sees Ada's msg, `from_alias:"Ada (agent)"`,
+   `from_did:"did:key:jwt-ULx…"`.
+3. Bob `send_chat` back → Ada `check_chats` sees it (two-way agent chat).
+4. Founder `send_mail` → Ada `check_mail` sees body, `from_did:"did:key:jwt-eIrO…"`.
+5. Handoff: Founder `issues_create` + `send_chat "please take issue X"` → Ada
+   `issues_claim` (assignee=Ada, status in_progress) + `issues_update_status`.
+   Ada `send_chat` back to Founder confirming. All over MCP.
+
+**Gates:** `server` full suite green (652 → **654** with 2 new tests:
+`test_mcp_{send_mail,chat_send}_server_attributed_for_token_identity` in
+`tests/test_mcp_mail_chat.py`; updated the one auth-context assertion in
+`tests/test_mcp_token_auth.py`). Files changed:
+`src/aweb/mcp/auth.py`, `src/aweb/mcp/tools/chat.py`, `src/aweb/mcp/tools/mail.py`.
+
+**Known cosmetic (not a correctness bug):** a token sender's mail/chat
+`from_alias` currently shows the Better Auth subject string (from `auth.alias`,
+which is the subject for token callers) rather than the display name; attribution
+via `from_did`/`from_agent_id` is correct. Tracked in `PIVOT-FOLLOWUPS.md`.
+
 ## ✅ Verified final state (2026-06-16)
 
 The token-only auth pivot is complete across **all five products** and hardened. Whole matrix re-verified green at this point: **server 652 · awid 218 · CLI build + a2a/a2agw/conformance/awid/awconfig · channel 110 · UI Playwright 15/15 · all 3 OSS e2e journeys green**.

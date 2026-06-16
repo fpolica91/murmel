@@ -35,6 +35,34 @@ This file lists every place still referencing that removed surface, split into
 
 ## Deferred — needs real work (documented, intentionally NOT half-fixed)
 
+### 0. MCP `send_chat`/`send_mail` for token identities — ✅ DONE (2026-06-16)
+
+**Status:** Landed on `feature/simple-auth-ui`. Better Auth (JWT) token callers
+can now FULLY coordinate over `/mcp/` — `send_chat` + `send_mail` + tasks/issues.
+Previously messaging crashed (`missing a routing DID`, then
+`invalid literal for int() with base 16: '<subject>'`). See the dated section in
+[STATUS.md](STATUS.md) for the full write-up + dogfood transcript.
+
+- `mcp/auth.py`: token callers now get `did_key=did:key:jwt-<subject>` (their
+  synthetic participant routing DID) + new `is_keyless_token_identity(auth)`.
+- `mcp/tools/chat.py` + `mcp/tools/mail.py`: keyless token callers take a
+  **server-attributed plaintext** path (skip client signature; resolve the real
+  agents-table UUID for `from_agent_id`/`sender_agent_id` so downstream
+  `UUID(...)` casts don't get the JWT subject). Cert/proxy paths unchanged.
+- Tests: 2 new in `tests/test_mcp_mail_chat.py`; server suite 654 green.
+
+**Remaining cosmetic follow-up (low priority, NOT a correctness bug):** a token
+sender's mail/chat `from_alias` shows the Better Auth **subject string** (because
+`auth.alias` carries the subject for token callers) instead of the display name
+("Ada (agent)"/"Founder"). Recipient routing + attribution via
+`from_did`/`from_agent_id` is correct; only the human-readable `from_alias`
+display is off for the sender side. To fix properly, resolve the participant's
+display alias from the agents row (via the synthetic routing DID) when building
+the sender `from`/`from_alias`, rather than trusting `auth.alias`. Recipients
+also see these as `verification_status: "unverified"` (server-attributed, not
+client-signed) — that is by design until/unless token subjects publish a
+self-custodial signing key for their synthetic DID.
+
 ### 1. `channel/` and `channel-core/` token-auth path — ✅ DONE
 
 **Status (2026-06-16):** Landed on `feature/simple-auth-ui`. The channel now

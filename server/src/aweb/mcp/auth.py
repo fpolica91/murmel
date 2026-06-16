@@ -56,6 +56,26 @@ def primary_auth_did(auth: AuthContext) -> str:
     return dids[0] if dids else ""
 
 
+def is_keyless_token_identity(auth: AuthContext) -> bool:
+    """True when the caller is a Better Auth token subject with no signing key.
+
+    Token subjects are server-authenticated (JWT verified + membership checked
+    by the MCP middleware) but hold no self-custodial key for the routing DID
+    they are attributed under. The synthetic routing DID ``did:key:jwt-<sub>``
+    has no key bytes, so any attempt to derive/verify a signature from it would
+    crash. Messaging tools use this to take a *server-attributed plaintext*
+    path: the message is routed/attributed to the authenticated participant but
+    carries no client envelope signature.
+
+    Trusted-proxy (hosted custodial) callers and real did:key / did:aw cert
+    identities are explicitly NOT keyless and keep the signed/encrypted paths.
+    """
+    if getattr(auth, "trusted_proxy", False):
+        return False
+    did = (auth.did_key or "").strip()
+    return not did or did.startswith("did:key:jwt-")
+
+
 _auth_context: contextvars.ContextVar[AuthContext | None] = contextvars.ContextVar(
     "aweb_mcp_auth", default=None
 )
@@ -131,10 +151,16 @@ class MCPAuthMiddleware:
         for revocation, and scoped to one of the subject's *active* memberships
         (the authoritative set from the ``memberships`` table).
 
-        Token subjects are not team-certificate agents, so the cert-specific
-        fields (``did_key``, ``did_aw``, ``address``, ``workspace_id``) are left
-        empty and ``alias``/``agent_id`` carry the subject (or ``agent_name``
-        claim), mirroring :func:`aweb.token_team_scope.token_identity`.
+        Token subjects are not team-certificate agents, but they DO have a
+        participant row keyed by the synthetic local routing DID
+        ``did:key:jwt-<subject>`` (see
+        :func:`aweb.identity_auth_deps.provision_human_participant`). We populate
+        ``did_key`` with that synthetic routing DID so that
+        :func:`primary_auth_did` resolves to the caller's participant — this is
+        what messaging/contacts tools route and attribute against. The truly
+        cert-specific fields (``did_aw``, ``address``, ``workspace_id``) stay
+        empty: the synthetic DID holds no key bytes and must never be used to
+        derive or verify a cryptographic signature.
         """
         authorization = request.headers.get("authorization") or ""
         token = authorization.split(None, 1)[1].strip()
@@ -151,7 +177,7 @@ class MCPAuthMiddleware:
             agent_id=auth.subject,
             workspace_id=None,
             alias=alias,
-            did_key="",
+            did_key=f"did:key:jwt-{auth.subject}",
             did_aw=None,
             address=None,
         )

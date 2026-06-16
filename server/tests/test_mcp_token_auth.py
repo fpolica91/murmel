@@ -70,8 +70,9 @@ async def test_bearer_jwt_resolves_to_auth_context(monkeypatch, middleware):
     assert ctx.team_id == "acme:team"
     assert ctx.agent_id == "user-123"
     assert ctx.alias == "alice-agent"
-    # Cert-specific fields are empty for a token subject.
-    assert ctx.did_key == ""
+    # Token subjects route against their synthetic participant DID
+    # (did:key:jwt-<subject>); the other cert-specific fields stay empty.
+    assert ctx.did_key == "did:key:jwt-user-123"
     assert ctx.did_aw is None
     assert ctx.address is None
     assert ctx.workspace_id is None

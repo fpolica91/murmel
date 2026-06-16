@@ -2580,3 +2580,154 @@ async def test_mcp_contacts_accept_equivalent_identity_owner_did(aweb_cloud_db, 
         did_key,
     )
     assert remaining == 0
+
+
+# ---------------------------------------------------------------------------
+# Keyless token identities (Better Auth JWT subjects) — server-attributed
+# plaintext messaging. The synthetic routing DID did:key:jwt-<sub> holds no key
+# bytes, so these sends must NOT sign/encrypt (no forged signatures) yet must
+# still be attributed to + routed for the authenticated participant.
+# ---------------------------------------------------------------------------
+
+
+def _keyless_token_auth(*, team_id: str, subject: str, alias: str) -> AuthContext:
+    """AuthContext as produced for a Better Auth bearer JWT by the MCP
+    middleware: agent_id is the (non-UUID) subject, did_key is the synthetic
+    routing DID, trusted_proxy is False, no key material."""
+    return AuthContext(
+        team_id=team_id,
+        agent_id=subject,
+        workspace_id=None,
+        alias=alias,
+        did_key=f"did:key:jwt-{subject}",
+        did_aw=None,
+        address=None,
+        trusted_proxy=False,
+    )
+
+
+async def _insert_token_participant(aweb_db, *, team_id: str, subject: str, alias: str):
+    """Insert a human/token participant keyed by its synthetic routing DID."""
+    row = await aweb_db.fetch_one(
+        """
+        INSERT INTO {{tables.agents}}
+            (team_id, did_key, alias, human_name, agent_type, identity_scope, address, status, inbound_mode)
+        VALUES ($1, $2, $3, $3, 'human', 'local', $4, 'active', 'open')
+        RETURNING agent_id
+        """,
+        team_id,
+        f"did:key:jwt-{subject}",
+        alias,
+        f"local/{alias}",
+    )
+    return str(row["agent_id"])
+
+
+@pytest.mark.asyncio
+async def test_mcp_send_mail_server_attributed_for_token_identity(aweb_cloud_db, monkeypatch):
+    """A keyless token subject can send mail: it is delivered, unsigned, and
+    attributed (from_did = synthetic routing DID, from_agent_id = real UUID)."""
+    team_id = "ops:acme.com"
+    await aweb_cloud_db.aweb_db.execute(
+        """
+        INSERT INTO {{tables.teams}} (team_id, namespace, team_name, team_did_key)
+        VALUES ($1, 'acme.com', 'ops', 'did:key:z6MkTeam')
+        """,
+        team_id,
+    )
+    ada_agent_id = await _insert_token_participant(
+        aweb_cloud_db.aweb_db, team_id=team_id, subject="user-ada", alias="ada"
+    )
+    bob_agent_id = await _insert_token_participant(
+        aweb_cloud_db.aweb_db, team_id=team_id, subject="user-bob", alias="bob"
+    )
+
+    monkeypatch.setattr(
+        mail_tools,
+        "get_auth",
+        lambda: _keyless_token_auth(team_id=team_id, subject="user-ada", alias="ada"),
+    )
+
+    signer_calls: list[dict] = []
+
+    async def _signer(**kwargs):  # pragma: no cover - must never be called
+        signer_calls.append(kwargs)
+        raise AssertionError("keyless token identity must not invoke the hosted signer")
+
+    result = json.loads(
+        await mail_tools.send_mail(
+            DBInfra(aweb_cloud_db.aweb_db),
+            registry_client=None,
+            hosted_signer=_signer,
+            to="bob",
+            subject="handoff",
+            body="please take the auth issue",
+        )
+    )
+
+    assert "error" not in result, result
+    assert result["status"] == "delivered"
+    assert signer_calls == []
+
+    row = await aweb_cloud_db.aweb_db.fetch_one("SELECT * FROM {{tables.messages}}")
+    # Attributed to the authenticated participant, but NOT signed.
+    assert row["from_did"] == "did:key:jwt-user-ada"
+    assert str(row["from_agent_id"]) == ada_agent_id
+    assert str(row["to_agent_id"]) == bob_agent_id
+    assert row["signature"] is None
+    assert row["signed_payload"] is None
+    assert str(row["content_mode"] or "legacy_plaintext_v1") == "legacy_plaintext_v1"
+
+
+@pytest.mark.asyncio
+async def test_mcp_chat_send_server_attributed_for_token_identity(aweb_cloud_db, monkeypatch):
+    """A keyless token subject can open a chat: delivered, unsigned, attributed.
+
+    This is the exact path that previously crashed with
+    'invalid literal for int() with base 16' (the JWT subject leaked into a
+    UUID() cast) and 'missing a routing DID' (empty did_key)."""
+    team_id = "ops:acme.com"
+    await aweb_cloud_db.aweb_db.execute(
+        """
+        INSERT INTO {{tables.teams}} (team_id, namespace, team_name, team_did_key)
+        VALUES ($1, 'acme.com', 'ops', 'did:key:z6MkTeam')
+        """,
+        team_id,
+    )
+    ada_agent_id = await _insert_token_participant(
+        aweb_cloud_db.aweb_db, team_id=team_id, subject="user-ada", alias="ada"
+    )
+    await _insert_token_participant(
+        aweb_cloud_db.aweb_db, team_id=team_id, subject="user-bob", alias="bob"
+    )
+
+    monkeypatch.setattr(
+        chat_tools,
+        "get_auth",
+        lambda: _keyless_token_auth(team_id=team_id, subject="user-ada", alias="ada"),
+    )
+
+    async def _signer(**kwargs):  # pragma: no cover - must never be called
+        raise AssertionError("keyless token identity must not invoke the hosted signer")
+
+    result = json.loads(
+        await chat_tools.chat_send(
+            DBInfra(aweb_cloud_db.aweb_db),
+            None,
+            registry_client=None,
+            hosted_signer=_signer,
+            to_alias="bob",
+            message="hi bob, ada here over mcp",
+        )
+    )
+
+    assert "error" not in result, result
+    assert result["delivered"] is True
+    assert result["session_id"]
+
+    row = await aweb_cloud_db.aweb_db.fetch_one("SELECT * FROM {{tables.chat_messages}}")
+    assert row["from_did"] == "did:key:jwt-user-ada"
+    assert str(row["from_agent_id"]) == ada_agent_id
+    assert row["body"] == "hi bob, ada here over mcp"
+    assert row["signature"] is None
+    assert row["signed_payload"] is None
