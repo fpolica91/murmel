@@ -199,7 +199,7 @@ async def test_list_teams(client, controller_identity):
         headers = _sign(signing_key, controller_did, domain="list.com", operation="create_team", name=name)
         await client.post(
             "/v1/namespaces/list.com/teams",
-            json={"name": name, "team_did_key": did_from_public_key(pub)},
+            json={"name": name, "team_did_key": did_from_public_key(pub), "visibility": "public"},
             headers=headers,
         )
 
@@ -209,6 +209,34 @@ async def test_list_teams(client, controller_identity):
     assert len(body["teams"]) == 2
     names = {t["name"] for t in body["teams"]}
     assert names == {"alpha", "beta"}
+
+
+@pytest.mark.asyncio
+async def test_list_teams_excludes_private_from_anonymous_enumeration(client, controller_identity):
+    # Private teams (the default visibility) must not be advertised in the
+    # by-domain listing — that listing is the roster-discovery vector.
+    signing_key, controller_did = controller_identity
+    await _register_namespace(client, signing_key, controller_did, "mixed.com")
+
+    for name, visibility in [("shown", "public"), ("hidden", "private")]:
+        _, pub = generate_keypair()
+        headers = _sign(signing_key, controller_did, domain="mixed.com", operation="create_team", name=name)
+        await client.post(
+            "/v1/namespaces/mixed.com/teams",
+            json={"name": name, "team_did_key": did_from_public_key(pub), "visibility": visibility},
+            headers=headers,
+        )
+
+    resp = await client.get("/v1/namespaces/mixed.com/teams")
+    assert resp.status_code == 200
+    names = {t["name"] for t in resp.json()["teams"]}
+    assert names == {"shown"}
+
+    # The private team is still reachable by exact name (dashboard depends on
+    # this anonymous lookup); it is only absent from the enumeration.
+    direct = await client.get("/v1/namespaces/mixed.com/teams/hidden")
+    assert direct.status_code == 200
+    assert direct.json()["visibility"] == "private"
 
 
 @pytest.mark.asyncio

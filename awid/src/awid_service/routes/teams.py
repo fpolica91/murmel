@@ -496,7 +496,11 @@ async def list_teams(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    where_clauses = ["domain = $1", "deleted_at IS NULL"]
+    # Private teams are excluded from anonymous enumeration: the listing is the
+    # roster-discovery vector. A private team stays reachable by exact name via
+    # get_team (which the aweb dashboard depends on for its visibility lookup),
+    # but is not advertised in the by-domain list.
+    where_clauses = ["domain = $1", "deleted_at IS NULL", "visibility = 'public'"]
     params: list[object] = [domain]
 
     if decoded_cursor is not None:

@@ -62,8 +62,12 @@ async def _enforce_single_use(request: Request, *, did_key: str, signature: str)
 
     Uses the app's Redis as a single-use cache keyed on (did_key, signature)
     with TTL == skew window. No Redis configured (e.g. tests / opt-out) → no-op.
-    A configured-but-unreachable Redis fails CLOSED (503) for these mutating
-    endpoints rather than allowing a possible replay.
+    A configured-but-unreachable Redis fails OPEN (allows the request),
+    bounded by the timestamp-skew window: every mutation behind this guard is
+    idempotent (PK-conflict / ON CONFLICT upsert / controller==controller),
+    so a transient Redis error trades a theoretical replay of an already-
+    authorized state transition for availability. Any future NON-idempotent
+    mutation added here must not rely on this cache for correctness.
     """
     redis = getattr(request.app.state, "redis", None)
     if redis is None:
