@@ -55,6 +55,13 @@ function buildAuth() {
     baseURL: process.env.BETTER_AUTH_URL ?? "http://localhost:3000",
     secret: process.env.BETTER_AUTH_SECRET,
 
+    // Force Secure session cookies in production instead of inferring it from
+    // the BETTER_AUTH_URL scheme — so a misconfigured (http) base URL can't
+    // silently drop the Secure attribute on the session cookie.
+    advanced: {
+      useSecureCookies: process.env.NODE_ENV === "production",
+    },
+
     // Better Auth manages its own tables (user/session/account/verification/
     // jwks) in this Postgres database — separate from the aweb server DB.
     database: new Pool({ connectionString: databaseUrl }),

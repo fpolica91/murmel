@@ -192,7 +192,9 @@ def _make_standalone_lifespan():
             # Phase 2: Only assign to app.state after ALL initialization succeeds
             app.state.redis = redis
             app.state.db = default_db_infra
-            app.state.rate_limiter = build_rate_limiter(redis=redis)
+            app.state.rate_limiter = build_rate_limiter(
+            redis=redis, backend="redis" if redis is not None else None
+        )
             app.state.on_mutation = create_mutation_handler(redis, default_db_infra)
             app.state.awid_registry_client = _build_awid_registry_client(app, redis)
             await _validate_awid_registry_client(app.state.awid_registry_client)
@@ -238,7 +240,9 @@ def _make_library_lifespan(db_infra: DatabaseInfra, redis: Redis):
         # Use externally provided connections - no initialization needed
         app.state.redis = redis
         app.state.db = db_infra
-        app.state.rate_limiter = build_rate_limiter(redis=redis)
+        app.state.rate_limiter = build_rate_limiter(
+            redis=redis, backend="redis" if redis is not None else None
+        )
         app.state.on_mutation = create_mutation_handler(redis, db_infra)
         app.state.awid_registry_client = _build_awid_registry_client(app, redis)
         await _validate_awid_registry_client(app.state.awid_registry_client)

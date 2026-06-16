@@ -11,6 +11,11 @@ from aweb.identity_auth_deps import MessagingAuth, auth_dids, get_messaging_auth
 
 router = APIRouter(prefix="/v1/conversations", tags=["aweb-conversations"])
 
+# Hard upper bound on rows scanned per source so a caller with a very large
+# history can't make the endpoint buffer unbounded rows into memory. The cursor
+# predicate is pushed into SQL; this cap bounds the worst case beyond it.
+_MAX_CONVERSATION_SCAN = 2000
+
 
 class ConversationItem(BaseModel):
     conversation_type: str  # "mail" or "chat"
@@ -135,13 +140,18 @@ async def list_conversations(
                         )
                     )
               )
+              AND ($6::timestamptz IS NULL OR m.created_at < $6)
             ORDER BY m.created_at DESC, m.message_id DESC
+            LIMIT """
+            + str(_MAX_CONVERSATION_SCAN)
+            + """
             """,
             actor_dids,
             actor_agent_id,
             actor_address,
             target_did,
             target_address,
+            cursor_dt,
         )
 
     actor_did_set = set(actor_dids)
@@ -250,6 +260,7 @@ async def list_conversations(
                       AND cm.created_at > COALESCE(last_read_msg.created_at, 'epoch'::timestamptz)
                 ) unread ON TRUE
                 WHERE lm.created_at IS NOT NULL
+                  AND ($4::timestamptz IS NULL OR lm.created_at < $4)
                   AND (
                         ($2::text IS NULL AND $3::text IS NULL)
                      OR EXISTS (
@@ -264,10 +275,14 @@ async def list_conversations(
                   )
                 GROUP BY s.session_id, lm.body, lm.from_alias, lm.from_did, lm.created_at, unread.cnt
                 ORDER BY lm.created_at DESC
+                LIMIT """
+                + str(_MAX_CONVERSATION_SCAN)
+                + """
                 """,
                 actor_did,
                 target_did,
                 target_address,
+                cursor_dt,
             )
             for row in rows:
                 rows_by_session.setdefault(row["conversation_id"], dict(row))

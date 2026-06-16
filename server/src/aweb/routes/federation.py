@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -38,6 +39,7 @@ from aweb.messaging.messages import (
 from aweb.service_errors import ForbiddenError, NotFoundError, ValidationError
 
 router = APIRouter(prefix="/v1/federation", tags=["aweb-federation"])
+logger = logging.getLogger(__name__)
 
 
 def _public_origins(request: Request) -> set[str]:
@@ -134,7 +136,29 @@ def _enforce_assertion_skew(assertion: ServerDeliveryAssertion) -> None:
         raise HTTPException(status_code=422, detail="Federation assertion timestamp outside accepted skew")
 
 
-def _verify_server_assertion(
+async def _enforce_assertion_nonce(
+    request: Request, assertion: ServerDeliveryAssertion
+) -> None:
+    """Reject a per-origin assertion nonce already seen inside the skew window.
+
+    Independent anti-replay layer (the nonce is signed but was otherwise unused).
+    No Redis configured → no-op.
+    """
+    redis = getattr(request.app.state, "redis", None)
+    if redis is None:
+        return
+    origin = canonical_server_origin(assertion.server_origin)
+    key = f"aweb:fed:nonce:{origin}:{assertion.nonce}"
+    try:
+        was_set = await redis.set(key, "1", nx=True, ex=FEDERATION_TIMESTAMP_SKEW_SECONDS * 2)
+    except Exception:  # pragma: no cover - replay cache must not block on Redis hiccups
+        logger.warning("Federation nonce cache unavailable; allowing", exc_info=True)
+        return
+    if not was_set:
+        raise HTTPException(status_code=403, detail="Federation assertion nonce already used")
+
+
+async def _verify_server_assertion(
     request: Request,
     assertion: ServerDeliveryAssertion,
     envelope: FederationEnvelope,
@@ -186,6 +210,9 @@ def _verify_server_assertion(
             status_code=403,
             detail="Federation peer not authorized for sender address domain",
         )
+
+    # Step 7: reject a replayed assertion nonce (independent of message_id dedup).
+    await _enforce_assertion_nonce(request, assertion)
     return peer
 
 
@@ -591,7 +618,7 @@ async def receive_federated_message(
 
     # Steps 3-5: allowlist (before crypto), assertion<->envelope binding, then the
     # outer server signature against the PINNED key.
-    _verify_server_assertion(request, payload.assertion, payload.envelope)
+    await _verify_server_assertion(request, payload.assertion, payload.envelope)
 
     # Step 6: target origin is here.
     _require_target_origin_here(request, payload.envelope)
