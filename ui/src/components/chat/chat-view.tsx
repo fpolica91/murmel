@@ -58,6 +58,15 @@ export function ChatView() {
   const activeRef = useRef<string | null>(null);
   activeRef.current = activeSessionId;
 
+  // Auto-open the most recent conversation once per team. Landing on /chat with
+  // an empty thread pane (and having to click a card) was reported as "I can't
+  // see the conversation" — and a click that lands inside React's hydration
+  // window is silently dropped. Opening the top row by default makes the thread
+  // appear with no click at all, the way Slack/Linear behave. We only do this
+  // while nothing is selected and reset the latch per team so switching teams
+  // re-opens that team's most recent thread.
+  const autoSelectedTeam = useRef<string | null>(null);
+
   // Directory-backed alias -> authoritative kind map. Used only as a fallback
   // when a message lacks the server-stamped `from_kind`; the thread keys on
   // `from_kind` first (AUDIT.md §3.2).
@@ -145,6 +154,23 @@ export function ChatView() {
       })
       .sort((a, b) => b.lastActivity.localeCompare(a.lastActivity));
   }, [sessions, conversations]);
+
+  // Switching teams clears the selection so the latch below re-opens the new
+  // team's most recent conversation (and never shows a stale cross-team thread).
+  useEffect(() => {
+    if (autoSelectedTeam.current !== activeTeam) {
+      setActiveSessionId(null);
+    }
+  }, [activeTeam]);
+
+  // Auto-open the most recent conversation once the list arrives for a team.
+  useEffect(() => {
+    if (!activeTeam) return;
+    if (autoSelectedTeam.current === activeTeam) return;
+    if (rows.length === 0) return;
+    autoSelectedTeam.current = activeTeam;
+    setActiveSessionId((cur) => cur ?? rows[0].sessionId);
+  }, [activeTeam, rows]);
 
   // ---- Load messages for the active session (initial + poll) -------------
   const loadMessages = useCallback(
