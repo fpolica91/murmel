@@ -450,7 +450,13 @@ func resolveCertificateClient(workingDir, baseURL, teamID string) (*aweb.Client,
 		}
 		return nil, fmt.Errorf("workspace is missing active_team membership")
 	}
-	certPath := filepath.Join(workingDir, ".aw", filepath.FromSlash(strings.TrimSpace(selectedMembership.CertPath)))
+	relCertPath := strings.TrimSpace(selectedMembership.CertPath)
+	if relCertPath == "" {
+		// Token-only (cert-less) binding: no certificate to load. Signal the
+		// caller to fall back to the bearer-token client.
+		return nil, nil
+	}
+	certPath := filepath.Join(workingDir, ".aw", filepath.FromSlash(relCertPath))
 	cert, err := awid.LoadTeamCertificate(certPath)
 	if err != nil {
 		return nil, fmt.Errorf("load team certificate for %s: %w", selectedMembership.TeamID, err)

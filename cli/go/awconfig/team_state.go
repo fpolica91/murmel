@@ -82,9 +82,9 @@ func (s *TeamState) validate() error {
 		if membership.TeamID == "" {
 			return errors.New("teams.yaml membership is missing team_id")
 		}
-		if membership.CertPath == "" {
-			return fmt.Errorf("teams.yaml membership %q is missing cert_path", membership.TeamID)
-		}
+		// cert_path is optional for token-only (cert-less) bindings. When a
+		// certificate is present it is still round-tripped; bearer-token
+		// workspaces simply leave it empty.
 		key := strings.ToLower(strings.TrimSpace(membership.TeamID))
 		if _, ok := seen[key]; ok {
 			return fmt.Errorf("teams.yaml contains duplicate membership for %q", membership.TeamID)

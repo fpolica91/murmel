@@ -1,8 +1,15 @@
 # aw CLI token-only port plan
 
 Branch: `feature/simple-auth-ui` · Work area: `cli/go` (cmd/aw + awconfig).
-Status: **not started** — the cert/DID/team-bootstrap cluster is fully intact;
-every onboarding command still funnels through `initCertificateConnectWithOptions`.
+Status: **DONE** — the cert/DID/namespace/team/bootstrap/service cluster is
+fully removed; onboarding (`aw init`/`aw run`/`aw workspace add-worktree`) is
+token-only and writes a cert-less `.aw/workspace.yaml` + `.aw/teams.yaml`.
+Real bearer e2e validated against the live stack (UI :3030 / aweb :8088):
+the ported `aw` binary, given a founder JWT via `AW_TOKEN`/`--token`, creates
+and lists tasks (HTTP 2xx, `created_by_alias: "Founder"`) with no certificate.
+Gate: `go build ./...` exit 0; a2a/a2agw/internal/conformance/awid/awconfig
+green; zero new cmd/aw failures vs the DNS-environmental baseline (116 ⊂ 140);
+`make fmt` clean.
 
 This supersedes the prose in `ai-completion/PHASE3-PLAN.md` with a concrete,
 ordered, build-green-able step list. It is a self-contained `cmd/aw` refactor:
@@ -95,19 +102,46 @@ FAIL lines vs `/tmp/base.txt`. The token-only packages
 
 ## Ordered steps (each individually build-green-able)
 
-1. [ ] **Baseline capture** — `git stash`; `cd cli/go && go test ./... 2>&1 | tee /tmp/base.txt | grep -c -- "--- FAIL"`; record per-package FAIL set; `git stash pop`. (No code change.)
-2. [ ] **Relax the workspace schema for cert-less bindings** — in `awconfig/workspace.go`, make `cert_path` optional in `validate()` (require `team_id` only); keep `cert_path` round-tripping when present. Add/adjust `awconfig/workspace_test.go` for a no-cert membership. Build + tests green.
-3. [ ] **Add an injectable token override** — thread `--token`/`AW_TOKEN` into `bearerTokenProvider`/`LoadValidToken` (an explicit token bypasses the `~/.aw/token` cache and refresh). Unit-test the override precedence (flag > env > cached file). Build + tests green.
-4. [ ] **Add the token-only workspace writer** (new `init_token.go`) — given workingDir + aweb_url + team + alias + human/agent: require a usable token (cached or injected), write a cert-less `.aw/workspace.yaml` via `awconfig.SaveWorktreeWorkspaceTo`, create the local E2EE signing key + minimal `.aw/identity.yaml` (custody=self, DID from key) so `setupOrRotateIdentityEncryptionKeyForDir` works, ensure `.aw/context`. Pure new code + unit test; nothing calls it yet. Build green.
-5. [ ] **Rewire `aw init`** (`init.go`) — route the default path through the token writer; delete the API-key/cert/implicit-local/guided branches; keep the add-on-only short-circuit, docs injection, channel/hooks, next-steps. Turn `--byod/--global/--username/--domain/--inbound-mode/--awid-registry` into usage errors pointing at `aw login`. Update `init_test.go`/`init_output_test.go`. Build + tests green.
-6. [ ] **Rewire `aw run`** (`run.go:464`) — replace the `guidedOnboardingWizard` branch with the token writer (or a clean `aw login` + `aw init` error). Update `run_test.go`. Build + tests green.
-7. [ ] **Rewire `aw workspace add-worktree`** (`workspace.go:432-545`) — collapse the three worktree-connect strategies into one token-only binder (worktree + cert-less binding inheriting parent aweb_url/team/alias + per-worktree E2EE key; no invite/cert/rollback). Gate `status`/`delete`/`migrate-multi-team` cert reads behind "cert present". Update `workspace_test.go`. Build + tests green.
-8. [ ] **Delete `aw service`** (`service.go` + `service_test.go`); drop its `rootCmd.AddCommand` registration. Build + tests green.
-9. [ ] **Delete the cluster files** — `connect.go`, `init_connect.go`, `init_apikey.go`, `init_local.go`, `onboarding_wizard.go`, `id_create.go`, `id_registry.go`, `id_registry_read*.go`, `id_request.go`, `id_format.go`, `id_team*.go`, `id_namespace_*.go`, `team_bootstrap.go`, `team_request.go`, plus every matching `*_test.go`. Inline `resolveOnboardingServiceURLs` into `claim_human.go` if `onboarding_urls.go` becomes the sole consumer. Build green.
-10. [ ] **Fix command-registration + help-surface fallout** — confirm the `aw id` parent still registers `encryption-key` (drop the empty parent if nothing else remains); update `aw_test.go`/`id_commands_test.go`/`root.go` help-surface and command-list assertions for the removed `connect`/`id team`/`id namespace`/`service` surface. Build + tests green.
-11. [ ] **Final gate** — `make fmt`; `go build ./...`; `go test ./a2a/... ./a2agw/... ./internal/conformance/... ./awid/... ./awconfig/...` (must stay green); `go test ./...` and diff the FAIL set vs `/tmp/base.txt` — require zero new failures.
-12. [ ] **Manual smoke (local stack)** — with UI :3030 / aweb :8088: mint `AW_TOKEN` (`POST /api/auth/sign-in/email` → cookie → `GET /api/auth/token`), `AW_TOKEN=<jwt> aw init --aweb-url http://localhost:8088 --team default:local` in a clean dir, then `aw mail inbox` / `aw work ready` succeed token-authed (header `Authorization: Bearer <jwt>` + `X-AWEB-Team-Id: default:local`).
+1. [x] **Baseline capture** — `git stash`; `cd cli/go && go test ./... 2>&1 | tee /tmp/base.txt | grep -c -- "--- FAIL"`; record per-package FAIL set; `git stash pop`. (No code change.)
+2. [x] **Relax the workspace schema for cert-less bindings** — in `awconfig/workspace.go`, make `cert_path` optional in `validate()` (require `team_id` only); keep `cert_path` round-tripping when present. Add/adjust `awconfig/workspace_test.go` for a no-cert membership. Build + tests green.
+3. [x] **Add an injectable token override** — thread `--token`/`AW_TOKEN` into `bearerTokenProvider`/`LoadValidToken` (an explicit token bypasses the `~/.aw/token` cache and refresh). Unit-test the override precedence (flag > env > cached file). Build + tests green.
+4. [x] **Add the token-only workspace writer** (new `init_token.go`) — given workingDir + aweb_url + team + alias + human/agent: require a usable token (cached or injected), write a cert-less `.aw/workspace.yaml` via `awconfig.SaveWorktreeWorkspaceTo`, create the local E2EE signing key + minimal `.aw/identity.yaml` (custody=self, DID from key) so `setupOrRotateIdentityEncryptionKeyForDir` works, ensure `.aw/context`. Pure new code + unit test; nothing calls it yet. Build green.
+5. [x] **Rewire `aw init`** (`init.go`) — route the default path through the token writer; delete the API-key/cert/implicit-local/guided branches; keep the add-on-only short-circuit, docs injection, channel/hooks, next-steps. Turn `--byod/--global/--username/--domain/--inbound-mode/--awid-registry` into usage errors pointing at `aw login`. Update `init_test.go`/`init_output_test.go`. Build + tests green.
+6. [x] **Rewire `aw run`** (`run.go:464`) — replace the `guidedOnboardingWizard` branch with the token writer (or a clean `aw login` + `aw init` error). Update `run_test.go`. Build + tests green.
+7. [x] **Rewire `aw workspace add-worktree`** (`workspace.go:432-545`) — collapse the three worktree-connect strategies into one token-only binder (worktree + cert-less binding inheriting parent aweb_url/team/alias + per-worktree E2EE key; no invite/cert/rollback). Gate `status`/`delete`/`migrate-multi-team` cert reads behind "cert present". Update `workspace_test.go`. Build + tests green.
+8. [x] **Delete `aw service`** (`service.go` + `service_test.go`); drop its `rootCmd.AddCommand` registration. Build + tests green.
+9. [x] **Delete the cluster files** — `connect.go`, `init_connect.go`, `init_apikey.go`, `init_local.go`, `onboarding_wizard.go`, `id_create.go`, `id_registry.go`, `id_registry_read*.go`, `id_request.go`, `id_format.go`, `id_team*.go`, `id_namespace_*.go`, `team_bootstrap.go`, `team_request.go`, plus every matching `*_test.go`. Inline `resolveOnboardingServiceURLs` into `claim_human.go` if `onboarding_urls.go` becomes the sole consumer. Build green.
+10. [x] **Fix command-registration + help-surface fallout** — confirm the `aw id` parent still registers `encryption-key` (drop the empty parent if nothing else remains); update `aw_test.go`/`id_commands_test.go`/`root.go` help-surface and command-list assertions for the removed `connect`/`id team`/`id namespace`/`service` surface. Build + tests green.
+11. [x] **Final gate** — `make fmt`; `go build ./...`; `go test ./a2a/... ./a2agw/... ./internal/conformance/... ./awid/... ./awconfig/...` (must stay green); `go test ./...` and diff the FAIL set vs `/tmp/base.txt` — require zero new failures.
+12. [x] **Manual smoke (local stack)** — with UI :3030 / aweb :8088: mint `AW_TOKEN` (`POST /api/auth/sign-in/email` → cookie → `GET /api/auth/token`), `AW_TOKEN=<jwt> aw init --aweb-url http://localhost:8088 --team default:local` in a clean dir, then `aw mail inbox` / `aw work ready` succeed token-authed (header `Authorization: Bearer <jwt>` + `X-AWEB-Team-Id: default:local`).
 13. [ ] **Review, merge to main, merge main back to branch.**
+
+---
+
+## Integration fixes (post-merge, needed to make bearer e2e pass)
+
+The merged port wrote a cert-less `.aw/workspace.yaml` but the runtime
+client-resolution path still assumed a certificate, so token-only commands
+failed before reaching the bearer fallback. Three coordinated fixes:
+
+1. **`init_token.go` now also writes `.aw/teams.yaml`.** `LoadTeamState`
+   migrates active-team from a *legacy* `active_team` field on workspace.yaml,
+   which the new cert-less format omits → resolution failed with
+   `load teams state .../teams.yaml: file does not exist`. The token writer now
+   emits an authoritative `teams.yaml` (active_team + one cert-less membership).
+2. **`awconfig/team_state.go` `validate()` no longer requires `cert_path`.**
+   The port relaxed `workspace.go` validate but not `teams.yaml` validate;
+   MarshalYAML/UnmarshalYAML both call it, so writing a cert-less teams.yaml
+   was rejected. Now `cert_path` is optional (still round-trips when present).
+3. **Empty `cert_path` no longer triggers a cert load.** Both
+   `awconfig/selection.go finalizeWorkspaceSelection` and
+   `cmd/aw/helpers.go resolveCertificateClient` joined an empty cert_path to
+   `.aw` (a directory) and surfaced `is a directory` instead of falling back to
+   the bearer client. Both now skip the load when cert_path is empty;
+   `resolveCertificateClient` returns `(nil, nil)` so the bearer fallback fires.
+
+With these, `AW_TOKEN=<jwt> aw {task create,task list,work ready,mail inbox}`
+all return HTTP 2xx token-authed against live aweb (:8088), no certificate.
 
 ---
 

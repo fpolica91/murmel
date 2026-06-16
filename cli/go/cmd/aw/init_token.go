@@ -123,6 +123,22 @@ func initTokenWorkspace(ctx context.Context, opts tokenInitOptions) (tokenInitOu
 		return tokenInitOutput{}, err
 	}
 
+	// Write the authoritative team-selection state (teams.yaml). Client
+	// resolution loads this for active-team selection; without it a cert-less
+	// workspace.yaml cannot resolve a team (no legacy active_team to migrate
+	// from). cert_path is intentionally empty for token-only bindings.
+	if err := awconfig.SaveTeamState(workingDir, &awconfig.TeamState{
+		ActiveTeam: teamID,
+		Memberships: []awconfig.TeamMembership{{
+			TeamID:   teamID,
+			Alias:    strings.TrimSpace(opts.Alias),
+			JoinedAt: time.Now().UTC().Format(time.RFC3339),
+			AwebURL:  awebURL,
+		}},
+	}); err != nil {
+		return tokenInitOutput{}, err
+	}
+
 	if opts.WriteContext {
 		if err := ensureWorktreeContextAt(workingDir); err != nil {
 			return tokenInitOutput{}, err

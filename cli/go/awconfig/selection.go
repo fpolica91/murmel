@@ -158,20 +158,24 @@ func finalizeWorkspaceSelection(workingDir, workspacePath, serverName, baseURL s
 			domain = teamDomain
 			alias = strings.TrimSpace(selectedMembership.Alias)
 			workspaceID = strings.TrimSpace(selectedMembership.WorkspaceID)
-			certPath := filepath.Join(workingDir, ".aw", filepath.FromSlash(strings.TrimSpace(selectedMembership.CertPath)))
-			if cert, err := awid.LoadTeamCertificate(certPath); err == nil {
-				if v := strings.TrimSpace(cert.MemberDIDKey); v != "" {
-					did = v
+			// Token-only (cert-less) bindings leave cert_path empty; skip the
+			// certificate load entirely rather than resolving to the .aw dir.
+			if relCertPath := strings.TrimSpace(selectedMembership.CertPath); relCertPath != "" {
+				certPath := filepath.Join(workingDir, ".aw", filepath.FromSlash(relCertPath))
+				if cert, err := awid.LoadTeamCertificate(certPath); err == nil {
+					if v := strings.TrimSpace(cert.MemberDIDKey); v != "" {
+						did = v
+					}
+					stableID = strings.TrimSpace(cert.MemberDIDAW)
+					if v := strings.TrimSpace(cert.Lifetime); v != "" {
+						lifetime = v
+					}
+					if v := strings.TrimSpace(cert.MemberAddress); v != "" {
+						address = v
+					}
+				} else if !errors.Is(err, os.ErrNotExist) {
+					return nil, fmt.Errorf("load active team certificate %s: %w", certPath, err)
 				}
-				stableID = strings.TrimSpace(cert.MemberDIDAW)
-				if v := strings.TrimSpace(cert.Lifetime); v != "" {
-					lifetime = v
-				}
-				if v := strings.TrimSpace(cert.MemberAddress); v != "" {
-					address = v
-				}
-			} else if !errors.Is(err, os.ErrNotExist) {
-				return nil, fmt.Errorf("load active team certificate %s: %w", certPath, err)
 			}
 		}
 		awebURL = strings.TrimSpace(ws.AwebURL)
