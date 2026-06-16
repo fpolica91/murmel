@@ -1915,28 +1915,38 @@ async def ack_message(
     if not inbox_dids:
         raise HTTPException(status_code=401, detail="Authenticated identity is missing a routing DID")
 
+    # Confine the ack to the request-selected team, exactly like get_inbox /
+    # mark_read: a multi-team subject's synthetic DID spans every team, so
+    # without this a team-A-scoped request could flip read-state (and probe
+    # existence via 200-vs-404) of a team-B message addressed to the subject.
+    team_filter = selected_team_filter(auth, inbox_dids)
+
+    update_params: list = [now, msg_uuid, inbox_dids]
+    update_team_clause = ""
+    if team_filter is not None:
+        update_params.append(team_filter)
+        update_team_clause = f" AND (team_id IS NULL OR team_id = ${len(update_params)})"
+
     result = await aweb_db.fetch_one(
-        """
-        UPDATE {{tables.messages}}
-        SET read_at = $1
-        WHERE message_id = $2 AND to_did = ANY($3::text[])
-          AND read_at IS NULL
-        RETURNING message_id, from_alias, subject, content_mode
-        """,
-        now,
-        msg_uuid,
-        inbox_dids,
+        "UPDATE {{tables.messages}} SET read_at = $1 "
+        "WHERE message_id = $2 AND to_did = ANY($3::text[]) AND read_at IS NULL"
+        + update_team_clause
+        + " RETURNING message_id, from_alias, subject, content_mode",
+        *update_params,
     )
 
     if not result:
         # Either already read or not found — check existence
+        exist_params: list = [msg_uuid, inbox_dids]
+        exist_team_clause = ""
+        if team_filter is not None:
+            exist_params.append(team_filter)
+            exist_team_clause = f" AND (team_id IS NULL OR team_id = ${len(exist_params)})"
         existing = await aweb_db.fetch_one(
-            """
-            SELECT message_id, read_at, from_alias, subject FROM {{tables.messages}}
-            WHERE message_id = $1 AND to_did = ANY($2::text[])
-            """,
-            msg_uuid,
-            inbox_dids,
+            "SELECT message_id, read_at, from_alias, subject FROM {{tables.messages}} "
+            "WHERE message_id = $1 AND to_did = ANY($2::text[])"
+            + exist_team_clause,
+            *exist_params,
         )
         if not existing:
             raise HTTPException(status_code=404, detail="Message not found")

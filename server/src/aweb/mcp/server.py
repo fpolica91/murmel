@@ -11,6 +11,7 @@ primitives as MCP tools. Designed to be mounted alongside the REST API::
 from __future__ import annotations
 
 import asyncio
+import json as _json
 from typing import Any, Optional
 
 from mcp.server.fastmcp import FastMCP
@@ -18,9 +19,15 @@ from mcp.server.transport_security import TransportSecuritySettings
 from redis.asyncio import Redis
 
 from awid.registry import RegistryClient
+from awid.ratelimit import (
+    NoOpRateLimiter,
+    RedisFixedWindowRateLimiter,
+    _rate_config,
+)
+
 from aweb.config import get_awid_registry_url
 from aweb.db import DatabaseInfra
-from aweb.mcp.auth import MCPAuthMiddleware
+from aweb.mcp.auth import MCPAuthMiddleware, get_auth
 from aweb.mcp.signing import HostedMessageDecryptor, HostedMessageEncryptor, HostedMessageSigner
 from aweb.mcp.tools.agents import heartbeat as _heartbeat_impl
 from aweb.mcp.tools.agents import list_agents as _list_agents_impl
@@ -148,6 +155,32 @@ class ManagedMCPApp:
         await self.app(normalized_scope, receive, send)
 
 
+async def _enforce_mcp_send_rate_limit(redis: Optional[Redis], bucket: str) -> str | None:
+    """Apply the same per-identity send budget the REST routes enforce.
+
+    The MCP send tools call the coordination layer directly, bypassing the
+    FastAPI rate_limit_dep, so a token caller could otherwise flood mail/chat.
+    Key on the authenticated subject (agent_id/DID), NOT IP — one human/agent
+    shares an IP with the whole stack. Returns an error JSON string when the
+    caller is over budget, else None.
+    """
+    limiter = RedisFixedWindowRateLimiter(redis=redis) if redis is not None else NoOpRateLimiter()
+    try:
+        auth = get_auth()
+    except RuntimeError:
+        # No auth context (MCPAuthMiddleware always sets one in production; this
+        # guards direct/unit invocations). Nothing to key on, so don't block.
+        return None
+    key = (auth.agent_id or auth.did_key or auth.did_aw or "anonymous").strip() or "anonymous"
+    limit, window = _rate_config(bucket)
+    decision = await limiter.hit(bucket=bucket, key=key, limit=limit, window_seconds=window)
+    if decision.allowed:
+        return None
+    return _json.dumps(
+        {"error": "rate limit exceeded", "retry_after_seconds": decision.retry_after_seconds()}
+    )
+
+
 def register_tools(
     mcp: FastMCP,
     db_infra: DatabaseInfra,
@@ -195,6 +228,8 @@ def register_tools(
         priority: str = "normal",
         plaintext: bool = False,
     ) -> str:
+        if (limited := await _enforce_mcp_send_rate_limit(redis, "mail_send")) is not None:
+            return limited
         return await _send_mail_impl(
             db_infra,
             registry_client=registry_client,
@@ -267,6 +302,8 @@ def register_tools(
         hang_on: bool = False,
         plaintext: bool = False,
     ) -> str:
+        if (limited := await _enforce_mcp_send_rate_limit(redis, "chat_send")) is not None:
+            return limited
         recipient_ref = to.strip()
         to_alias = ""
         to_did = ""

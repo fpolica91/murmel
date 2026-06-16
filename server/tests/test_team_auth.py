@@ -43,6 +43,16 @@ class TestDashboardJWT:
         with pytest.raises(ValueError, match="expired"):
             verify_dashboard_token(token, _JWT_SECRET)
 
+    def test_missing_exp_rejected(self):
+        # A token minted without exp must fail closed (never-expiring otherwise).
+        from aweb.team_auth import verify_dashboard_token
+
+        payload = {"user_id": "user-123", "team_ids": ["backend:acme.com"]}
+        token = jwt.encode(payload, _JWT_SECRET, algorithm="HS256")
+
+        with pytest.raises(ValueError, match="invalid"):
+            verify_dashboard_token(token, _JWT_SECRET)
+
     def test_invalid_secret_rejected(self):
         from aweb.team_auth import verify_dashboard_token
 

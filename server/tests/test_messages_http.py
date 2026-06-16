@@ -6189,6 +6189,63 @@ async def test_messages_inbox_and_ack_accept_persistent_team_auth(aweb_cloud_db)
 
 
 @pytest.mark.asyncio
+async def test_ack_rejects_cross_team_message_for_token_caller(aweb_cloud_db):
+    # Security regression (audit round 10): a token subject's synthetic DID is
+    # addressed across all their teams. POST /v1/messages/{id}/ack scoped to
+    # team A must NOT mark-read (or existence-probe) a message in team B, even
+    # though it is addressed to the same subject.
+    db = aweb_cloud_db.aweb_db
+    sub = "did:key:jwt-contractor"
+    msg_id = "44444444-4444-4444-4444-444444444444"
+    for tid, ns, nm in (("alpha:acme.com", "acme.com", "alpha"), ("beta:globex.com", "globex.com", "beta")):
+        await db.execute(
+            "INSERT INTO {{tables.teams}} (team_id, namespace, team_name, team_did_key) VALUES ($1,$2,$3,'did:key:t')",
+            tid, ns, nm,
+        )
+    # Message lives in team B, addressed to the subject's synthetic DID.
+    await db.execute(
+        """
+        INSERT INTO {{tables.messages}} (
+            message_id, team_id, from_did, to_did, from_alias, to_alias, subject, body, priority
+        )
+        VALUES ($1, 'beta:globex.com', 'did:aw:bob', $2, 'bob', 'me', 'team-b secret', 'hello', 'normal')
+        """,
+        msg_id, sub,
+    )
+
+    registry = AsyncMock()
+    app = _build_test_app(db, registry)
+
+    def _auth_for(team_id):
+        async def _auth():
+            return MessagingAuth(
+                did_key=sub, did_aw=None, address=None,
+                team_id=team_id, alias="me", agent_id=None,
+            )
+        return _auth
+
+    # Scoped to team A: the team-B message must be invisible -> 404, stays unread.
+    app.dependency_overrides[get_messaging_auth] = _auth_for("alpha:acme.com")
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp_a = await client.post(f"/v1/messages/{msg_id}/ack")
+    assert resp_a.status_code == 404, resp_a.text
+    row = await db.fetch_one(
+        "SELECT read_at FROM {{tables.messages}} WHERE message_id = $1", msg_id
+    )
+    assert row["read_at"] is None  # not marked read from the wrong team
+
+    # Scoped to team B (its real team): ack succeeds.
+    app.dependency_overrides[get_messaging_auth] = _auth_for("beta:globex.com")
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        resp_b = await client.post(f"/v1/messages/{msg_id}/ack")
+    assert resp_b.status_code == 200, resp_b.text
+    row = await db.fetch_one(
+        "SELECT read_at FROM {{tables.messages}} WHERE message_id = $1", msg_id
+    )
+    assert row["read_at"] is not None
+
+
+@pytest.mark.asyncio
 async def test_messages_inbox_and_ack_accept_ephemeral_team_auth(aweb_cloud_db):
     _, _, alice_did_key = _make_keypair()
 

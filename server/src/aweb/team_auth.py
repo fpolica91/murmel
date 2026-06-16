@@ -42,7 +42,11 @@ def verify_dashboard_token(
         raise ValueError("Dashboard JWT secret not configured")
 
     try:
-        payload = pyjwt.decode(token, secret, algorithms=["HS256"])
+        # require exp so a token minted without expiry fails closed — these are
+        # documented as short-lived and have no jti/revocation path.
+        payload = pyjwt.decode(
+            token, secret, algorithms=["HS256"], options={"require": ["exp"]},
+        )
     except pyjwt.ExpiredSignatureError:
         raise ValueError("Dashboard token expired")
     except pyjwt.InvalidTokenError:
