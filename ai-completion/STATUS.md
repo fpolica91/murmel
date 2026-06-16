@@ -4,6 +4,33 @@ _Branch: `feature/simple-auth-ui`. Local stack: UI :3030, aweb :8088, Postgres :
 _Updated as work lands. "Validated" = independently re-run, not just self-reported._
 _Last full E2E validation: 2026-06-15. No code changes were needed — every scenario passed against the existing stack._
 
+## Demo seed (2026-06-16)
+
+The live app is now **demo-pristine**: a reusable, idempotent seed script
+replaces accumulated test-run junk ("E2E auto issue …", "CHATREV-…",
+"verify-badge-check-…") with a believable product backlog + conversations.
+
+- **Script:** `server/scripts/seed_demo.py` — re-runnable; talks to Postgres via
+  `psql` (no server deps). KEEPS identities (founder/mia/ada/bob), team,
+  memberships, agents rows + encryption keys. CLEARS work + messaging content
+  tables. INSERTS 4 epics (Authentication & SSO, Realtime collaboration,
+  Billing & plans, Mobile app), 11 stories, 18 issues spread across
+  todo/in_progress/in_review/done and assigned across all 4 identities (+ a few
+  unassigned), 4 comments (human + agent), and 2 chat sessions (Founder↔Ada,
+  Mia↔Bob, 7 messages). Run: `PGPASSWORD=change-me python3 server/scripts/seed_demo.py`.
+- **E2E independence:** `ui/e2e/collab.spec.ts` no longer depends on a
+  pre-existing "Wire JWKS verify" issue / harness-seeded chat — it now
+  self-seeds its fixtures over the aweb REST API (founder mints a JWT to open
+  the chat + create the issue; Ada replies under her own JWT). Chat bodies are
+  run-tagged so they never collide with the demo seed. (login/demo/complete
+  already self-seed.) Re-running the e2e suite re-adds a couple of "E2E …" test
+  issues by design; re-run the seed script to refresh the demo board.
+- **Gates:** `npm run typecheck` clean; `npx playwright test` → **15 passed**.
+- **Visual:** logged into Chrome as founder@local.test → `/dashboard` (Console)
+  shows the real Work snapshot (7/4/3/4) + recent issues + Ada chat activity;
+  `/dashboard/work` board renders the realistic backlog across all 4 columns
+  with assignee avatars and comment counts. No "E2E auto issue …" junk.
+
 ## ✅ Completed (validated)
 
 | Area | What | Proof |
