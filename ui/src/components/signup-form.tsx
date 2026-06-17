@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { signIn, signUp } from "@/lib/auth-client";
 
@@ -15,6 +15,9 @@ export function SignupForm() {
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Preserve the invite/return target on the "Sign in" link (set after mount to
+  // avoid a hydration mismatch on the href).
+  const [loginHref, setLoginHref] = useState("/login");
 
   // Return-to after auth (e.g. an /invite/<token> link). Same-origin only.
   function callbackURL(): string {
@@ -22,6 +25,13 @@ export function SignupForm() {
     const cb = new URLSearchParams(window.location.search).get("callbackURL");
     return cb && cb.startsWith("/") && !cb.startsWith("//") ? cb : "/dashboard";
   }
+
+  useEffect(() => {
+    const cb = new URLSearchParams(window.location.search).get("callbackURL");
+    if (cb && cb.startsWith("/") && !cb.startsWith("//")) {
+      setLoginHref(`/login?callbackURL=${encodeURIComponent(cb)}`);
+    }
+  }, []);
 
   async function onSocial(provider: "github" | "google") {
     setError(null);
@@ -138,7 +148,7 @@ export function SignupForm() {
       ) : null}
 
       <p className="muted" style={{ marginTop: "1rem", textAlign: "center" }}>
-        Already have an account? <a href="/login">Sign in</a>
+        Already have an account? <a href={loginHref}>Sign in</a>
       </p>
     </div>
   );

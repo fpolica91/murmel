@@ -20,7 +20,10 @@ export default async function InvitePage({
   const { token } = await params;
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) {
-    redirect(`/login?callbackURL=${encodeURIComponent(`/invite/${token}`)}`);
+    // Invitees are usually new — send them to signup (which auto-creates their
+    // personal team), carrying the invite so they land back here to accept.
+    // The signup page links to login for people who already have an account.
+    redirect(`/signup?callbackURL=${encodeURIComponent(`/invite/${token}`)}`);
   }
   return (
     <div className="center">
