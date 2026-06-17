@@ -106,7 +106,12 @@ export function WorkBoard() {
           </button>
         </div>
 
-        <WorkFilters value={filters} onChange={setFilters} />
+        <WorkFilters
+          value={filters}
+          onChange={setFilters}
+          epics={epics}
+          stories={stories}
+        />
 
         <span className={styles.spacer} />
         <button
