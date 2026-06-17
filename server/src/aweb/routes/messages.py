@@ -813,6 +813,7 @@ async def record_successful_contact_side_effect(
         owner_did=owner_did,
         contact_address=recipient_address,
         label=str((recipient or {}).get("alias") or recipient_address),
+        team_id=(sender_team if owner_did.startswith("did:key:jwt-") else None),
     )
 
 

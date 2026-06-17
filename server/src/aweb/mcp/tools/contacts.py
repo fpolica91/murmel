@@ -6,6 +6,7 @@ import json
 from uuid import UUID
 
 from aweb.mcp.auth import auth_dids, get_auth, primary_auth_did
+from aweb.identity_auth_deps import selected_team_filter
 from aweb.mcp.signing import HostedMessageEncryptor, HostedMessageSigner
 from aweb.mcp.tools.chat import chat_send
 from aweb.mcp.tools.mail import mcp_mail_message_from_row, send_mail
@@ -33,7 +34,11 @@ async def contacts_list(db_infra) -> str:
     auth = get_auth()
     owner_dids = normalize_owner_dids(owner_dids=[auth.did_aw, auth.did_key])
     try:
-        contacts = await list_contacts(db_infra, owner_dids=owner_dids)
+        contacts = await list_contacts(
+            db_infra,
+            owner_dids=owner_dids,
+            team_id=selected_team_filter(auth, owner_dids),
+        )
     except ServiceError as exc:
         return json.dumps({"error": exc.detail})
     return json.dumps({"contacts": contacts})
@@ -55,6 +60,7 @@ async def contacts_add(db_infra, *, contact_address: str, label: str = "") -> st
             owner_did=owner_did,
             contact_address=contact_address,
             label=label or None,
+            team_id=selected_team_filter(auth, owner_dids),
         )
     except ServiceError as exc:
         return json.dumps({"error": exc.detail})
@@ -77,6 +83,7 @@ async def add_contact_by_handle(db_infra, *, handle: str, label: str = "") -> st
             target_agent_name=agent_name,
             label=label or "",
             status="pending",
+            team_id=selected_team_filter(auth, owner_dids),
         )
     except ServiceError as exc:
         return json.dumps({"error": exc.detail})
@@ -213,7 +220,12 @@ async def contacts_remove(db_infra, *, contact_id: str) -> str:
     auth = get_auth()
     owner_dids = normalize_owner_dids(owner_dids=[auth.did_aw, auth.did_key])
     try:
-        await remove_contact(db_infra, owner_dids=owner_dids, contact_id=contact_id)
+        await remove_contact(
+            db_infra,
+            owner_dids=owner_dids,
+            contact_id=contact_id,
+            team_id=selected_team_filter(auth, owner_dids),
+        )
     except ServiceError as exc:
         return json.dumps({"error": exc.detail})
 

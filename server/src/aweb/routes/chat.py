@@ -269,6 +269,7 @@ async def _record_successful_chat_contacts(
             owner_did=owner,
             contact_address=address,
             label=str(recipient.get("alias") or address),
+            team_id=(sender_team if owner.startswith("did:key:jwt-") else None),
         )
 
 
@@ -1837,7 +1838,9 @@ async def history(
         limit=limit,
         message_id=message_id,
     )
-    contact_addrs = await get_contact_addresses(db, owner_dids=owner_dids)
+    contact_addrs = await get_contact_addresses(
+        db, owner_dids=owner_dids, team_id=selected_team_filter(auth, owner_dids)
+    )
     identity_map = await lookup_identity_metadata_by_did(
         db,
         [m["from_did"] for m in messages if m.get("from_did")],
@@ -2002,7 +2005,15 @@ async def _sse_events(
             yield f"event: error\ndata: {json.dumps({'error': 'Session not found'})}\n\n"
             return
 
-        contact_addrs = await get_contact_addresses(db, owner_dids=contact_owner_dids)
+        contact_addrs = await get_contact_addresses(
+            db,
+            owner_dids=contact_owner_dids,
+            team_id=(
+                viewer_team_id
+                if viewer_did.startswith("did:key:jwt-")
+                else None
+            ),
+        )
 
         async def _connect_pubsub() -> PubSub:
             ps: PubSub = redis.pubsub()

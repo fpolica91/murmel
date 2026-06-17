@@ -12,13 +12,23 @@ from aweb.messaging.contacts import (
     remove_contact,
 )
 from aweb.deps import get_db
-from aweb.identity_auth_deps import MessagingAuth, get_messaging_auth
+from aweb.identity_auth_deps import (
+    MessagingAuth,
+    get_messaging_auth,
+    selected_team_filter,
+)
 
 router = APIRouter(prefix="/v1/contacts", tags=["aweb-contacts"])
 
 
 def _owner_dids(identity: MessagingAuth) -> list[str]:
     return normalize_owner_dids(owner_dids=[identity.did_aw, identity.did_key])
+
+
+def _contact_team(identity: MessagingAuth) -> str | None:
+    """The team to scope this identity's contacts to: their selected team for
+    token (synthetic-DID) callers, None (global) for did:aw cross-org callers."""
+    return selected_team_filter(identity, _owner_dids(identity))
 
 
 class CreateContactRequest(BaseModel):
@@ -65,6 +75,7 @@ async def create_contact(
         owner_did=owner_did,
         contact_address=payload.contact_address,
         label=payload.label,
+        team_id=_contact_team(identity),
     )
     return ContactView(**result)
 
@@ -74,7 +85,9 @@ async def list_contacts_route(
     request: Request, db=Depends(get_db),
     identity: MessagingAuth = Depends(get_messaging_auth),
 ) -> ListContactsResponse:
-    contacts = await list_contacts(db, owner_dids=_owner_dids(identity))
+    contacts = await list_contacts(
+        db, owner_dids=_owner_dids(identity), team_id=_contact_team(identity)
+    )
     return ListContactsResponse(contacts=[ContactView(**c) for c in contacts])
 
 
@@ -83,5 +96,10 @@ async def delete_contact(
     request: Request, contact_id: str, db=Depends(get_db),
     identity: MessagingAuth = Depends(get_messaging_auth),
 ) -> dict:
-    await remove_contact(db, owner_dids=_owner_dids(identity), contact_id=contact_id)
+    await remove_contact(
+        db,
+        owner_dids=_owner_dids(identity),
+        contact_id=contact_id,
+        team_id=_contact_team(identity),
+    )
     return {"deleted": True}

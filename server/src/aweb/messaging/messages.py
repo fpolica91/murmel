@@ -220,10 +220,21 @@ async def _recipient_has_exact_sender_contact(
     )
     if not owner_dids:
         raise ForbiddenError("Recipient identity is incomplete")
+    # Scope the contact allowlist to the recipient's team for token (synthetic-DID)
+    # recipients — their did:key:jwt-<sub> is the same across all their teams, so an
+    # unscoped check would let a contact added in team A authorize delivery in team B.
+    # did:aw recipients legitimately span teams -> global (unscoped) contact bucket.
+    recip_did_key = str(recipient_agent.get("did_key") or "")
+    contact_team = (
+        str(recipient_agent.get("team_id") or "")
+        if recip_did_key.startswith("did:key:jwt-")
+        else None
+    )
     return await has_exact_active_identity_contact(
         db,
         owner_dids=owner_dids,
         contact_address=sender_address,
+        team_id=contact_team,
     )
 
 

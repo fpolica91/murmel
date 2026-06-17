@@ -34,10 +34,12 @@ async def add_contact(
     contact_address: str,
     label: str,
     status: str = "active",
+    team_id: str | None = None,
 ) -> dict:
     """Add a contact to the team. Returns the created contact dict.
 
-    Raises ServiceError subclasses on validation failure or conflict.
+    ``team_id`` scopes the contact to one team ('' = global/cross-org bucket for
+    did:aw identities). Raises ServiceError subclasses on validation/conflict.
     """
     aweb_db = db.get_manager("aweb")
 
@@ -48,9 +50,9 @@ async def add_contact(
 
     row = await aweb_db.fetch_one(
         """
-        INSERT INTO {{tables.contacts}} (owner_did, contact_address, label, status)
-        VALUES ($1, $2, $3, $4)
-        ON CONFLICT (owner_did, contact_address) DO NOTHING
+        INSERT INTO {{tables.contacts}} (owner_did, contact_address, label, status, team_id)
+        VALUES ($1, $2, $3, $4, $5)
+        ON CONFLICT (owner_did, team_id, contact_address) DO NOTHING
         RETURNING contact_id, contact_address, label, created_at,
                   reference_type, status, handle_namespace, target_agent_name
         """,
@@ -58,6 +60,7 @@ async def add_contact(
         addr,
         label or "",
         contact_status,
+        team_id or "",
     )
     if row is None:
         raise ConflictError("Contact already exists")
@@ -73,6 +76,7 @@ async def add_handle_contact(
     target_agent_name: str | None = None,
     label: str = "",
     status: str = "pending",
+    team_id: str | None = None,
 ) -> dict:
     """Add a handle contact for a namespace or a specific namespace agent."""
     aweb_db = db.get_manager("aweb")
@@ -84,9 +88,9 @@ async def add_handle_contact(
         """
         INSERT INTO {{tables.contacts}} (
             owner_did, contact_address, label, reference_type, status,
-            handle_namespace, target_agent_name
+            handle_namespace, target_agent_name, team_id
         )
-        VALUES ($1, NULL, $2, 'handle', $3, $4, $5)
+        VALUES ($1, NULL, $2, 'handle', $3, $4, $5, $6)
         ON CONFLICT DO NOTHING
         RETURNING contact_id, contact_address, label, created_at,
                   reference_type, status, handle_namespace, target_agent_name
@@ -96,6 +100,7 @@ async def add_handle_contact(
         contact_status,
         namespace,
         agent_name,
+        team_id or "",
     )
     if row is None:
         raise ConflictError("Contact already exists")
@@ -103,45 +108,62 @@ async def add_handle_contact(
     return _contact_row_to_dict(row)
 
 
-async def list_contacts(db, *, owner_did: str | None = None, owner_dids: list[str] | None = None) -> list[dict]:
-    """List all contacts for an identity."""
+async def list_contacts(
+    db,
+    *,
+    owner_did: str | None = None,
+    owner_dids: list[str] | None = None,
+    team_id: str | None = None,
+) -> list[dict]:
+    """List contacts for an identity, scoped to ``team_id`` when provided."""
     aweb_db = db.get_manager("aweb")
     owner_keys = normalize_owner_dids(owner_did=owner_did, owner_dids=owner_dids)
     if not owner_keys:
         return []
 
+    params: list = [owner_keys]
+    team_clause = ""
+    if team_id is not None:
+        params.append(team_id)
+        team_clause = f" AND team_id = ${len(params)}"
+
     rows = await aweb_db.fetch_all(
-        """
-        SELECT contact_id, contact_address, label, created_at,
-               reference_type, status, handle_namespace, target_agent_name
-        FROM {{tables.contacts}}
-        WHERE owner_did = ANY($1::text[])
-        ORDER BY reference_type,
-                 COALESCE(contact_address, handle_namespace || COALESCE('/' || target_agent_name, '')),
-                 created_at
-        """,
-        owner_keys,
+        "SELECT contact_id, contact_address, label, created_at, "
+        "reference_type, status, handle_namespace, target_agent_name "
+        "FROM {{tables.contacts}} "
+        "WHERE owner_did = ANY($1::text[])" + team_clause + " "
+        "ORDER BY reference_type, "
+        "COALESCE(contact_address, handle_namespace || COALESCE('/' || target_agent_name, '')), "
+        "created_at",
+        *params,
     )
 
     return [_contact_row_to_dict(r) for r in rows]
 
 
-async def get_contact_addresses(db, *, owner_did: str | None = None, owner_dids: list[str] | None = None) -> set[str]:
-    """Return all contact_address values for an identity."""
+async def get_contact_addresses(
+    db,
+    *,
+    owner_did: str | None = None,
+    owner_dids: list[str] | None = None,
+    team_id: str | None = None,
+) -> set[str]:
+    """Return contact_address values for an identity, scoped to ``team_id``."""
     aweb_db = db.get_manager("aweb")
     owner_keys = normalize_owner_dids(owner_did=owner_did, owner_dids=owner_dids)
     if not owner_keys:
         return set()
+    params: list = [owner_keys]
+    team_clause = ""
+    if team_id is not None:
+        params.append(team_id)
+        team_clause = f" AND team_id = ${len(params)}"
     rows = await aweb_db.fetch_all(
-        """
-        SELECT contact_address
-        FROM {{tables.contacts}}
-        WHERE owner_did = ANY($1::text[])
-          AND reference_type = 'identity'
-          AND status = 'active'
-          AND contact_address IS NOT NULL
-        """,
-        owner_keys,
+        "SELECT contact_address FROM {{tables.contacts}} "
+        "WHERE owner_did = ANY($1::text[]) "
+        "AND reference_type = 'identity' AND status = 'active' "
+        "AND contact_address IS NOT NULL" + team_clause,
+        *params,
     )
     return {r["contact_address"] for r in rows}
 
@@ -152,8 +174,9 @@ async def has_exact_active_identity_contact(
     owner_did: str | None = None,
     owner_dids: list[str] | None = None,
     contact_address: str | None,
+    team_id: str | None = None,
 ) -> bool:
-    """Return whether owner has an exact active identity contact.
+    """Return whether owner has an exact active identity contact in ``team_id``.
 
     This helper is intentionally narrower than ``is_address_in_contacts``: it
     does not allow domain-level matching, pending rows, handle rows, labels, or
@@ -164,18 +187,17 @@ async def has_exact_active_identity_contact(
     if not owner_keys or not addr:
         return False
     aweb_db = db.get_manager("aweb")
+    params: list = [owner_keys, addr]
+    team_clause = ""
+    if team_id is not None:
+        params.append(team_id)
+        team_clause = f" AND team_id = ${len(params)}"
     row = await aweb_db.fetch_one(
-        """
-        SELECT 1
-        FROM {{tables.contacts}}
-        WHERE owner_did = ANY($1::text[])
-          AND reference_type = 'identity'
-          AND status = 'active'
-          AND contact_address = $2
-        LIMIT 1
-        """,
-        owner_keys,
-        addr,
+        "SELECT 1 FROM {{tables.contacts}} "
+        "WHERE owner_did = ANY($1::text[]) "
+        "AND reference_type = 'identity' AND status = 'active' "
+        "AND contact_address = $2" + team_clause + " LIMIT 1",
+        *params,
     )
     return row is not None
 
@@ -186,11 +208,13 @@ async def upsert_successful_identity_contact(
     owner_did: str,
     contact_address: str | None,
     label: str = "",
+    team_id: str | None = None,
 ) -> bool:
     """Idempotently add an active identity contact after accepted delivery.
 
-    Existing rows are left unchanged so repeat sends do not mutate label/status.
-    Returns True only when a new contact row was inserted.
+    Scoped to ``team_id`` ('' = global). Existing rows are left unchanged so
+    repeat sends do not mutate label/status. Returns True only when a new row
+    was inserted.
     """
     owner = str(owner_did or "").strip()
     addr = normalize_hosted_handle_reference(contact_address or "")
@@ -199,14 +223,15 @@ async def upsert_successful_identity_contact(
     aweb_db = db.get_manager("aweb")
     row = await aweb_db.fetch_one(
         """
-        INSERT INTO {{tables.contacts}} (owner_did, contact_address, label, reference_type, status)
-        VALUES ($1, $2, $3, 'identity', 'active')
+        INSERT INTO {{tables.contacts}} (owner_did, contact_address, label, reference_type, status, team_id)
+        VALUES ($1, $2, $3, 'identity', 'active', $4)
         ON CONFLICT DO NOTHING
         RETURNING contact_id
         """,
         owner,
         addr,
         label or "",
+        team_id or "",
     )
     return row is not None
 
@@ -301,8 +326,15 @@ def is_address_in_contacts(address: str, contact_addresses: set[str]) -> bool:
     return False
 
 
-async def remove_contact(db, *, owner_did: str | None = None, owner_dids: list[str] | None = None, contact_id: str) -> None:
-    """Remove a contact by ID. Idempotent (no error if not found).
+async def remove_contact(
+    db,
+    *,
+    owner_did: str | None = None,
+    owner_dids: list[str] | None = None,
+    contact_id: str,
+    team_id: str | None = None,
+) -> None:
+    """Remove a contact by ID, scoped to ``team_id`` when provided. Idempotent.
 
     Raises ValidationError on invalid contact_id format.
     """
@@ -315,10 +347,15 @@ async def remove_contact(db, *, owner_did: str | None = None, owner_dids: list[s
     owner_keys = normalize_owner_dids(owner_did=owner_did, owner_dids=owner_dids)
     if not owner_keys:
         return
+    params: list = [contact_uuid, owner_keys]
+    team_clause = ""
+    if team_id is not None:
+        params.append(team_id)
+        team_clause = f" AND team_id = ${len(params)}"
     await aweb_db.execute(
-        "DELETE FROM {{tables.contacts}} WHERE contact_id = $1 AND owner_did = ANY($2::text[])",
-        contact_uuid,
-        owner_keys,
+        "DELETE FROM {{tables.contacts}} WHERE contact_id = $1 "
+        "AND owner_did = ANY($2::text[])" + team_clause,
+        *params,
     )
 
 
