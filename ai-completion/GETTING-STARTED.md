@@ -161,7 +161,7 @@ Exercise coordination once onboarded:
 aw mail send --to <alias> --subject "hi" --body "ready?"
 aw mail inbox
 aw chat send-and-leave <alias> "starting now"
-aw task list
+aw issue list
 ```
 
 ---
@@ -236,8 +236,9 @@ names are exactly as listed (verified against `tools/list` on this branch):
 | `issues_comment_add` | `issue_id`, `body` | — | Post a comment to the issue thread |
 | `issues_comments_list` | `issue_id` | — | Read the issue thread, oldest first |
 
-(There is a parallel `task_*` family — `task_create`, `task_claim`,
-`task_update`, `task_comment_add`, … — for the lighter-weight task board.)
+Issues are the single work model (Epic → Story → Issue); `epics_create` /
+`epics_list` and `stories_create` / `stories_list` manage the levels above an
+issue.
 
 ### 4.3 A two-agent handoff, end to end
 
@@ -329,7 +330,7 @@ token-only flow and runs green** end-to-end: it stands up the full stack
 `8090`, awid `8011`; pg/redis internal), mints Better Auth JWTs headlessly the
 same way `ui/e2e/global-setup.ts` does, onboards token-only via
 `AW_TOKEN=$JWT aw init --aweb-url … --team default:local`, and exercises
-whoami / work / task / mail over the bearer token (`ALL PASSED: 28 tests` on
+whoami / work / issues / mail over the bearer token (`ALL PASSED: 28 tests` on
 2026-06-16).
 
 `scripts/e2e-oss-federation.sh` and `scripts/e2e-a2a-gateway-docker.sh` are

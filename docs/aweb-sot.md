@@ -44,17 +44,17 @@ For supporting reference material that does not redefine the contract:
    never creates, stores, or manages identities. It never decides who
    is in a team — it verifies presented certs against the team's public
    key + revocation list.
-2. **aweb owns coordination.** Mail, chat, tasks, roles, locks,
+2. **aweb owns coordination.** Mail, chat, issues, roles, locks,
    workspaces, events. This is the only thing aweb does.
 3. **Team certificates are the single credential for coordination
    endpoints.** Agents authenticate every coordination request (mail,
-   chat, tasks, roles, locks, instructions, workspace state) with a
+   chat, issues, roles, locks, instructions, workspace state) with a
    DIDKey signature and a team certificate. aweb's MCP server uses the
    same team certificate auth on its local CLI mount. Hosted operators
    may layer additional auth modes (OAuth, opaque bearer tokens, etc.)
    on top of their own MCP surface, but those are operator-specific
    and outside the aweb OSS contract.
-4. **team_id is the coordination scope for non-messaging state.** Tasks,
+4. **team_id is the coordination scope for non-messaging state.** Issues,
    claims, locks, roles, instructions, and presence are scoped to a
    `team_id` (e.g., `backend:acme.com`). **Messaging is
    identity-scoped, not team-scoped.** First contact to a global recipient uses
@@ -610,7 +610,10 @@ CREATE UNIQUE INDEX idx_workspaces_active_alias
     ON workspaces (team_id, alias)
     WHERE deleted_at IS NULL;
 
--- Tasks
+-- Tasks (LEGACY/COMPAT). The legacy task work model has been retired in
+-- favor of the issues model (Epic -> Story -> Issue). These tables are
+-- retained for backward compatibility only; no live CLI/MCP/REST surface
+-- creates or mutates them. New work is tracked via the issues tables.
 CREATE TABLE tasks (
     task_id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     team_id    TEXT NOT NULL,
@@ -858,8 +861,9 @@ is available, it returns HTTP 409 with detail `alias_exhausted`.
 
 | Route | Notes |
 |-------|-------|
-| `GET/POST/PUT/DELETE /v1/tasks/*` | All task operations |
-| `GET/POST /v1/claims/*` | Task claims |
+| `GET/POST/PATCH /v1/issues`, `/v1/issues/{id}`, `/v1/issues/{id}/comments` | Issue operations (list/create/get/update-status, comments) |
+| `GET/POST /v1/epics`, `/v1/stories` | Epics and stories (Epic -> Story -> Issue) |
+| `GET/POST /v1/claims/*` | Issue claims |
 | `GET/POST/DELETE /v1/reservations/*` | Locks |
 | `GET/POST /v1/roles/*` | Versioned roles |
 | `GET/POST /v1/instructions/*` | Versioned instructions |
@@ -887,9 +891,9 @@ upstream operator that holds `AWEB_DASHBOARD_JWT_SECRET`.
 | `GET /v1/teams/{team_id}/agents` | List active agents in team |
 | `GET /v1/teams/{team_id}/agents/{alias}` | Agent detail |
 | `GET /v1/teams/{team_id}/messages` | Message history |
-| `GET /v1/teams/{team_id}/tasks` | Task list with query params `status`, `assignee_alias`, `task_type`, `priority` (`P0`-`P4`), `labels`, `q`, `limit`, and `cursor`. Returns `{tasks, has_more, next_cursor}`. |
-| `GET /v1/teams/{team_id}/claims` | Active task claims |
-| `GET /v1/teams/{team_id}/events/stream` | Dashboard SSE stream. Subscribe to `team-events:{team_id}` before building the initial snapshot, then stream dashboard-shaped events `task.created`, `task.status_changed`, `task.claimed`, `task.unclaimed`, `message.sent`, `agent.online`, and `agent.offline`. First frames are `connected` then `snapshot` with current `online_aliases` and `active_claims`. |
+| `GET /v1/teams/{team_id}/issues` | Issue list with query params `status` (`todo`, `in_progress`, `in_review`, `done`), `assignee_alias`, `priority` (`P0`-`P4`), `labels`, `q`, `limit`, and `cursor`. Returns `{issues, has_more, next_cursor}`. |
+| `GET /v1/teams/{team_id}/claims` | Active issue claims |
+| `GET /v1/teams/{team_id}/events/stream` | Dashboard SSE stream. Subscribe to `team-events:{team_id}` before building the initial snapshot, then stream dashboard-shaped events `issue.created`, `issue.status_changed`, `issue.claimed`, `issue.unclaimed`, `message.sent`, `agent.online`, and `agent.offline`. First frames are `connected` then `snapshot` with current `online_aliases` and `active_claims`. |
 | `GET /v1/teams/{team_id}/roles/active` | Active role definitions |
 | `GET /v1/teams/{team_id}/instructions/active` | Active instructions |
 | `GET /v1/teams/{team_id}/status` | Team status (online agents, locks, claims) |
@@ -927,7 +931,7 @@ but those reads are cached.
 **Public-team anonymous bypass.** When the requested team_id
 resolves (via the cached team metadata above) to `visibility = "public"`,
 aweb allows the dashboard read **without** a valid `X-Dashboard-Token`.
-This makes public team activity (agents, messages, tasks, status)
+This makes public team activity (agents, messages, issues, status)
 available for anonymous read. Visibility is checked against the cached
 team metadata before any data fetch — never serve data and then check.
 
@@ -1134,16 +1138,17 @@ relies on are:
 Most coordination commands also accept `--team <team_id>` to override `active_team`
 for a single invocation without mutating `.aw/teams.yaml`.
 
-All coordination commands (mail, chat, tasks, claims, locks, roles,
+All coordination commands (mail, chat, issues, claims, locks, roles,
 instructions, work, contacts, etc.) are listed in
 [`cli-command-reference.md`](cli-command-reference.md):
 
 ```
 aw mail send/inbox
 aw chat send-and-wait/send-and-leave/pending/open/history/listen
-aw work ready/active/blocked
-aw task create/list/show/update/close/reopen/delete
-aw task comment/dep/stats
+aw work ready/active
+aw issue list/create/show/comment/status/assign
+aw epic create/list
+aw story create/list
 aw lock acquire/renew/release/revoke/list
 aw roles show/list/set/activate/reset/deactivate
 aw role-name set
@@ -1288,7 +1293,7 @@ aweb does NOT call awid for:
 ## MCP server
 
 aweb ships an MCP (Model Context Protocol) server that exposes the
-coordination primitives — mail, chat, tasks, claims, work, roles,
+coordination primitives — mail, chat, issues, claims, work, roles,
 instructions, contacts, presence — as MCP tools. Any MCP-capable agent
 runtime (Claude Code, Claude Desktop, ChatGPT custom connectors,
 programmatic MCP clients, internal tooling) can call them via the MCP
@@ -1422,8 +1427,9 @@ families are:
 | Identity | `whoami` |
 | Mail | `send_mail`, `check_mail` |
 | Chat | `send_chat`, `check_chats`, `read_chat`, `mark_chat_read` |
-| Tasks | `task_create`, `task_get`, `task_list`, `task_update`, `task_claim`, `task_close`, `task_reopen`, `task_comment_add`, `task_comment_list`, `task_ready` |
-| Work discovery | `work_ready`, `work_active`, `work_blocked` |
+| Issues | `issues_create`, `issues_get`, `issues_list`, `issues_update_status`, `issues_claim`, `issues_comment_add`, `issues_comments_list` |
+| Epics & Stories | `epics_create`, `epics_list`, `stories_create`, `stories_list` |
+| Work discovery | `work_ready`, `work_active` |
 | Roles | `roles_show`, `roles_list` |
 | Instructions | `instructions_show`, `instructions_history` |
 | Contacts | `list_contacts`, `add_contact`, `add_contact_by_handle`, `remove_contact`, `read_contact_messages` |
@@ -1457,7 +1463,7 @@ schedule (cron, Kubernetes Job, or equivalent). Both default to a
 | Function | Default TTL | What it deletes |
 |---|---|---|
 | `gc_expired_messages(db_infra, ttl_days=30)` | 30 days | Mail messages and chat messages older than `ttl_days` (raw `created_at < now - ttl_days`). |
-| `gc_inactive_scopes(db_infra, ttl_days=30)` | 30 days | Teams with no message activity (mail or chat) for `ttl_days`, hard-deleted with all dependent rows (chat sessions, agents, workspaces, tasks, locks, etc.). |
+| `gc_inactive_scopes(db_infra, ttl_days=30)` | 30 days | Teams with no message activity (mail or chat) for `ttl_days`, hard-deleted with all dependent rows (chat sessions, agents, workspaces, issues, locks, etc.). |
 
 The GC functions are deletion-only — they do NOT cascade up to awid.
 Removing a team from aweb does not revoke its team controller key or
@@ -1576,4 +1582,4 @@ falls back to `DATABASE_USES_TRANSACTION_POOLER`, and
 | Billing | Out of scope for aweb (hosted operator concern) |
 | Dashboard | Out of scope for aweb (any external service that holds `AWEB_DASHBOARD_JWT_SECRET`) |
 | Human accounts | Out of scope for aweb (hosted operator concern) |
-| Coordination (mail, chat, tasks, claims, locks, roles, instructions) | aweb |
+| Coordination (mail, chat, issues, claims, locks, roles, instructions) | aweb |

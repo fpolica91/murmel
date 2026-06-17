@@ -1,12 +1,14 @@
 ---
 name: aweb-coordination
-description: This skill should be used when working in an aweb-coordinated team — checking what teammates are doing, discovering and sharing tasks, claiming work, taking manual locks on contested resources, reading or setting shared team roles and instructions, deciding when to create separate worktrees/workspaces with explicit git + aw primitives, and deciding whether to record coordination in shared aweb state versus private notes.
+description: This skill should be used when working in an aweb-coordinated team — checking what teammates are doing, discovering and sharing issues, claiming work, taking manual locks on contested resources, reading or setting shared team roles and instructions, deciding when to create separate worktrees/workspaces with explicit git + aw primitives, and deciding whether to record coordination in shared aweb state versus private notes.
 allowed-tools: "Bash(aw *)"
 ---
 
 # aweb Coordination
 
-Use this skill when sharing work with a team of agents through aweb. Focus on the **decision policy**: when to inspect shared state, when to claim tasks, when to take a lock, how to read the team's operating rules, and how to create a fresh worktree. Command help is one `aw <verb> --help` away — this skill is here for the judgment calls help cannot supply.
+Use this skill when sharing work with a team of agents through aweb. Focus on the **decision policy**: when to inspect shared state, when to claim issues, when to take a lock, how to read the team's operating rules, and how to create a fresh worktree. Command help is one `aw <verb> --help` away — this skill is here for the judgment calls help cannot supply.
+
+Work is organized as **issues** under an Epic -> Story -> Issue hierarchy. An issue is the unit of work an agent claims and completes.
 
 For mail/chat response policy, load `aweb-messaging`. For identity, encryption keys, custody, addressability, or contacts, load `aweb-identity`. For team membership, switching the active team, and token onboarding, load `aweb-team-membership`.
 
@@ -14,8 +16,8 @@ For mail/chat response policy, load `aweb-messaging`. For identity, encryption k
 
 A short map of the primitives this skill assumes are available. Each has its own `aw` verb; their decision policy lives here, their command details live in `aw <verb> --help`.
 
-- **Tasks** (`aw task`) — the durable record of work items: create, list, show, update, comment, close.
-- **Work discovery** (`aw work`) — the dashboard-style view over those tasks combined with current claim state: `ready` (unclaimed), `active` (in-progress across the team), `blocked`.
+- **Issues** (`aw issue`, with `aw epic` and `aw story` above them) — the durable record of work items in the Epic -> Story -> Issue hierarchy: create, list, show, comment, set status, assign.
+- **Work discovery** (`aw work`) — the dashboard-style view over those issues combined with current claim state: `ready` (unclaimed) and `active` (in-progress across the team).
 - **Mail** (`aw mail`) — async, signed, durable; the default for handoffs and review requests. Details in `aweb-messaging`.
 - **Chat** (`aw chat`) — sync, signed, waits on a response. Details in `aweb-messaging`.
 - **Locks** (`aw lock`) — explicit, manual coordination primitives for contested resources. Not automatic.
@@ -32,7 +34,7 @@ Run these before claiming new work. Order is deliberate.
 aw workspace status   # who is online, active team, identity, claims, locks
 aw mail inbox         # async handoffs, reviews, blockers — process first
 aw chat pending       # someone may be blocked waiting on you
-aw work ready         # only after the above; pick the smallest actionable item
+aw work ready         # only after the above; pick the smallest actionable issue
 ```
 
 If `aw workspace status` reports the directory is not bound to a team (no `.aw/workspace.yaml`), stop and load `aweb-team-membership` to onboard with `aw init` before doing coordination work.
@@ -41,11 +43,10 @@ If `aw workspace status` reports the directory is not bound to a team (no `.aw/w
 
 Before you claim work or send a message, get the team's current state. These are read-only and cheap:
 
-- `aw work active` — every task currently claimed across the team, who has it, and the status. The first place to look when wondering "is someone already on this?"
-- `aw work ready` — unclaimed tasks the team would benefit from picking up.
-- `aw work blocked` — tasks paused on a dependency or external answer.
-- `aw task list` — full task index with filters (status, assignee, label).
-- `aw task show <task-id>` — full task including comments, dependencies, and history.
+- `aw work active` — every issue currently claimed across the team, who has it, and the status. The first place to look when wondering "is someone already on this?"
+- `aw work ready` — unclaimed issues the team would benefit from picking up.
+- `aw issue list` — full issue index with filters (status, assignee, label).
+- `aw issue show <issue-id>` — full issue including comments and history.
 - `aw workspace status` — presence for the active team (who is online right now).
 - `aw mail inbox` and `aw chat history <alias>` — recent messages, including what teammates have been talking about.
 
@@ -63,46 +64,48 @@ Mail and chat are the contact surface. The policy lives in `aweb-messaging`, but
 
 Whenever another agent might care, prefer aweb-visible state to private TODOs:
 
-- Tasks and `aw work`/`aw task` capture WHO is doing WHAT and WHEN.
+- Issues and `aw work`/`aw issue` capture WHO is doing WHAT and WHEN.
 - Mail captures durable handoffs and review evidence.
 - Locks capture exclusive holds on shared resources.
 - Roles and instructions capture team-wide operating rules.
 
 Private notes go stale and strand context if another agent takes over. Reserve them for short-term scratch.
 
-## Sharing tasks
+## Sharing issues
 
-A task is the durable record of a unit of work. Anyone in the team can see it; it doesn't depend on local notes.
+An issue is the durable record of a unit of work, living under a story and epic. Anyone in the team can see it; it doesn't depend on local notes.
 
 ```bash
-aw task create --title "<title>" --description "<details>"
-aw task list                         # filter with --status, --assignee, --labels
-aw task show <task-id>
-aw task update <task-id> --status in_progress
-aw task comment add <task-id> "validation results, blockers, decisions"
-aw task close <task-id> --reason "what landed and where validated"
-aw task dep add <task-id> <depends-on-id>     # express dependencies
+aw epic create --title "<title>" --description "<details>"     # the largest grouping
+aw story create --title "<title>" --description "<details>"    # a slice of an epic
+aw issue create --title "<title>" --description "<details>"    # the claimable unit of work
+aw issue list                        # filter with --status, --assignee, --labels
+aw issue show <issue-id>
+aw issue assign <issue-id> <alias>            # claim/assign
+aw issue status <issue-id> in_progress        # move through the workflow
+aw issue comment add <issue-id> "validation results, blockers, decisions"
 ```
 
-When creating a task: keep the scope small enough that one agent can complete it. Put what's known into the body so a teammate can pick it up without asking. If something only one agent knows is needed to finish, name them in the body.
+When creating an issue: keep the scope small enough that one agent can complete it. Put what's known into the body so a teammate can pick it up without asking. If something only one agent knows is needed to finish, name them in the body. Use epics and stories to group related issues.
 
 ## Claiming work
 
-To take a ready task, mark it in-progress (this is the claim — the team sees you own it):
+To take a ready issue, claim it and mark it in-progress (the team then sees you own it):
 
 ```bash
-aw task update <task-id> --status in_progress
+aw issue assign <issue-id> <your-alias>        # claim it
+aw issue status <issue-id> in_progress         # start work
 ```
 
-Before claiming, run `aw work active` to make sure nobody is already on the same scope. Keep the claim small: claim the smallest actionable task, not the broad epic. Coordinators may move work around without claiming every subtask.
+Before claiming, run `aw work active` to make sure nobody is already on the same scope. Keep the claim small: claim the smallest actionable issue, not the broad epic or story. Coordinators may move work around without claiming every issue.
 
-When status changes, update the task. Valid status values are `open`, `in_progress`, and `closed` (use `aw task close <id>` to close). Closing with `--reason "..."` records why; comments capture validation evidence and decisions.
+When status changes, move the issue. Valid statuses are `todo`, `in_progress`, `in_review`, and `done`. Use `aw issue status <id> in_review` when handing off for review and `aw issue status <id> done` when the work has landed; comments capture validation evidence and decisions.
 
-If you stop work on a claimed task without finishing — handoff, abandon, or block — move it back out of `in_progress` so the team sees it's available again: `aw task update <id> --status open` and leave a comment naming what was done so far and what's left. Mail the teammate who can unblock or continue.
+If you stop work on a claimed issue without finishing — handoff or abandon — move it back to `todo` so the team sees it's available again: `aw issue status <id> todo` and leave a comment naming what was done so far and what's left. Mail the teammate who can unblock or continue.
 
 ## Locks — manual, not automatic
 
-aweb's locks are **explicit and manual**: nothing is locked just because a task is in-progress. Acquire a lock yourself when you genuinely need exclusive access to a mutable shared resource:
+aweb's locks are **explicit and manual**: nothing is locked just because an issue is in-progress. Acquire a lock yourself when you genuinely need exclusive access to a mutable shared resource:
 
 ```bash
 aw lock acquire --resource-key <key> --ttl-seconds <n>
@@ -201,7 +204,7 @@ Use worktrees when work is happening in parallel against the same codebase. Use 
 
 Before stopping work:
 
-1. Update task status; close finished tasks (`aw task close <id> --reason "..."`).
+1. Update issue status; mark finished issues done (`aw issue status <id> done`).
 2. Send any handoff or review-request mail.
 3. Release locks you still hold (`aw lock release --resource-key <key>`).
 4. Answer or close any waiting chat with the appropriate `aw chat send-and-leave <alias> "..."` so teammates aren't left in a wait state.

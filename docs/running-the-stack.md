@@ -187,7 +187,7 @@ cd ui && npm run typecheck && npm run build
   `aw` commands auto-attach + auto-refresh the token (and send `X-AWEB-Team-Id`).
   The cert path is unchanged. `resolveClient` also falls back to a bearer client
   (base URL from `AWEB_URL`) for a fully workspace-less user. **Caveat:** many
-  commands (e.g. `aw task list`) resolve via `resolveClientSelection`, which
+  commands (e.g. `aw issue list`) resolve via `resolveClientSelection`, which
   requires a `.aw/` workspace and errors before the bearer fallback. Full
   workspace-less support is a broader change — decoupling those commands from
   the workspace `Selection` so they can run on a bearer token + `AWEB_URL`

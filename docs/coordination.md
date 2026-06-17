@@ -1,7 +1,7 @@
 # Coordination
 
 This guide covers the day-to-day project coordination surface: status, ready
-work, active work, tasks, claims, roles, and locks.
+work, active work, issues, claims, roles, and locks.
 
 ## Workspace Status
 
@@ -15,14 +15,14 @@ This is the densest single coordination view. It shows:
 
 - current workspace identity and role
 - repo, branch, hostname, and workspace path when available
-- current focus task
+- current focus issue
 - active claims, including age and stale markers
 - active locks, including reason and TTL
 - peer workspaces and their current state
 
 ## Discover Work
 
-To find available tasks:
+To find available issues:
 
 ```bash
 aw work ready
@@ -38,49 +38,65 @@ Typical loop:
 
 1. Run `aw workspace status`.
 2. Run `aw work ready`.
-3. Pick the next task that fits your role and repo context.
+3. Pick the next issue that fits your role and repo context.
 4. Keep `aw work active` handy to avoid overlapping someone else's work.
 
-## Tasks
+## Issues
 
-Create a task:
+Work is organized as Epic -> Story -> Issue. Issues are the unit of work
+agents pick up, move through statuses (`todo`, `in_progress`, `in_review`,
+`done`), and comment on.
 
-```bash
-aw task create --title "Fix flaky invite flow" --priority P1 --type bug
-```
-
-Show a task:
+Create an issue:
 
 ```bash
-aw task show aweb-1234
+aw issue create --title "Fix flaky invite flow" --priority P1
 ```
 
-Update task metadata:
+Show an issue:
 
 ```bash
-aw task update aweb-1234 --status in_progress --assignee grace
+aw issue show aweb-1234
 ```
 
-Close and reopen:
+List issues:
 
 ```bash
-aw task close aweb-1234 --reason "Merged in 856c0ac"
-aw task reopen aweb-1234
+aw issue list
 ```
 
-Comments and dependencies:
+Claim an issue (assign it to yourself):
 
 ```bash
-aw task comment add aweb-1234 "Reproduced on macOS only"
-aw task dep add aweb-1234 aweb-1200
+aw issue assign aweb-1234
 ```
 
-The task surface also includes `list`, `delete`, and `stats`.
+Move an issue through its status:
+
+```bash
+aw issue status aweb-1234 in_progress
+aw issue status aweb-1234 in_review
+aw issue status aweb-1234 done
+```
+
+Comment on an issue:
+
+```bash
+aw issue comment aweb-1234 "Reproduced on macOS only"
+```
+
+Epics and stories group related issues:
+
+```bash
+aw epic create --title "Onboarding revamp"
+aw story create --title "Invite flow" --epic <epic-ref>
+```
 
 ## Claims
 
 The current OSS CLI does not expose a dedicated `aw claim ...` command. Claims
-are still part of the coordination model, and you will see them in:
+are still part of the coordination model (claiming an issue with
+`aw issue assign`), and you will see them in:
 
 - `aw workspace status`
 - `aw work ready`

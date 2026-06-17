@@ -22,7 +22,7 @@ extra whitespace. Version 2 requires these fields:
   "aud": "https://app.aweb.ai",
   "body_sha256": "<hex sha256 of request body bytes>",
   "method": "POST",
-  "path": "/api/v1/tasks?dry_run=true",
+  "path": "/api/v1/issues?dry_run=true",
   "team_id": "default:aweb.ai",
   "timestamp": "2026-06-12T10:00:00Z",
   "v": 2

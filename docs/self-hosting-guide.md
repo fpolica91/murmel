@@ -230,4 +230,4 @@ curl http://localhost:8010/health
 > For a working end-to-end smoke check, follow the token-only onboarding in
 > [GETTING-STARTED.md](../ai-completion/GETTING-STARTED.md): bring up the stack
 > (with the UI overlay), `aw login` / `AW_TOKEN`, `aw init`, then `aw check` and
-> a `aw mail` / `aw task` round-trip.
+> a `aw mail` / `aw issue` round-trip.

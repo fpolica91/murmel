@@ -26,7 +26,7 @@
     {
       "name": "cross_endpoint_replay",
       "derived_from": "a2a_route_create",
-      "presented_path": "/api/v1/tasks?dry_run=true",
+      "presented_path": "/api/v1/issues?dry_run=true",
       "expected_error": "signed request payload does not match request"
     },
     {

@@ -38,7 +38,7 @@ This file lists every place still referencing that removed surface, split into
 ### 0. MCP `send_chat`/`send_mail` for token identities — ✅ DONE (2026-06-16)
 
 **Status:** Landed on `feature/simple-auth-ui`. Better Auth (JWT) token callers
-can now FULLY coordinate over `/mcp/` — `send_chat` + `send_mail` + tasks/issues.
+can now FULLY coordinate over `/mcp/` — `send_chat` + `send_mail` + issues.
 Previously messaging crashed (`missing a routing DID`, then
 `invalid literal for int() with base 16: '<subject>'`). See the dated section in
 [STATUS.md](STATUS.md) for the full write-up + dogfood transcript.
@@ -158,7 +158,7 @@ product:
   (cert-less). Asserts the workspace has **no** `.aw/team-certs/` and is bound
   to the team. A no-token `aw init` is asserted to fail closed.
 - **Coordination over the bearer token:** `whoami`, a 401-on-bogus-token /
-  200-on-valid-token check, `work ready`, `task create` + `task list`, and
+  200-on-valid-token check, `work ready`, `issue create` + `issue list`, and
   `mail send` → peer `mail inbox` (recipient addressed by its resolvable
   namespace address, see quirk below). Chat is a NON-FATAL probe.
 - **RUN LEDGER (honest):** executed end-to-end against Docker on this machine
@@ -341,7 +341,7 @@ now teach token-only onboarding.
   `AW_TOKEN=$JWT aw init --aweb-url http://localhost:8088 --team default:local`
   → `Status: connected`, **cert-less** workspace (no `.aw/team-certs/`), local
   E2E keys written; `aw whoami` / `aw workspace status` (membership active) /
-  `aw work ready` / `aw mail inbox` / `aw task list` all succeed over the bearer
+  `aw work ready` / `aw mail inbox` / `aw issue list` all succeed over the bearer
   token. (Minor: `aw whoami`'s inbound-mode sub-read returns a server 500 — a
   pre-existing, unrelated quirk; the command and all coordination calls still
   exit 0.)
@@ -359,7 +359,7 @@ reconciled to the token-only flow on `feature/simple-auth-ui`:
   key; the second-agent flow is "same token, separate dir/worktree".
 - `docs/agent-guide.md` — auth changed from team-certificate/DIDKey to bearer
   JWT; onboarding/team-setup/Add-existing-identity/BYOT blocks collapsed to a
-  token-only onboarding + membership section; messaging/tasks/roles kept.
+  token-only onboarding + membership section; messaging/issues/roles kept.
 - `docs/teams.md` — "how a team comes into existence" now: web-UI sign-up
   provisions the team, membership rows grant access (dropped `aw init --byod`
   and controller-key/member-cert framing). team_id format kept.

@@ -234,7 +234,7 @@ participant route already exists.
 
 A **team** is a named group within a namespace.  Teams are the
 coordination boundary — agents in the same team can see each other's
-status, exchange messages, and share tasks.
+status, exchange messages, and share issues.
 
 ### Creating a team
 
@@ -409,9 +409,9 @@ This sets `Authorization: DIDKey <did:key> <signature>` and
 service:
 
 ```bash
-aw id request POST https://byoidt.example.com/v1/tasks \
+aw id request POST https://byoidt.example.com/v1/issues \
   --team-auth \
-  --sign '{"operation":"task.create"}' \
+  --sign '{"operation":"issue.create"}' \
   --body '{"title":"prepare review"}'
 ```
 

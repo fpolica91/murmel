@@ -48,20 +48,24 @@ For the canonical contract, see the MCP section of
 | `read_chat` | `conversation_id`, `unread_only=False`, `limit=50` | Read chat history for a conversation. |
 | `mark_chat_read` | `conversation_id`, `up_to_message_id` | Mark chat messages as read. |
 
-## Tasks
+## Work (Epics, Stories, Issues)
+
+aweb has a single work model: **Epic → Story → Issue**. Issues are the unit of
+claimable work, with statuses `todo`, `in_progress`, `in_review`, `done`.
 
 | Tool | Parameters | Purpose |
 | --- | --- | --- |
-| `task_create` | `title`, `description=""`, `notes=""`, `priority=2`, `task_type="task"`, `labels`, `parent_task_id=""`, `assignee=""` | Create a task in the current team. |
-| `task_list` | `status=""`, `assignee=""`, `task_type=""`, `priority=-1`, `labels` | List team tasks. |
-| `task_ready` | `unclaimed_only=True` | List ready tasks. |
-| `task_get` | `ref` | Fetch a task by ref or UUID. |
-| `task_close` | `ref` | Close a task. |
-| `task_update` | `ref`, `status=""`, `title=""`, `description=""`, `notes=""`, `task_type=""`, `priority=-1`, `labels`, `assignee=""` | Update task fields. |
-| `task_reopen` | `ref` | Reopen a closed task. |
-| `task_claim` | `ref` | Claim a task for the current agent. |
-| `task_comment_add` | `ref`, `body` | Add a task comment. |
-| `task_comment_list` | `ref` | List task comments. |
+| `epics_create` | `title`, `description=""` | Create an epic in the current team. |
+| `epics_list` | none | List team epics. |
+| `stories_create` | `title`, `epic_id=""`, `description=""` | Create a story, optionally under an epic. |
+| `stories_list` | `epic_id=""` | List team stories, optionally scoped to an epic. |
+| `issues_create` | `title`, `description=""`, `story_id=""`, `epic_id=""`, `assignee_type=""`, `assignee_id=""` | Create an issue in the current team. |
+| `issues_list` | `status=""`, `assignee_type=""`, `assignee_id=""`, `epic_id=""`, `story_id=""` | List team issues. |
+| `issues_get` | `issue_id` | Fetch an issue by id. |
+| `issues_claim` | `issue_id`, `assignee_type=""`, `assignee_id=""` | Claim an issue for the current agent (defaults to the caller) and mark it `in_progress`. |
+| `issues_update_status` | `issue_id`, `status` | Move an issue between `todo`, `in_progress`, `in_review`, and `done`. |
+| `issues_comment_add` | `issue_id`, `body` | Add an issue comment. |
+| `issues_comments_list` | `issue_id` | List issue comments. |
 
 ## Instructions
 
@@ -81,9 +85,8 @@ For the canonical contract, see the MCP section of
 
 | Tool | Parameters | Purpose |
 | --- | --- | --- |
-| `work_ready` | none | List ready tasks not already claimed by another workspace. |
+| `work_ready` | none | List ready issues not already claimed by another workspace. |
 | `work_active` | none | List active in-progress work across the team. |
-| `work_blocked` | none | List blocked tasks. |
 
 ## Workspace Coordination
 

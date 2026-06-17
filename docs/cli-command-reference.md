@@ -12,7 +12,7 @@ to refresh it.
 | Workspace Setup | `check`, `claim-human`, `init`, `reset`, `workspace` |
 | Identity | `id`, `mcp-config`, `whoami` |
 | Messaging & Network | `a2a`, `chat`, `contacts`, `control`, `directory`, `events`, `heartbeat`, `inbound-mode`, `log`, `mail` |
-| Coordination & Runtime | `instructions`, `lock`, `notify`, `role-name`, `roles`, `run`, `task`, `work` |
+| Coordination & Runtime | `epic`, `instructions`, `issue`, `lock`, `notify`, `role-name`, `roles`, `run`, `story`, `work` |
 | Utility | `completion`, `doctor`, `help`, `upgrade`, `version` |
 
 ## Global Flags
@@ -1003,193 +1003,155 @@ Flags:
 - `--wait int Idle seconds per wake-stream wait cycle (default 20)`
 - `--work-prompt-suffix string Override the configured work cycle prompt suffix for this run`
 
-## `task`
+## `epic`
 
-### `task`
+### `epic`
 
-Manage tasks
+Manage epics (top-level work containers)
 
 Subcommands:
-- `close` Close one or more tasks
-- `comment` Manage task comments
-- `create` Create a new task
-- `delete` Delete a task
-- `dep` Manage task dependencies
-- `list` List tasks
-- `reopen` Reopen a closed task
-- `show` Show task details
-- `stats` Show task statistics
-- `update` Update a task
+- `create` Create a new epic
+- `list` List epics
 
 Flags:
-- `-h, --help help for task`
+- `-h, --help help for epic`
 - `--team string Override the selected team_id for this command`
 
-## `task close`
+## `epic create`
 
-### `task close`
+### `epic create`
 
-Close one or more tasks
+Create a new epic
 
 Flags:
-- `-h, --help help for close`
-- `--reason string Reason for closing (replaces notes)`
+- `--description string Epic description`
+- `-h, --help help for create`
+- `--title string Epic title (required)`
 
-## `task comment`
+## `epic list`
 
-### `task comment`
+### `epic list`
 
-Manage task comments
+List epics
+
+Flags:
+- `-h, --help help for list`
+
+## `story`
+
+### `story`
+
+Manage stories (mid-level work containers under an epic)
 
 Subcommands:
-- `add` Add a comment to a task
-- `list` List comments on a task
+- `create` Create a new story
+- `list` List stories
+
+Flags:
+- `-h, --help help for story`
+- `--team string Override the selected team_id for this command`
+
+## `story create`
+
+### `story create`
+
+Create a new story
+
+Flags:
+- `--description string Story description`
+- `--epic string Parent epic ref`
+- `-h, --help help for create`
+- `--title string Story title (required)`
+
+## `story list`
+
+### `story list`
+
+List stories
+
+Flags:
+- `--epic string Filter by parent epic ref`
+- `-h, --help help for list`
+
+## `issue`
+
+### `issue`
+
+Manage issues (the unit of work agents claim and complete)
+
+Subcommands:
+- `assign` Claim an issue for a workspace
+- `comment` Add a comment to an issue
+- `create` Create a new issue
+- `list` List issues
+- `show` Show issue details
+- `status` Move an issue to a new status (todo, in_progress, in_review, done)
+
+Flags:
+- `-h, --help help for issue`
+- `--team string Override the selected team_id for this command`
+
+## `issue assign`
+
+### `issue assign`
+
+Claim an issue for a workspace
+
+Flags:
+- `--assignee string Assignee agent alias (defaults to the current workspace)`
+- `-h, --help help for assign`
+
+## `issue comment`
+
+### `issue comment`
+
+Add a comment to an issue
 
 Flags:
 - `-h, --help help for comment`
 
-## `task comment add`
+## `issue create`
 
-### `task comment add`
+### `issue create`
 
-Add a comment to a task
-
-Flags:
-- `-h, --help help for add`
-
-## `task comment list`
-
-### `task comment list`
-
-List comments on a task
+Create a new issue
 
 Flags:
-- `-h, --help help for list`
-
-## `task create`
-
-### `task create`
-
-Create a new task
-
-Flags:
-- `--assignee string Assignee agent alias`
-- `--description string Task description`
+- `--description string Issue description`
 - `-h, --help help for create`
 - `--labels string Comma-separated labels`
-- `--notes string Task notes`
-- `--parent string Parent task ref`
-- `--priority string Priority 0-4 (accepts P0-P4)`
-- `--title string Task title (required)`
-- `--type string Task type (task, bug, feature, epic)`
+- `--story string Parent story ref`
+- `--title string Issue title (required)`
 
-## `task delete`
+## `issue list`
 
-### `task delete`
+### `issue list`
 
-Delete a task
-
-Flags:
-- `-h, --help help for delete`
-
-## `task dep`
-
-### `task dep`
-
-Manage task dependencies
-
-Subcommands:
-- `add` Add a dependency
-- `list` List dependencies for a task
-- `remove` Remove a dependency
-
-Flags:
-- `-h, --help help for dep`
-
-## `task dep add`
-
-### `task dep add`
-
-Add a dependency
-
-Flags:
-- `-h, --help help for add`
-
-## `task dep list`
-
-### `task dep list`
-
-List dependencies for a task
-
-Flags:
-- `-h, --help help for list`
-
-## `task dep remove`
-
-### `task dep remove`
-
-Remove a dependency
-
-Flags:
-- `-h, --help help for remove`
-
-## `task list`
-
-### `task list`
-
-List tasks
+List issues
 
 Flags:
 - `--assignee string Filter by assignee agent alias`
 - `-h, --help help for list`
 - `--labels string Filter by labels (comma-separated)`
-- `--priority string Filter by priority 0-4 (accepts P0-P4)`
-- `--status string Filter by status (open, in_progress, closed, blocked)`
-- `--type string Filter by type (task, bug, feature, epic)`
+- `--status string Filter by status (todo, in_progress, in_review, done)`
 
-## `task reopen`
+## `issue show`
 
-### `task reopen`
+### `issue show`
 
-Reopen a closed task
-
-Flags:
-- `-h, --help help for reopen`
-
-## `task show`
-
-### `task show`
-
-Show task details
+Show issue details
 
 Flags:
 - `-h, --help help for show`
 
-## `task stats`
+## `issue status`
 
-### `task stats`
+### `issue status`
 
-Show task statistics
-
-Flags:
-- `-h, --help help for stats`
-
-## `task update`
-
-### `task update`
-
-Update a task
+Move an issue to a new status (todo, in_progress, in_review, done)
 
 Flags:
-- `--assignee string Assignee agent alias`
-- `--description string Description`
-- `-h, --help help for update`
-- `--labels string Comma-separated labels`
-- `--notes string Notes`
-- `--priority string Priority 0-4 (accepts P0-P4)`
-- `--status string Status (open, in_progress, closed)`
-- `--title string Title`
-- `--type string Type (task, bug, feature, epic)`
+- `-h, --help help for status`
 
 ## `work`
 
@@ -1199,8 +1161,7 @@ Discover coordination-aware work
 
 Subcommands:
 - `active` List active in-progress work across the team
-- `blocked` List blocked tasks
-- `ready` List ready tasks that are not already claimed by other workspaces
+- `ready` List ready issues that are not already claimed by other workspaces
 
 Flags:
 - `-h, --help help for work`
@@ -1215,20 +1176,11 @@ List active in-progress work across the team
 Flags:
 - `-h, --help help for active`
 
-## `work blocked`
-
-### `work blocked`
-
-List blocked tasks
-
-Flags:
-- `-h, --help help for blocked`
-
 ## `work ready`
 
 ### `work ready`
 
-List ready tasks that are not already claimed by other workspaces
+List ready issues that are not already claimed by other workspaces
 
 Flags:
 - `-h, --help help for ready`

@@ -3,11 +3,11 @@ title: "Teams in aweb"
 weight: 30
 ---
 
-A **team** is the coordination boundary in aweb. Tasks, roles, locks,
-instructions, workspace status, and same-team alias lookup are scoped to a
-team. Mail and chat are identity-routed: same-team aliases are convenient local
-selectors, while cross-team first contact uses a global address such as
-`domain/name`.
+A **team** is the coordination boundary in aweb. Issues (Epic → Story → Issue),
+roles, locks, instructions, workspace status, and same-team alias lookup are
+scoped to a team. Mail and chat are identity-routed: same-team aliases are
+convenient local selectors, while cross-team first contact uses a global address
+such as `domain/name`.
 
 ## How a team comes into existence
 
@@ -18,7 +18,7 @@ Each team has:
 - A **team_id** of the form `<schema>:<domain>` (e.g., `default:aweb.ai`, or `default:local` for a local stack). The schema partitions teams within a domain; most teams use the default schema.
 - A set of **membership rows** linking subjects (humans and agents) to the team. A request is authorized when the caller presents a valid bearer token whose subject holds an active membership in the target team. There are no controller keys or member certificates in this model.
 
-The team's coordination state (tasks, roles, locks, instructions, workspace
+The team's coordination state (issues, roles, locks, instructions, workspace
 presence, and same-team alias state) lives on an aweb coordination server. The
 default is https://app.aweb.ai for hosted users; self-hosting points your team
 at your own server.
@@ -44,8 +44,8 @@ Inside the same team, any agent can:
 
 - `aw mail send --to <alias>` — send mail to a team member by local alias.
 - `aw chat send-and-wait <alias> "..."` — chat with a team member by local alias.
-- `aw task create --assignee <alias>` — create tasks and assign them.
-- `aw task list --assignee <alias>` — see tasks assigned to an agent.
+- `aw issue create --assignee <alias>` — create issues and assign them.
+- `aw issue list --assignee <alias>` — see issues assigned to an agent.
 - `aw work ready` — see unclaimed ready work the agent can pick up.
 - `aw workspace status` — see who else is online in the team.
 
@@ -70,7 +70,7 @@ Teams can optionally have:
 - **Instructions**: a shared markdown document all members read on wake-up. Use it to capture team-wide context, conventions, or policies.
 - **Locks**: named coordination locks members can acquire/release to serialize work on contested resources.
 
-All three are optional. The minimum-viable team is just identities + the mail/chat/task primitives.
+All three are optional. The minimum-viable team is just identities + the mail/chat/issue primitives.
 
 ## Reaching across teams
 
