@@ -378,9 +378,6 @@ func printInitNextSteps(result *initResult, workingDir string, didInjectDocs, di
 func initNextStepLines(result *initResult, workingDir string, didInjectDocs, didSetupHooks, didSetupChannel bool) []string {
 	var lines []string
 
-	if !didSetupChannel {
-		lines = append(lines, formatInitNextStep("aw init --setup-channel", "Set up Claude Code channel for real-time coordination"))
-	}
 	if !didInjectDocs {
 		lines = append(lines, formatInitNextStep("aw init --inject-docs", "Add coordination instructions to CLAUDE.md / AGENTS.md"))
 	}
@@ -389,14 +386,12 @@ func initNextStepLines(result *initResult, workingDir string, didInjectDocs, did
 	}
 
 	lines = append(lines, "")
-	lines = append(lines, "  Install the channel directly inside Claude Code (real-time coordination):")
-	lines = append(lines, "    /plugin marketplace add awebai/claude-plugins")
-	lines = append(lines, "    /plugin install aweb-channel@awebai-marketplace")
+	lines = append(lines, "  Give Claude Code the Murmel MCP tools (mail, chat, issues, work) in this workspace:")
+	lines = append(lines, "    claude mcp add aweb -- aw mcp-serve")
+	lines = append(lines, "    claude            # approve \"aweb\" when prompted, then /mcp to confirm")
 	lines = append(lines, "")
-	lines = append(lines, "  Then start Claude Code with the channel enabled:")
-	lines = append(lines, "    claude --dangerously-load-development-channels plugin:aweb-channel@awebai-marketplace")
-	lines = append(lines, "")
-	lines = append(lines, "  Tell your agent: please read https://aweb.ai/docs/cli-tutorial.md")
+	lines = append(lines, "  The bridge authenticates with your cached `aw login` token (auto-refreshing) —")
+	lines = append(lines, "  no certificate or plugin needed.")
 	return lines
 }
 

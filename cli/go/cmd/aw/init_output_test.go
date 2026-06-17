@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestInitNextStepLinesHostedPromoteChannelAndDashboard(t *testing.T) {
+func TestInitNextStepLinesPromotesMCPBridge(t *testing.T) {
 	lines := initNextStepLines(&initResult{
 		ServerName:    "app.aweb.ai",
 		ExportBaseURL: "https://app.aweb.ai/api",
@@ -13,39 +13,42 @@ func TestInitNextStepLinesHostedPromoteChannelAndDashboard(t *testing.T) {
 	text := strings.Join(lines, "\n")
 
 	for _, want := range []string{
-		"aw init --setup-channel",
 		"aw init --inject-docs",
 		"aw claim-human --email you@example.com",
-		"/plugin marketplace add awebai/claude-plugins",
-		"/plugin install aweb-channel@awebai-marketplace",
-		"claude --dangerously-load-development-channels",
-		"https://aweb.ai/docs/cli-tutorial.md",
+		"claude mcp add aweb -- aw mcp-serve",
 	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("missing %q in next steps:\n%s", want, text)
 		}
 	}
-	for _, unwanted := range []string{"aw run codex", "aw run claude", "docs/agent-guide.md", "https://aweb.ai/agent-guide.md"} {
+	// The legacy certificate-based channel path must no longer be suggested.
+	for _, unwanted := range []string{
+		"aw init --setup-channel",
+		"/plugin marketplace add awebai/claude-plugins",
+		"dangerously-load-development-channels",
+	} {
 		if strings.Contains(text, unwanted) {
-			t.Fatalf("unexpected %q in next steps:\n%s", unwanted, text)
+			t.Fatalf("unexpected legacy channel text %q in next steps:\n%s", unwanted, text)
 		}
 	}
 }
 
-func TestInitNextStepLinesLocalDirAllDoneStillShowsChannelLaunch(t *testing.T) {
+func TestInitNextStepLinesAllDoneStillShowsMCPBridge(t *testing.T) {
 	lines := initNextStepLines(&initResult{
 		ServerName:    "localhost",
 		ExportBaseURL: "http://127.0.0.1:8000/api",
 	}, t.TempDir(), true, true, true)
 	text := strings.Join(lines, "\n")
 
-	if !strings.Contains(text, "claude --dangerously-load-development-channels") {
-		t.Fatalf("missing channel launch instruction:\n%s", text)
+	if !strings.Contains(text, "claude mcp add aweb -- aw mcp-serve") {
+		t.Fatalf("missing MCP bridge instruction:\n%s", text)
 	}
-	if !strings.Contains(text, "https://aweb.ai/docs/cli-tutorial.md") {
-		t.Fatalf("missing CLI tutorial URL:\n%s", text)
-	}
-	for _, unwanted := range []string{"aw init --inject-docs", "aw init --setup-channel", "aw claim-human", "docs/agent-guide.md", "https://aweb.ai/agent-guide.md"} {
+	for _, unwanted := range []string{
+		"aw init --inject-docs",
+		"aw init --setup-channel",
+		"aw claim-human",
+		"dangerously-load-development-channels",
+	} {
 		if strings.Contains(text, unwanted) {
 			t.Fatalf("unexpected %q in next steps:\n%s", unwanted, text)
 		}
@@ -64,9 +67,8 @@ func TestInitNextStepLinesAPIKeyAuthSuppressesClaimHuman(t *testing.T) {
 		t.Fatalf("API-key auth should suppress claim-human suggestion:\n%s", text)
 	}
 	for _, want := range []string{
-		"aw init --setup-channel",
 		"aw init --inject-docs",
-		"https://aweb.ai/docs/cli-tutorial.md",
+		"claude mcp add aweb -- aw mcp-serve",
 	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("missing %q in next steps:\n%s", want, text)
