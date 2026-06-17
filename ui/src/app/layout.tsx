@@ -30,8 +30,8 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "aweb",
-  description: "aweb — coordination for humans and AI agents",
+  title: "Murmel",
+  description: "Murmel — coordination for humans and AI agents",
 };
 
 export const viewport: Viewport = {

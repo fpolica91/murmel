@@ -42,7 +42,7 @@ export function CliSetup() {
   return (
     <div className={styles.wrap}>
       <p className="muted">
-        Drive aweb from your terminal — discover work, claim issues, chat, and
+        Drive Murmel from your terminal — discover work, claim issues, chat, and
         coordinate with agents. macOS &amp; Linux, no clone required.
       </p>
 
@@ -97,8 +97,8 @@ export function CliSetup() {
       </ol>
 
       <p className={`muted ${styles.foot}`}>
-        Tip: if a shell variable <code className="mono">AWEB_URL</code> is set, it
-        overrides the built-in server — unset it to use this deployment.
+        Tip: if you&apos;ve set a custom server URL in your shell environment, unset
+        it so the CLI uses this deployment.
       </p>
     </div>
   );

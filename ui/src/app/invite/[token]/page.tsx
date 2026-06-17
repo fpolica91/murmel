@@ -30,7 +30,7 @@ export default async function InvitePage({
       <div className="panel">
         <div className="brand-lockup">
           <span className="brand-mark" aria-hidden="true" />
-          <span className="brand-word">aweb</span>
+          <span className="brand-word">Murmel</span>
         </div>
         <AcceptInvite token={token} />
       </div>

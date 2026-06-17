@@ -116,7 +116,7 @@ export function AppSidebar({ userName }: { userName: string }) {
 
   return (
     <aside className="sidebar">
-      <div className="sidebar-brand">aweb</div>
+      <div className="sidebar-brand">Murmel</div>
       <div className="sidebar-team">
         <TeamSwitcher />
       </div>

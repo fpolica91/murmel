@@ -6,7 +6,7 @@ export default function LoginPage() {
       <div className="panel">
         <div className="brand-lockup">
           <span className="brand-mark" aria-hidden="true" />
-          <span className="brand-word">aweb</span>
+          <span className="brand-word">Murmel</span>
         </div>
         <h1>Sign in</h1>
         <p className="muted">
