@@ -56,6 +56,11 @@ const LoginClientIDEnvVar = "AWEB_AUTH_CLIENT_ID"
 // device-flow public client has no secret; the issuer recognizes this id.
 const defaultLoginClientID = "aweb-cli"
 
+// defaultLoginIssuer is the Better Auth issuer (the web app) that exposes the
+// device-authorization + token endpoints. Points at this deployment's UI so
+// `aw login` works with zero config; override with --issuer / AWEB_AUTH_ISSUER.
+const defaultLoginIssuer = "https://ui-production-339a.up.railway.app"
+
 // defaultLoginScope requests an offline-access scope so the issuer returns a
 // refresh token alongside the access token.
 const defaultLoginScope = "openid profile offline_access"
@@ -222,7 +227,7 @@ func resolveLoginIssuer() (string, error) {
 		value = strings.TrimSpace(os.Getenv(LoginIssuerEnvVar))
 	}
 	if value == "" {
-		return "", usageError("auth issuer is required: pass --issuer or set %s", LoginIssuerEnvVar)
+		value = defaultLoginIssuer
 	}
 	u, err := url.Parse(value)
 	if err != nil || u.Scheme == "" || u.Host == "" {
