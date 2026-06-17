@@ -373,7 +373,7 @@ async def _sse_agent_events(
                 redis,
                 participant_dids=viewer_dids,
                 viewer_team_id=team_id,
-                participant_agent_id=agent_id,
+                participant_agent_id=str(aid),
             )
             control_events = await _poll_control_signals(aweb_db, team_id=team_id, agent_id=aid)
         except Exception:

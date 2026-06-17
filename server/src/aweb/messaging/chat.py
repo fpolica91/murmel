@@ -26,7 +26,12 @@ def _uuid_or_none(value: str | UUID | None) -> UUID | None:
     text = str(value).strip()
     if not text:
         return None
-    return UUID(text)
+    try:
+        return UUID(text)
+    except (ValueError, TypeError):
+        # Not a UUID (e.g. a Better Auth subject) — degrade to None rather than
+        # raising, so a caller that passes a non-UUID id can't crash a poll loop.
+        return None
 
 
 def _json_object(value: Any) -> Any:

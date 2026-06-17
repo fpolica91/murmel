@@ -85,7 +85,13 @@ export function subscribeEvents(
 ): () => void {
   const ctrl = new AbortController();
   void (async () => {
+    // Exponential backoff so a stream that keeps closing fast (e.g. a transient
+    // server-side poll error) can't turn into a reconnect flood. A stream that
+    // stays open a while is treated as healthy and resets the backoff.
+    let backoffMs = 1000;
+    const MAX_BACKOFF_MS = 30_000;
     while (!ctrl.signal.aborted) {
+      const startedAt = Date.now();
       try {
         const token = await getAccessToken();
         if (!token) {
@@ -108,15 +114,21 @@ export function subscribeEvents(
           },
         );
         if (!resp.ok || !resp.body) {
-          await sleep(5000, ctrl.signal);
+          backoffMs = Math.min(backoffMs * 2, MAX_BACKOFF_MS);
+          await sleep(backoffMs, ctrl.signal);
           continue;
         }
         await pumpStream(resp.body, ctrl.signal, onEvent);
       } catch {
         if (ctrl.signal.aborted) return;
       }
-      // Stream ended (deadline) or errored — brief pause then reconnect.
-      await sleep(1000, ctrl.signal);
+      // Held open a while (healthy 5-min window) -> reset; ended almost
+      // immediately (failing) -> back off so we don't hammer the endpoint.
+      backoffMs =
+        Date.now() - startedAt > 10_000
+          ? 1000
+          : Math.min(backoffMs * 2, MAX_BACKOFF_MS);
+      await sleep(backoffMs, ctrl.signal);
     }
   })();
   return () => ctrl.abort();
