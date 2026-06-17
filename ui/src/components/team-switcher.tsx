@@ -12,10 +12,54 @@ const btnStyle: React.CSSProperties = {
   background: "var(--control)",
   color: "var(--muted)",
   borderRadius: "var(--radius-sm)",
-  padding: "0.2rem 0.45rem",
+  padding: "0.3rem 0.55rem",
   fontSize: "var(--fs-xs)",
   cursor: "pointer",
-  marginLeft: 4,
+  whiteSpace: "nowrap",
+};
+
+// Compact, square icon-button for the default (collapsed) rename affordance.
+const iconBtnStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  flex: "0 0 auto",
+  width: "1.85rem",
+  height: "1.85rem",
+  border: "1px solid var(--border-strong)",
+  background: "var(--control)",
+  color: "var(--muted)",
+  borderRadius: "var(--radius-sm)",
+  fontSize: "var(--fs-sm)",
+  lineHeight: 1,
+  cursor: "pointer",
+};
+
+// Primary affordance inside the editor (Save).
+const saveBtnStyle: React.CSSProperties = {
+  ...btnStyle,
+  border: "1px solid var(--accent)",
+  background: "var(--accent-weak)",
+  color: "var(--accent)",
+};
+
+// Row that holds the select + rename trigger, and the inline editor controls.
+const rowStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "0.4rem",
+  width: "100%",
+};
+
+const inputStyle: React.CSSProperties = {
+  flex: "1 1 auto",
+  minWidth: 0,
+  background: "var(--control)",
+  color: "var(--text)",
+  border: "1px solid var(--border-strong)",
+  borderRadius: "var(--radius-sm)",
+  padding: "0.4rem 0.6rem",
+  fontSize: "var(--fs-sm)",
 };
 
 /**
@@ -78,39 +122,49 @@ export function TeamSwitcher() {
   if (editing) {
     return (
       <div className="team-switcher">
-        <input
-          autoFocus
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") void save();
-            if (e.key === "Escape") setEditing(false);
-          }}
-          disabled={busy}
-          maxLength={80}
-          aria-label="Team name"
-          style={{ flex: 1, minWidth: 0 }}
-        />
-        <button
-          type="button"
-          style={btnStyle}
-          onClick={() => void save()}
-          disabled={busy}
+        <label
+          className="muted"
+          htmlFor="team-rename"
+          style={{ marginRight: 6 }}
         >
-          {busy ? "…" : "Save"}
-        </button>
-        <button
-          type="button"
-          style={btnStyle}
-          onClick={() => setEditing(false)}
-          disabled={busy}
-        >
-          Cancel
-        </button>
+          Team
+        </label>
+        <div style={rowStyle}>
+          <input
+            id="team-rename"
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void save();
+              if (e.key === "Escape") setEditing(false);
+            }}
+            disabled={busy}
+            maxLength={80}
+            aria-label="Team name"
+            style={inputStyle}
+          />
+          <button
+            type="button"
+            style={saveBtnStyle}
+            onClick={() => void save()}
+            disabled={busy}
+          >
+            {busy ? "…" : "Save"}
+          </button>
+          <button
+            type="button"
+            style={btnStyle}
+            onClick={() => setEditing(false)}
+            disabled={busy}
+          >
+            Cancel
+          </button>
+        </div>
         {error ? (
           <span
             className="muted"
-            style={{ color: "var(--danger)", marginLeft: 6 }}
+            style={{ color: "var(--danger)", fontSize: "var(--fs-xs)" }}
           >
             {error}
           </span>
@@ -124,28 +178,31 @@ export function TeamSwitcher() {
       <label className="muted" htmlFor="team-select" style={{ marginRight: 6 }}>
         Team
       </label>
-      <select
-        id="team-select"
-        value={activeTeam ?? ""}
-        onChange={(e) => setActiveTeam(e.target.value)}
-      >
-        {teams.map((teamId) => (
-          <option key={teamId} value={teamId}>
-            {labelFor(teamId)}
-          </option>
-        ))}
-      </select>
-      {canRename ? (
-        <button
-          type="button"
-          style={btnStyle}
-          onClick={startEdit}
-          aria-label="Rename team"
-          title="Rename team"
+      <div style={rowStyle}>
+        <select
+          id="team-select"
+          value={activeTeam ?? ""}
+          onChange={(e) => setActiveTeam(e.target.value)}
+          style={{ flex: "1 1 auto", minWidth: 0 }}
         >
-          ✎
-        </button>
-      ) : null}
+          {teams.map((teamId) => (
+            <option key={teamId} value={teamId}>
+              {labelFor(teamId)}
+            </option>
+          ))}
+        </select>
+        {canRename ? (
+          <button
+            type="button"
+            style={iconBtnStyle}
+            onClick={startEdit}
+            aria-label="Rename team"
+            title="Rename team"
+          >
+            ✎
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }
