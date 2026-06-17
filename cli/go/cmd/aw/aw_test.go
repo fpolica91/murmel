@@ -1978,7 +1978,7 @@ func TestResolveBaseURLForInitFallsBackToDefault(t *testing.T) {
 	}
 }
 
-func TestMCPConfigRequiresChannelForCertificateAuth(t *testing.T) {
+func TestMCPConfigEmitsTokenBridgeByDefault(t *testing.T) {
 	t.Parallel()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -1990,14 +1990,30 @@ func TestMCPConfigRequiresChannelForCertificateAuth(t *testing.T) {
 
 	buildAwBinary(t, ctx, bin)
 
+	// Default: the token-only bridge (`aw mcp-serve`), no team certificate needed.
 	run := exec.CommandContext(ctx, bin, "mcp-config")
 	run.Env = testCommandEnv(tmp)
 	run.Dir = tmp
 	out, err := run.CombinedOutput()
-	if err == nil {
-		t.Fatalf("expected mcp-config to fail without --channel, got:\n%s", string(out))
+	if err != nil {
+		t.Fatalf("mcp-config (default) failed: %v\n%s", err, string(out))
 	}
-	if !strings.Contains(string(out), "use `aw mcp-config --channel`") {
-		t.Fatalf("unexpected output:\n%s", string(out))
+	if !strings.Contains(string(out), "\"mcp-serve\"") {
+		t.Fatalf("default config should run the mcp-serve bridge, got:\n%s", string(out))
+	}
+	if strings.Contains(string(out), "claude-channel") {
+		t.Fatalf("default config must not use the legacy channel:\n%s", string(out))
+	}
+
+	// --channel: the legacy certificate-based channel config.
+	runCh := exec.CommandContext(ctx, bin, "mcp-config", "--channel")
+	runCh.Env = testCommandEnv(tmp)
+	runCh.Dir = tmp
+	chOut, chErr := runCh.CombinedOutput()
+	if chErr != nil {
+		t.Fatalf("mcp-config --channel failed: %v\n%s", chErr, string(chOut))
+	}
+	if !strings.Contains(string(chOut), "@awebai/claude-channel") {
+		t.Fatalf("--channel config should use the channel package, got:\n%s", string(chOut))
 	}
 }
