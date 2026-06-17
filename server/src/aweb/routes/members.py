@@ -23,6 +23,8 @@ from __future__ import annotations
 import hashlib
 import hmac
 import os
+import secrets
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Path
@@ -482,3 +484,191 @@ async def create_personal_team(
         team_id,
     )
     return {"team_id": team_id, "display_name": display_name, "created": True}
+
+
+# ---------------------------------------------------------------------------
+# Invitations
+# ---------------------------------------------------------------------------
+
+INVITE_TTL_DAYS = 14
+# Invitations can grant member/admin only — never owner (that stays the creator).
+INVITE_ROLES = {"member", "admin"}
+
+
+class CreateInviteRequest(BaseModel):
+    email: str = Field(..., min_length=3, max_length=254)
+    role: str = Field(default="member", min_length=1, max_length=ROLE_MAX_LENGTH)
+
+
+@router.post("/{team_id}/invitations", status_code=201)
+async def create_invitation(
+    payload: CreateInviteRequest,
+    team_id: str = Path(..., min_length=1, max_length=128),
+    db: Any = Depends(get_db),
+    auth: TokenAuthContext = Depends(get_token_auth()),
+) -> dict:
+    """Create a pending invitation to ``team_id`` (admin/owner only)."""
+    await _require_team_admin(db, auth, team_id)
+    role = payload.role.strip().lower()
+    if role not in INVITE_ROLES:
+        role = "member"
+    email = payload.email.strip().lower()
+    token = secrets.token_urlsafe(24)
+    expires_at = datetime.now(timezone.utc) + timedelta(days=INVITE_TTL_DAYS)
+    manager = _aweb_db(db)
+    try:
+        await manager.execute(
+            """
+            INSERT INTO {{tables.invitations}}
+                (token, team_id, email, role, status, invited_by, expires_at)
+            VALUES ($1, $2, $3, $4, 'pending', $5, $6)
+            """,
+            token,
+            team_id,
+            email,
+            role,
+            auth.subject,
+            expires_at,
+        )
+    except Exception as exc:  # FK violation -> team does not exist
+        raise HTTPException(status_code=404, detail=f"Team not found: {team_id}") from exc
+    return {
+        "token": token,
+        "team_id": team_id,
+        "email": email,
+        "role": role,
+        "expires_at": expires_at.isoformat(),
+    }
+
+
+@router.get("/{team_id}/invitations")
+async def list_invitations(
+    team_id: str = Path(..., min_length=1, max_length=128),
+    db: Any = Depends(get_db),
+    auth: TokenAuthContext = Depends(get_token_auth()),
+) -> dict:
+    """List a team's pending invitations (admin/owner only)."""
+    await _require_team_admin(db, auth, team_id)
+    manager = _aweb_db(db)
+    rows = await manager.fetch_all(
+        """
+        SELECT token, email, role, created_at, expires_at
+        FROM {{tables.invitations}}
+        WHERE team_id = $1 AND status = 'pending'
+        ORDER BY created_at DESC
+        """,
+        team_id,
+    )
+    return {
+        "invitations": [
+            {
+                "token": str(r["token"]),
+                "email": str(r["email"]),
+                "role": str(r["role"]),
+                "expires_at": r["expires_at"].isoformat(),
+            }
+            for r in rows
+        ]
+    }
+
+
+@router.delete("/{team_id}/invitations/{token}", status_code=204)
+async def revoke_invitation(
+    team_id: str = Path(..., min_length=1, max_length=128),
+    token: str = Path(..., min_length=1, max_length=128),
+    db: Any = Depends(get_db),
+    auth: TokenAuthContext = Depends(get_token_auth()),
+) -> None:
+    """Revoke a pending invitation (admin/owner only)."""
+    await _require_team_admin(db, auth, team_id)
+    manager = _aweb_db(db)
+    revoked = await manager.fetch_value(
+        """
+        UPDATE {{tables.invitations}}
+        SET status = 'revoked'
+        WHERE team_id = $1 AND token = $2 AND status = 'pending'
+        RETURNING 1
+        """,
+        team_id,
+        token,
+    )
+    if revoked is None:
+        raise HTTPException(status_code=404, detail="Invitation not found")
+    return None
+
+
+# Token-identified invite endpoints (not team-scoped: the token names the team).
+invite_router = APIRouter(prefix="/v1/invitations", tags=["invitations"])
+
+
+@invite_router.get("/{token}")
+async def preview_invitation(
+    token: str = Path(..., min_length=1, max_length=128),
+    db: Any = Depends(get_db),
+    auth: TokenAuthContext = Depends(get_token_auth()),
+) -> dict:
+    """Preview an invitation (any authenticated user holding the link)."""
+    manager = _aweb_db(db)
+    row = await manager.fetch_one(
+        """
+        SELECT i.team_id, i.email, i.role, i.status, i.expires_at,
+               t.display_name, t.team_name
+        FROM {{tables.invitations}} i
+        JOIN {{tables.teams}} t ON t.team_id = i.team_id
+        WHERE i.token = $1
+        """,
+        token,
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Invitation not found")
+    expired = row["expires_at"] < datetime.now(timezone.utc)
+    status = "expired" if (row["status"] == "pending" and expired) else str(row["status"])
+    return {
+        "team_id": str(row["team_id"]),
+        "team_name": str(row["display_name"] or row["team_name"] or row["team_id"]),
+        "email": str(row["email"]),
+        "role": str(row["role"]),
+        "status": status,
+    }
+
+
+@invite_router.post("/{token}/accept")
+async def accept_invitation(
+    token: str = Path(..., min_length=1, max_length=128),
+    db: Any = Depends(get_db),
+    auth: TokenAuthContext = Depends(get_token_auth()),
+) -> dict:
+    """Accept an invitation: add the caller as a member of the invited team.
+
+    Many-to-many — this adds a membership next to any the caller already has
+    (their personal team, other orgs); it never replaces them.
+    """
+    manager = _aweb_db(db)
+    inv = await manager.fetch_one(
+        "SELECT team_id, role, status, expires_at FROM {{tables.invitations}} WHERE token = $1",
+        token,
+    )
+    if inv is None:
+        raise HTTPException(status_code=404, detail="Invitation not found")
+    if str(inv["status"]) != "pending":
+        raise HTTPException(status_code=409, detail=f"Invitation already {inv['status']}")
+    if inv["expires_at"] < datetime.now(timezone.utc):
+        raise HTTPException(status_code=410, detail="Invitation expired")
+    role = str(inv["role"]).strip().lower()
+    if role not in INVITE_ROLES:
+        role = "member"
+    await manager.execute(
+        """
+        INSERT INTO {{tables.memberships}} (subject, team_id, role, status)
+        VALUES ($1, $2, $3, 'active')
+        ON CONFLICT (subject, team_id) DO UPDATE SET status = 'active', role = EXCLUDED.role
+        """,
+        auth.subject,
+        inv["team_id"],
+        role,
+    )
+    await manager.execute(
+        "UPDATE {{tables.invitations}} SET status = 'accepted' WHERE token = $1",
+        token,
+    )
+    return {"team_id": str(inv["team_id"]), "role": role, "status": "accepted"}

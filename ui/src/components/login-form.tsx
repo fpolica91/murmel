@@ -15,26 +15,31 @@ export function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // Return-to after auth (e.g. an /invite/<token> link). Only same-origin
+  // relative paths to avoid open redirects.
+  function callbackURL(): string {
+    if (typeof window === "undefined") return "/dashboard";
+    const cb = new URLSearchParams(window.location.search).get("callbackURL");
+    return cb && cb.startsWith("/") && !cb.startsWith("//") ? cb : "/dashboard";
+  }
+
   async function onSocial(provider: "github" | "google") {
     setError(null);
-    await signIn.social({ provider, callbackURL: "/dashboard" });
+    await signIn.social({ provider, callbackURL: callbackURL() });
   }
 
   async function onCredentials(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(null);
-    const { error } = await signIn.email({
-      email,
-      password,
-      callbackURL: "/dashboard",
-    });
+    const cb = callbackURL();
+    const { error } = await signIn.email({ email, password, callbackURL: cb });
     setBusy(false);
     if (error) {
       setError(error.message ?? "Sign-in failed");
       return;
     }
-    window.location.href = "/dashboard";
+    window.location.href = cb;
   }
 
   return (

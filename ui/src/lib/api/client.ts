@@ -136,6 +136,63 @@ export async function renameTeam(
   });
 }
 
+export interface TeamInvite {
+  token: string;
+  email: string;
+  role: string;
+  expires_at: string;
+}
+
+/** Create a pending invitation to a team (owner/admin). Returns the token. */
+export async function createInvite(
+  teamId: string,
+  email: string,
+  role = "member",
+): Promise<TeamInvite> {
+  return request(`/v1/teams/${encodeURIComponent(teamId)}/invitations`, {
+    method: "POST",
+    body: { email, role },
+  });
+}
+
+/** List a team's pending invitations (owner/admin). */
+export async function listInvites(
+  teamId: string,
+): Promise<{ invitations: TeamInvite[] }> {
+  return request(`/v1/teams/${encodeURIComponent(teamId)}/invitations`);
+}
+
+/** Revoke a pending invitation (owner/admin). */
+export async function revokeInvite(
+  teamId: string,
+  token: string,
+): Promise<void> {
+  return request(
+    `/v1/teams/${encodeURIComponent(teamId)}/invitations/${encodeURIComponent(token)}`,
+    { method: "DELETE" },
+  );
+}
+
+/** Preview an invitation by token (any signed-in user holding the link). */
+export async function previewInvite(token: string): Promise<{
+  team_id: string;
+  team_name: string;
+  email: string;
+  role: string;
+  status: string;
+}> {
+  return request(`/v1/invitations/${encodeURIComponent(token)}`);
+}
+
+/** Accept an invitation — adds the caller to the invited team. */
+export async function acceptInvite(
+  token: string,
+): Promise<{ team_id: string; role: string; status: string }> {
+  return request(`/v1/invitations/${encodeURIComponent(token)}/accept`, {
+    method: "POST",
+  });
+}
+
 /** Strongly-typed surface over the work-hierarchy endpoints. */
 export const workApi = {
   // ----- Epics -----------------------------------------------------------

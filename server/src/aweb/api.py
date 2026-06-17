@@ -30,6 +30,7 @@ from .routes.federation import router as federation_router
 from .routes.hierarchy import router as hierarchy_router
 from .routes.members import router as members_router
 from .routes.members import hint_router as memberships_hint_router
+from .routes.members import invite_router as invitations_router
 from .routes.participants import router as participants_router
 from .routes.presence import router as presence_router
 from .routes.messages import router as messages_router
@@ -458,6 +459,7 @@ def create_app(
     # / aweb.routes.hierarchy.
     app.include_router(members_router)
     app.include_router(memberships_hint_router)
+    app.include_router(invitations_router)
     app.include_router(participants_router)
     app.include_router(presence_router)
     app.include_router(hierarchy_router)

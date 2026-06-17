@@ -16,9 +16,16 @@ export function SignupForm() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // Return-to after auth (e.g. an /invite/<token> link). Same-origin only.
+  function callbackURL(): string {
+    if (typeof window === "undefined") return "/dashboard";
+    const cb = new URLSearchParams(window.location.search).get("callbackURL");
+    return cb && cb.startsWith("/") && !cb.startsWith("//") ? cb : "/dashboard";
+  }
+
   async function onSocial(provider: "github" | "google") {
     setError(null);
-    await signIn.social({ provider, callbackURL: "/dashboard" });
+    await signIn.social({ provider, callbackURL: callbackURL() });
   }
 
   async function onCredentials(e: React.FormEvent) {
@@ -33,18 +40,19 @@ export function SignupForm() {
       return;
     }
     setBusy(true);
+    const cb = callbackURL();
     const { error } = await signUp.email({
       name: name.trim(),
       email,
       password,
-      callbackURL: "/dashboard",
+      callbackURL: cb,
     });
     setBusy(false);
     if (error) {
       setError(error.message ?? "Sign-up failed");
       return;
     }
-    window.location.href = "/dashboard";
+    window.location.href = cb;
   }
 
   return (

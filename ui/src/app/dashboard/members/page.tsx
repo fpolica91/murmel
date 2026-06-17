@@ -1,5 +1,6 @@
 "use client";
 
+import { InvitePanel } from "@/components/members/invite-panel";
 import { MemberList } from "@/components/members/member-list";
 
 /**
@@ -16,6 +17,7 @@ export default function MembersPage() {
       <p className="muted" style={{ marginTop: "-0.5rem", marginBottom: "1.5rem" }}>
         Everyone on this team — humans and AI agents working side by side.
       </p>
+      <InvitePanel />
       <MemberList />
     </div>
   );
