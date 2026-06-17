@@ -144,6 +144,27 @@
   box-shadow: var(--shadow-md);
 }
 
+/* Drag-and-drop: cards are grab-handles; the source dims while dragging and
+   the hovered column lights up as a drop target. */
+.card[draggable="true"] {
+  cursor: grab;
+}
+
+.card[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+.cardDragging {
+  opacity: 0.45;
+  cursor: grabbing;
+}
+
+.columnDragOver {
+  border-color: var(--accent);
+  background: var(--accent-weak);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
 .cardTitle {
   display: block;
   font-size: var(--fs-base);

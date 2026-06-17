@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 
 import {
@@ -11,8 +12,9 @@ import {
 import { AssigneeChip } from "./issue-badges";
 import styles from "./work.module.css";
 
-/** Compact issue card. The title links to the detail view; the status select
- * moves the issue between columns (PATCH) without leaving the board. */
+/** Compact issue card. The title links to the detail view; the card is
+ * draggable between columns (drop = PATCH via onStatusChange) and the status
+ * select is the keyboard-accessible fallback for the same move. */
 export function IssueCard({
   issue,
   onStatusChange,
@@ -20,11 +22,29 @@ export function IssueCard({
   issue: Issue;
   onStatusChange?: (issueId: string, status: IssueStatus) => void;
 }) {
+  const [dragging, setDragging] = useState(false);
+  // Only draggable when a status-change handler is wired (board view).
+  const draggable = !!onStatusChange;
+
   return (
-    <div className={styles.card}>
+    <div
+      className={`${styles.card}${dragging ? ` ${styles.cardDragging}` : ""}`}
+      draggable={draggable}
+      onDragStart={
+        draggable
+          ? (e) => {
+              e.dataTransfer.setData("text/plain", issue.issue_id);
+              e.dataTransfer.effectAllowed = "move";
+              setDragging(true);
+            }
+          : undefined
+      }
+      onDragEnd={draggable ? () => setDragging(false) : undefined}
+    >
       <Link
         href={`/dashboard/work/issues/${issue.issue_id}`}
         className={styles.cardTitle}
+        draggable={false}
       >
         {issue.title}
       </Link>
