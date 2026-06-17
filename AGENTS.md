@@ -184,6 +184,31 @@ Python projects use **uv** (not pip/poetry). The Makefile pins
 reproducible runs. `server` tests add both `src` and `../awid/src` to the
 path, so server tests can import awid.
 
+## Testing benchmark: live multi-agent harness (REQUIRED for coordination/tenancy/security)
+
+`make test` / pytest are **necessary but not sufficient**. For any change to
+coordination, messaging, **team scoping / tenant isolation**, auth, or
+membership, the change is not "tested" until it is verified by a **live
+multi-agent simulation on the local stack** (`:8088`) — real agents minting real
+tokens and coordinating over the running platform, plus an adversary actively
+trying to break isolation. A unit test only counts toward this bar if it
+literally drives that live flow; an in-process assertion does not.
+
+Two benchmark workflows live in **`scripts/test-workflows/`** (run via the
+Workflow tool with `scriptPath`; see that README for the local-stack setup,
+seed accounts, and the token-mint pattern):
+
+- **`todo-app-replication.js`** — 5 real agents claim issues, build a todo app,
+  and coordinate over chat/mail. Pass = all files written, all issues `done`,
+  chat delivered. Proves coordination still works after a change.
+- **`adversarial-infiltration.js`** — an outsider runs red-team agents that try
+  to infiltrate another team (spoof `X-AWEB-Team-Id`, direct-object exfil by id,
+  inject, cross-team message, raw MCP). Pass = judge verdict `sealed` (**zero**
+  breaches). Any breach is a release blocker.
+
+Run **both** (in addition to `make test`) before claiming a coordination,
+messaging, tenancy, or auth change is done.
+
 ## Releases
 
 `make ship` is the canonical pre-tag-push gate — it runs `release-all-check`
