@@ -101,6 +101,10 @@ export function LoginForm() {
           {error}
         </p>
       ) : null}
+
+      <p className="muted" style={{ marginTop: "1rem", textAlign: "center" }}>
+        Don&apos;t have an account? <a href="/signup">Sign up</a>
+      </p>
     </div>
   );
 }
