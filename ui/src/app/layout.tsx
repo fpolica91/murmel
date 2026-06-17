@@ -40,12 +40,23 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
+/**
+ * Runs before first paint to avoid a theme flash: if the user persisted a
+ * choice, apply it to <html data-theme>; otherwise leave it unset so the
+ * prefers-color-scheme media query (with dark as default) decides.
+ */
+const NO_FLASH_THEME = `(function(){try{var t=localStorage.getItem("murmel.theme");if(t==="light"||t==="dark"){document.documentElement.dataset.theme=t;}}catch(e){}})();`;
+
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html
       lang="en"
       className={`${display.variable} ${sans.variable} ${mono.variable}`}
+      suppressHydrationWarning
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: NO_FLASH_THEME }} />
+      </head>
       <body>
         <div className="app-shell">{children}</div>
       </body>

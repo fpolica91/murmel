@@ -56,11 +56,11 @@
 }
 
 .statOnline {
-  border-color: rgba(63, 185, 80, 0.35);
+  border-color: var(--good-border);
 }
 
 .statProgress {
-  border-color: rgba(79, 140, 255, 0.35);
+  border-color: var(--accent);
 }
 
 .statLabel {

@@ -2,6 +2,7 @@
   color-scheme: dark;
   --bg: #0a0b0e;
   --bg-elev: #101218;
+  --bg-gradient-top: #0c0d12; /* body backdrop top fade (slightly lifted) */
   --panel: #14161c;
   --panel-hover: #181b22;
   --border: #23262f;
@@ -75,6 +76,104 @@
   --font-mono: var(--font-mono, ui-monospace), "SFMono-Regular", monospace;
 }
 
+/* ---- LIGHT THEME -----------------------------------------------------
+   Dark stays the default (above). This block redefines every color token
+   for a light UI: light neutral backgrounds, dark text, and accent/
+   semantic/identity hues darkened so they read on white. The dark-tuned
+   -text tints are far too pale on light, so each gets a darker readable
+   variant. Targets WCAG AA: body text ≥4.5:1, UI/large text ≥3:1.
+   Only color tokens change — structural tokens (space/radius/fs) are
+   theme-independent and intentionally not repeated here. */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f6f7f9; /* page base */
+  --bg-elev: #ffffff; /* raised flat surfaces / buttons */
+  --bg-gradient-top: #ffffff; /* light: subtle top highlight, no dark band */
+  --panel: #ffffff;
+  --panel-hover: #f0f2f5;
+  --border: #dfe2e8;
+  --border-strong: #c4c9d2;
+  --text: #1a1d23; /* ~14:1 on panel */
+  --muted: #5a616d; /* ~5.6:1 on #fff */
+  --faint: #666c7a; /* ~4.6:1 on #fff */
+  --accent: #2f5fd0; /* darker so white text on it passes AA */
+  --accent-weak: rgba(47, 95, 208, 0.1);
+  --focus-ring: rgba(47, 95, 208, 0.4);
+  --control: #ffffff;
+  --on-accent: #ffffff;
+  --surface-muted: #e4e7ec;
+  --bubble-mine: #dbe6ff; /* own-message bubble (accent-tinted light) */
+  --offline: #9aa1ad;
+
+  /* Semantic — bases kept vivid; -text variants darkened for AA on light. */
+  --good: #178235;
+  --good-text: #18803a; /* ~4.6:1 on #fff */
+  --good-border: #a7e0b6;
+  --warn: #9a6e12; /* darkened so it reads on light */
+  --warn-text: #8a5d0c; /* ~5:1 on #fff */
+  --danger: #d23b3f;
+  --danger-text: #b3282c; /* ~5:1 on #fff */
+  --danger-border: #f0bcbe;
+  --danger-bg: #fdeced;
+
+  /* Identity — darker hues so agent/human read against light surfaces. */
+  --agent: #6a3fe0;
+  --agent-border: #c3b2f5;
+  --agent-text: #5a32c4; /* ~5.6:1 on #fff */
+  --human: var(--accent);
+  --human-border: #aac2f0;
+  --human-text: #2451bd; /* ~5.3:1 on #fff */
+
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.08);
+  --shadow-md: 0 8px 24px -8px rgba(16, 24, 40, 0.18);
+}
+
+/* First paint matches the OS when no explicit theme is stored. Mirrors the
+   light block above so an unset preference follows prefers-color-scheme. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    color-scheme: light;
+    --bg: #f6f7f9;
+    --bg-elev: #ffffff;
+    --bg-gradient-top: #ffffff;
+    --panel: #ffffff;
+    --panel-hover: #f0f2f5;
+    --border: #dfe2e8;
+    --border-strong: #c4c9d2;
+    --text: #1a1d23;
+    --muted: #5a616d;
+    --faint: #666c7a;
+    --accent: #2f5fd0;
+    --accent-weak: rgba(47, 95, 208, 0.1);
+    --focus-ring: rgba(47, 95, 208, 0.4);
+    --control: #ffffff;
+    --on-accent: #ffffff;
+    --surface-muted: #e4e7ec;
+    --bubble-mine: #dbe6ff;
+    --offline: #9aa1ad;
+
+    --good: #178235;
+    --good-text: #18803a;
+    --good-border: #a7e0b6;
+    --warn: #9a6e12;
+    --warn-text: #8a5d0c;
+    --danger: #d23b3f;
+    --danger-text: #b3282c;
+    --danger-border: #f0bcbe;
+    --danger-bg: #fdeced;
+
+    --agent: #6a3fe0;
+    --agent-border: #c3b2f5;
+    --agent-text: #5a32c4;
+    --human: var(--accent);
+    --human-border: #aac2f0;
+    --human-text: #2451bd;
+
+    --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.08);
+    --shadow-md: 0 8px 24px -8px rgba(16, 24, 40, 0.18);
+  }
+}
+
 * {
   box-sizing: border-box;
 }
@@ -106,7 +205,7 @@ body {
       rgba(91, 140, 255, 0.08),
       transparent 60%
     ),
-    linear-gradient(180deg, #0c0d12 0%, var(--bg) 38%);
+    linear-gradient(180deg, var(--bg-gradient-top) 0%, var(--bg) 38%);
   background-attachment: fixed;
 }
 

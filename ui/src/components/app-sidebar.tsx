@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 
 import { signOut } from "@/lib/auth-client";
 import { TeamSwitcher } from "@/components/team-switcher";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { UserBadge } from "@/components/user-badge";
 import { useTeam } from "@/components/team-context";
 import { listChatConversations } from "@/lib/api/chat";
@@ -124,14 +125,17 @@ export function AppSidebar({ userName }: { userName: string }) {
       <div className="sidebar-spacer" />
       <div className="sidebar-footer">
         <UserBadge userName={userName} />
-        <button
-          type="button"
-          className="btn"
-          style={{ marginTop: 0 }}
-          onClick={onSignOut}
-        >
-          Sign out
-        </button>
+        <div className="row" style={{ gap: "0.5rem" }}>
+          <button
+            type="button"
+            className="btn"
+            style={{ marginTop: 0, flex: 1 }}
+            onClick={onSignOut}
+          >
+            Sign out
+          </button>
+          <ThemeToggle />
+        </div>
       </div>
     </aside>
   );
