@@ -20,6 +20,7 @@ Wiring (done in the integration step, NOT here)::
 
 from __future__ import annotations
 
+import hashlib
 import hmac
 import os
 from typing import Any, Optional
@@ -415,3 +416,69 @@ async def memberships_hint(
             for r in rows
         ],
     }
+
+
+class PersonalTeamRequest(BaseModel):
+    subject: str = Field(..., min_length=1, max_length=SUBJECT_MAX_LENGTH)
+    name: Optional[str] = Field(default=None, max_length=120)
+
+
+@hint_router.post("/onboarding/personal-team")
+async def create_personal_team(
+    payload: PersonalTeamRequest,
+    db: Any = Depends(get_db),
+    x_aweb_internal_key: Optional[str] = Header(default=None, alias="X-AWEB-Internal-Key"),
+) -> dict:
+    """Idempotently provision a personal team + owner membership for a freshly
+    signed-up subject, so a cold signup never hits the 'ask an owner' dead-end.
+
+    Called server-to-server from the Better Auth signup hook; guarded by the
+    shared internal key. No-op if the subject already has ANY active membership
+    (e.g. they arrived via an invite) — invite-joiners keep just the team they
+    joined. The team_id is derived deterministically from the subject so a
+    double-fired hook converges on one team instead of creating duplicates.
+    """
+    expected = (os.getenv("AWEB_MEMBERSHIPS_HINT_KEY") or "").strip()
+    if not expected:
+        raise HTTPException(status_code=404, detail="onboarding endpoint disabled")
+    if not x_aweb_internal_key or not hmac.compare_digest(x_aweb_internal_key, expected):
+        raise HTTPException(status_code=401, detail="invalid internal key")
+
+    manager = _aweb_db(db)
+    existing = await manager.fetch_one(
+        """
+        SELECT team_id FROM {{tables.memberships}}
+        WHERE subject = $1 AND status = 'active'
+        LIMIT 1
+        """,
+        payload.subject,
+    )
+    if existing is not None:
+        return {"team_id": str(existing["team_id"]), "created": False}
+
+    slug = hashlib.sha256(payload.subject.encode("utf-8")).hexdigest()[:10]
+    team_id = f"{slug}:personal"
+    name = (payload.name or "").strip()
+    display_name = f"{name}'s Team" if name else "My Team"
+    # team_did_key is unused on the token-auth path; a placeholder satisfies NOT NULL.
+    await manager.execute(
+        """
+        INSERT INTO {{tables.teams}} (team_id, namespace, team_name, team_did_key, display_name)
+        VALUES ($1, 'personal', $2, $3, $4)
+        ON CONFLICT (team_id) DO NOTHING
+        """,
+        team_id,
+        slug,
+        f"did:key:personal-{slug}",
+        display_name,
+    )
+    await manager.execute(
+        """
+        INSERT INTO {{tables.memberships}} (subject, team_id, role, status)
+        VALUES ($1, $2, 'owner', 'active')
+        ON CONFLICT (subject, team_id) DO UPDATE SET status = 'active', role = 'owner'
+        """,
+        payload.subject,
+        team_id,
+    )
+    return {"team_id": team_id, "display_name": display_name, "created": True}

@@ -73,6 +73,39 @@ function buildAuth() {
 
     socialProviders: buildSocialProviders(),
 
+    // Auto-provision a personal team on signup so a cold signup never lands on
+    // the "ask an owner" dead-end. Best-effort + idempotent on the aweb side:
+    // an invite-joiner already has a membership, so the endpoint no-ops and they
+    // keep just the team they were invited to.
+    databaseHooks: {
+      user: {
+        create: {
+          after: async (user) => {
+            const membershipsUrl = process.env.AWEB_MEMBERSHIPS_URL;
+            const hintKey = process.env.AWEB_MEMBERSHIPS_HINT_KEY;
+            if (!membershipsUrl || !hintKey) return;
+            const url = membershipsUrl.replace(
+              /\/memberships$/,
+              "/onboarding/personal-team",
+            );
+            try {
+              await fetch(url, {
+                method: "POST",
+                headers: {
+                  "content-type": "application/json",
+                  "x-aweb-internal-key": hintKey,
+                },
+                body: JSON.stringify({ subject: user.id, name: user.name }),
+              });
+            } catch {
+              // Non-fatal: signup still succeeds; the team is provisioned lazily
+              // on next sign-in if this server-to-server call failed transiently.
+            }
+          },
+        },
+      },
+    },
+
     // --- JWT issuance (this is what makes us the issuer) ---
     plugins: [
       jwt({
