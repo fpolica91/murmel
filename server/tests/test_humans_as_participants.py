@@ -130,17 +130,48 @@ async def test_provision_human_participant_creates_and_syncs(aweb_cloud_db):
     assert got[0]["human_name"] == "Alice Human"
     assert got[0]["did_key"] == "did:key:jwt-user-alice"
 
-    # Idempotent on (team_id, did_key); a changed name claim is kept in sync.
+    # Idempotent on (team_id, did_key). The display name (human_name) syncs to a
+    # changed name claim, but the routing alias (handle) stays stable so existing
+    # addressing/assignments don't break on a rename.
     again = await provision_human_participant(
         db, team_id=TEAM_ID, subject="user-alice", name="Alice Renamed"
     )
-    assert again["alias"] == "Alice Renamed"
+    assert again["alias"] == "Alice Human"
     assert again["human_name"] == "Alice Renamed"
     count = await aweb_cloud_db.aweb_db.fetch_value(
         "SELECT COUNT(*) FROM {{tables.agents}} WHERE team_id = $1 AND agent_type = 'human'",
         TEAM_ID,
     )
     assert int(count) == 1
+
+
+@pytest.mark.asyncio
+async def test_provision_human_distinct_alias_for_same_name(aweb_cloud_db):
+    """Two different subjects with the SAME display name coexist in one team:
+    each gets a distinct routing alias (handle), but both keep the shared display
+    name — no (team_id, alias) unique-index collision. Regression for same-name
+    humans being unable to join the same team."""
+    db = _DbShim(aweb_cloud_db.aweb_db)
+    await _seed_team(aweb_cloud_db.aweb_db)
+
+    a = await provision_human_participant(
+        db, team_id=TEAM_ID, subject="user-1", name="Sam Twin"
+    )
+    b = await provision_human_participant(
+        db, team_id=TEAM_ID, subject="user-2", name="Sam Twin"
+    )
+
+    assert a["alias"] == "Sam Twin"
+    assert b["alias"] == "Sam Twin 2"
+    assert a["human_name"] == "Sam Twin"
+    assert b["human_name"] == "Sam Twin"
+    assert a["did_key"] != b["did_key"]
+
+    # Re-provisioning the second human keeps its disambiguated handle stable.
+    b_again = await provision_human_participant(
+        db, team_id=TEAM_ID, subject="user-2", name="Sam Twin"
+    )
+    assert b_again["alias"] == "Sam Twin 2"
 
 
 @pytest.mark.asyncio

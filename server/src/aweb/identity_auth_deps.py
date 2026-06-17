@@ -171,6 +171,43 @@ def _jwt_synthetic_did_key(subject: str) -> str:
     return f"did:key:jwt-{subject}"
 
 
+async def _resolve_human_alias(aweb_db, *, team_id: str, did_key: str, base: str) -> str:
+    """Pick a team-unique routing alias (handle) for a human participant.
+
+    The display name (``human_name``) is intentionally NOT unique — real people
+    share names. The ``alias`` is the addressable selector (chat ``to_aliases``,
+    issue assignee) and must be unique per team. So: an already-provisioned human
+    keeps its existing alias (stable addressing); a new human takes ``base`` (its
+    display name) if free in the team, else the first free ``"<base> N"``. This
+    lets two same-named humans coexist instead of colliding on the
+    ``(team_id, alias)`` unique index.
+    """
+    base = (base or "").strip() or did_key
+    existing = await aweb_db.fetch_value(
+        "SELECT alias FROM {{tables.agents}} "
+        "WHERE team_id = $1 AND did_key = $2 AND deleted_at IS NULL",
+        team_id,
+        did_key,
+    )
+    if existing:
+        return str(existing)
+    candidate = base
+    n = 2
+    while n < 1000:
+        taken = await aweb_db.fetch_value(
+            "SELECT 1 FROM {{tables.agents}} "
+            "WHERE team_id = $1 AND alias = $2 AND deleted_at IS NULL",
+            team_id,
+            candidate,
+        )
+        if not taken:
+            return candidate
+        candidate = f"{base} {n}"
+        n += 1
+    # Pathological fallback (1000 same-named humans): a stable subject suffix.
+    return f"{base} {did_key[-8:]}"
+
+
 async def provision_human_participant(
     db,
     *,
@@ -203,9 +240,13 @@ async def provision_human_participant(
     subject = (subject or "").strip()
     name = (name or "").strip()
     agent_name = (agent_name or "").strip()
-    alias = name or agent_name or subject
-    human_name = name or alias
+    # human_name = the display name (NOT unique). alias = the team-unique routing
+    # handle, auto-disambiguated so two same-named humans don't collide.
+    human_name = name or agent_name or subject
     did_key = _jwt_synthetic_did_key(subject)
+    alias = await _resolve_human_alias(
+        aweb_db, team_id=team_id, did_key=did_key, base=human_name or subject
+    )
     # Advertise the DOMAIN form (``<domain>/<alias>``) that the recipient and
     # namespace resolvers expect, NOT the raw team_id form
     # (``<name>:<domain>/<alias>``). team_id "default:local" parses to
@@ -219,14 +260,13 @@ async def provision_human_participant(
         INSERT INTO {{tables.agents}} (team_id, did_key, alias, human_name, agent_type, identity_scope, address)
         VALUES ($1, $2, $3, $4, 'human', 'local', $5)
         ON CONFLICT (team_id, did_key) WHERE deleted_at IS NULL
-        DO UPDATE SET alias = EXCLUDED.alias,
-                      human_name = EXCLUDED.human_name,
+        DO UPDATE SET human_name = EXCLUDED.human_name,
                       address = EXCLUDED.address
         RETURNING agent_id, team_id, alias, human_name, did_key, address, identity_scope
         """,
         team_id,
         did_key,
-        alias or subject,
+        alias,
         human_name,
         address,
     )
