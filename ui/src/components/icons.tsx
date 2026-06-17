@@ -68,3 +68,14 @@ export function MembersIcon(props: IconProps) {
     </svg>
   );
 }
+
+/** CLI — terminal prompt. */
+export function CliIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="m7 9 3 3-3 3" />
+      <path d="M13 15h4" />
+    </svg>
+  );
+}

@@ -1,0 +1,113 @@
+.wrap {
+  max-width: 720px;
+}
+
+.steps {
+  list-style: none;
+  margin: var(--space-6) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.step {
+  display: flex;
+  gap: var(--space-4);
+  align-items: flex-start;
+}
+
+/* Numbered step badge — accent-tinted circle. */
+.num {
+  flex: 0 0 auto;
+  width: 1.85rem;
+  height: 1.85rem;
+  border-radius: var(--radius-pill);
+  display: grid;
+  place-items: center;
+  background: var(--accent-weak);
+  color: var(--human-text);
+  border: 1px solid var(--human-border);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--fs-sm);
+  line-height: 1;
+}
+
+.body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.body h3 {
+  margin: 0.2rem 0 0.35rem;
+  font-size: var(--fs-md);
+  font-family: var(--font-display);
+}
+
+.body p {
+  margin: 0 0 var(--space-3);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-relaxed);
+}
+
+/* Terminal-style command row with a copy button. */
+.cmd {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
+  margin-bottom: var(--space-2);
+  box-shadow: var(--shadow-sm);
+}
+
+.cmd code {
+  flex: 1 1 auto;
+  overflow-x: auto;
+  white-space: nowrap;
+  font-size: var(--fs-sm);
+  color: var(--text);
+}
+
+.cmd code::before {
+  content: "$ ";
+  color: var(--faint);
+}
+
+.copy {
+  flex: 0 0 auto;
+  border: 1px solid var(--border-strong);
+  background: var(--control);
+  color: var(--muted);
+  border-radius: var(--radius-sm);
+  padding: 0.3rem 0.65rem;
+  font-size: var(--fs-2xs);
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.copy:hover {
+  color: var(--text);
+  border-color: var(--accent);
+  background: var(--panel-hover);
+}
+
+.foot {
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+  font-size: var(--fs-xs);
+}
+
+@media (max-width: 480px) {
+  .cmd code {
+    font-size: var(--fs-xs);
+  }
+}

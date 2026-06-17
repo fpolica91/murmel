@@ -13,6 +13,7 @@ import { listChatConversations } from "@/lib/api/chat";
 import { subscribeEvents } from "@/lib/events/eventStream";
 import {
   ChatIcon,
+  CliIcon,
   ConsoleIcon,
   MembersIcon,
   WorkIcon,
@@ -28,6 +29,7 @@ const NAV_LINKS: ReadonlyArray<{
   { href: "/dashboard/work", label: "Work", icon: <WorkIcon /> },
   { href: "/dashboard/chat", label: "Chat", icon: <ChatIcon /> },
   { href: "/dashboard/members", label: "Members", icon: <MembersIcon /> },
+  { href: "/dashboard/cli", label: "CLI", icon: <CliIcon /> },
 ];
 
 function DashboardNav() {
