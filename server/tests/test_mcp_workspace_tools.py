@@ -23,65 +23,41 @@ class DBInfra:
 
 
 @pytest.mark.asyncio
-async def test_work_ready_uses_workspace_id_not_agent_id(aweb_cloud_db, monkeypatch):
-    workspace_id = uuid4()
-    other_workspace_id = uuid4()
-    agent_id = uuid4()
+async def test_work_ready_returns_unassigned_todo_issues(aweb_cloud_db, monkeypatch):
+    # work_ready discovers READY work over the issues model: status=todo AND
+    # unassigned. Assigned-todo and non-todo issues are excluded.
     team_id = "backend:acme.com"
 
-    await aweb_cloud_db.aweb_db.execute(
-        """
-        INSERT INTO {{tables.task_claims}} (
-            team_id, workspace_id, alias, human_name, task_ref, claimed_at
+    async def _ins(title, status, assignee_type, assignee_id):
+        await aweb_cloud_db.aweb_db.execute(
+            """
+            INSERT INTO {{tables.issues}}
+                (issue_id, team_id, title, description, status, assignee_type, assignee_id)
+            VALUES ($1, $2, $3, '', $4, $5, $6)
+            """,
+            uuid4(), team_id, title, status, assignee_type, assignee_id,
         )
-        VALUES ($1, $2, 'alice', 'Alice', 'backend-1234', $3)
-        """,
-        team_id,
-        workspace_id,
-        datetime.now(timezone.utc),
-    )
-    await aweb_cloud_db.aweb_db.execute(
-        """
-        INSERT INTO {{tables.task_claims}} (
-            team_id, workspace_id, alias, human_name, task_ref, claimed_at
-        )
-        VALUES ($1, $2, 'bob', 'Bob', 'backend-5678', $3)
-        """,
-        team_id,
-        other_workspace_id,
-        datetime.now(timezone.utc),
-    )
+
+    await _ins("Ready and free", "todo", None, None)        # -> appears
+    await _ins("Todo but taken", "todo", "agent", "bob")    # assigned -> excluded
+    await _ins("Already moving", "in_progress", None, None)  # not todo -> excluded
 
     monkeypatch.setattr(
         common_tools,
         "get_auth",
         lambda: AuthContext(
             team_id=team_id,
-            agent_id=str(agent_id),
-            workspace_id=str(workspace_id),
+            agent_id=str(uuid4()),
+            workspace_id=str(uuid4()),
             alias="alice",
             did_key="did:key:z6MkAlice",
         ),
     )
-    async def _list_ready_tasks(*_args, **_kwargs):
-        return [
-            {
-                "task_ref": "backend-1234",
-                "title": "Fix workspace split",
-                "priority": 1,
-            },
-            {
-                "task_ref": "backend-5678",
-                "title": "Held elsewhere",
-                "priority": 1,
-            },
-        ]
-
-    monkeypatch.setattr(work_tools, "list_ready_tasks", _list_ready_tasks)
 
     body = json.loads(await work_tools.work_ready(DBInfra(aweb_cloud_db.aweb_db)))
 
-    assert [item["task_ref"] for item in body["tasks"]] == ["backend-1234"]
+    assert body["kind"] == "ready"
+    assert [item["title"] for item in body["issues"]] == ["Ready and free"]
 
 
 @pytest.mark.asyncio

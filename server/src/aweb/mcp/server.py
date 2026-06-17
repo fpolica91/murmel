@@ -62,7 +62,6 @@ from aweb.mcp.tools.team_instructions import instructions_show as _instructions_
 from aweb.mcp.tools.team_roles import roles_show as _roles_show_impl
 from aweb.mcp.tools.team_roles import roles_list as _roles_list_impl
 from aweb.mcp.tools.work import work_active as _work_active_impl
-from aweb.mcp.tools.work import work_blocked as _work_blocked_impl
 from aweb.mcp.tools.work import work_ready as _work_ready_impl
 from aweb.mcp.tools.workspace import workspace_status as _workspace_status_impl
 
@@ -508,24 +507,17 @@ def register_tools(
 
     @mcp.tool(
         name="work_ready",
-        description="List ready tasks that are not already claimed by another workspace.",
+        description="List ready issues (status=todo, unassigned) for the current team.",
     )
     async def work_ready() -> str:
         return await _work_ready_impl(db_infra)
 
     @mcp.tool(
         name="work_active",
-        description="List active in-progress work across the team.",
+        description="List active in-progress issues across the team.",
     )
     async def work_active() -> str:
         return await _work_active_impl(db_infra)
-
-    @mcp.tool(
-        name="work_blocked",
-        description="List blocked tasks in the current team.",
-    )
-    async def work_blocked() -> str:
-        return await _work_blocked_impl(db_infra)
 
     # -- Workspace --
 
