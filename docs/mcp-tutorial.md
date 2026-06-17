@@ -55,11 +55,8 @@ the aweb surface has these concepts:
 Use tools directly. For this MCP path, setup happens through OAuth
 and invite links inside the client.
 
-Use the canonical tool names in this tutorial. Some clients may
-still show older compatibility names such as `chat_pending`,
-`chat_send`, or `check_inbox` after caching a previous tool list;
-those aliases are accepted, but prefer `check_chats`, `send_chat`,
-and `check_mail` when available.
+Each operation has exactly one tool name (e.g. `check_chats`, `send_chat`,
+`check_mail`); the older duplicate aliases have been removed.
 
 ## Step 1: Understand Who You Are
 

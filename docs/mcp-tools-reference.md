@@ -103,26 +103,8 @@ claimable work, with statuses `todo`, `in_progress`, `in_review`, `done`.
 | `add_contact_by_handle` | `handle`, `label=""` | Add a pending contact by hosted handle such as `@jane` or `@jane/alice`. |
 | `remove_contact` | `contact_id` | Remove a saved contact. |
 | `read_contact_messages` | `contact_id`, `channel="mail"`, `limit=50` | Read mail or chat exchanged with a saved contact. |
-
-## Legacy Compatibility Aliases
-
-The server still registers older MCP names so existing hosted clients with
-cached tool lists do not fail with "Unknown tool." New clients and docs should
-use the canonical names above.
-
-| Legacy tool | Canonical tool |
-| --- | --- |
-| `check_inbox` | `check_mail` |
-| `chat_send` | `send_chat` |
-| `chat_pending` | `check_chats` |
-| `chat_history` | `read_chat` |
-| `chat_read` | `mark_chat_read` |
-| `contacts_list` | `list_contacts` |
-| `contacts_add` | `add_contact` |
-| `contacts_remove` | `remove_contact` |
-| `send_message_to_contact` | use `send_mail` or `send_chat` with the contact address |
-| `read_messages_from_contact` | `read_contact_messages` |
-| `add_contact_by_email` | hosted email contact request compatibility |
+| `add_contact_by_email` | `email`, `label=""` | Add a pending contact by email address. |
+| `send_message_to_contact` | `contact_id`, `message`, `subject=""`, `channel="mail"`, `priority="normal"` | Send hosted mail or chat to a saved contact (not E2E). |
 
 ## Hosted MCP Tools
 
