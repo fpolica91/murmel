@@ -95,7 +95,7 @@ async def _seed_hosted_target(aweb_db) -> str:
     return c3po_agent_id
 
 
-def test_mcp_tool_names_include_canonical_and_legacy_compatibility_aliases():
+def test_mcp_tool_names_are_canonical_without_legacy_aliases():
     collector = ToolCollector()
 
     register_tools(
@@ -105,7 +105,8 @@ def test_mcp_tool_names_include_canonical_and_legacy_compatibility_aliases():
         registry_client=object(),  # type: ignore[arg-type]
     )
 
-    expected = {
+    # One canonical name per operation (verb_noun for messaging/contacts).
+    canonical = {
         "send_mail",
         "check_mail",
         "send_chat",
@@ -115,10 +116,13 @@ def test_mcp_tool_names_include_canonical_and_legacy_compatibility_aliases():
         "list_contacts",
         "add_contact",
         "add_contact_by_handle",
+        "add_contact_by_email",
         "remove_contact",
         "read_contact_messages",
+        "send_message_to_contact",
     }
-    legacy = {
+    # The legacy duplicate aliases were retired — each had a canonical twin above.
+    removed_aliases = {
         "check_inbox",
         "chat_send",
         "chat_pending",
@@ -127,72 +131,12 @@ def test_mcp_tool_names_include_canonical_and_legacy_compatibility_aliases():
         "contacts_list",
         "contacts_add",
         "contacts_remove",
-        "add_contact_by_email",
-        "send_message_to_contact",
         "read_messages_from_contact",
     }
-    for name in expected | legacy:
-        assert name in collector.names
-
-
-@pytest.mark.asyncio
-async def test_legacy_mcp_tool_aliases_delegate_to_existing_implementations(monkeypatch):
-    collector = ToolCollector()
-    calls: list[tuple[str, dict]] = []
-
-    async def fake_check_inbox(*args, **kwargs):
-        calls.append(("check_inbox", kwargs))
-        return json.dumps({"ok": True})
-
-    async def fake_chat_send(*args, **kwargs):
-        calls.append(("chat_send", kwargs))
-        return json.dumps({"ok": True})
-
-    async def fake_chat_pending(*args, **kwargs):
-        calls.append(("chat_pending", kwargs))
-        return json.dumps({"ok": True})
-
-    async def fake_send_message_to_contact(*args, **kwargs):
-        calls.append(("send_message_to_contact", kwargs))
-        return json.dumps({"ok": True})
-
-    monkeypatch.setattr(mcp_server, "_check_inbox_impl", fake_check_inbox)
-    monkeypatch.setattr(mcp_server, "_chat_send_impl", fake_chat_send)
-    monkeypatch.setattr(mcp_server, "_chat_pending_impl", fake_chat_pending)
-    monkeypatch.setattr(
-        mcp_server, "_send_message_to_contact_impl", fake_send_message_to_contact
-    )
-    register_tools(
-        collector,  # type: ignore[arg-type]
-        db_infra=object(),  # type: ignore[arg-type]
-        redis=None,
-        registry_client=object(),  # type: ignore[arg-type]
-    )
-
-    await collector.funcs["check_inbox"](limit=3)  # type: ignore[operator]
-    await collector.funcs["chat_pending"]()  # type: ignore[operator]
-    await collector.funcs["chat_send"](  # type: ignore[operator]
-        message="hi", to_address="aweb.ai/aida"
-    )
-    await collector.funcs["send_message_to_contact"](  # type: ignore[operator]
-        contact_id="contact-1",
-        message="hello",
-        channel="chat",
-        wait=True,
-    )
-
-    assert calls[0] == (
-        "check_inbox",
-        {"hosted_decryptor": None, "unread_only": True, "limit": 3, "include_bodies": True},
-    )
-    assert calls[1] == ("chat_pending", {"hosted_decryptor": None})
-    assert calls[2][0] == "chat_send"
-    assert calls[2][1]["to_address"] == "aweb.ai/aida"
-    assert calls[2][1]["message"] == "hi"
-    assert calls[3][0] == "send_message_to_contact"
-    assert calls[3][1]["contact_id"] == "contact-1"
-    assert calls[3][1]["channel"] == "chat"
-    assert calls[3][1]["wait"] is True
+    for name in canonical:
+        assert name in collector.names, name
+    for name in removed_aliases:
+        assert name not in collector.names, name
 
 
 @pytest.mark.asyncio

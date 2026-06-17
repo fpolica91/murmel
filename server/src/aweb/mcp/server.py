@@ -39,7 +39,6 @@ from aweb.mcp.tools.contacts import add_contact_by_email as _add_contact_by_emai
 from aweb.mcp.tools.contacts import add_contact_by_handle as _add_contact_by_handle_impl
 from aweb.mcp.tools.contacts import contacts_add as _contacts_add_impl
 from aweb.mcp.tools.contacts import contacts_remove as _contacts_remove_impl
-from aweb.mcp.tools.contacts import contacts_list as _contacts_list_impl
 from aweb.mcp.tools.contacts import list_contacts_tool as _list_contacts_tool_impl
 from aweb.mcp.tools.contacts import send_message_to_contact as _send_message_to_contact_impl
 from aweb.mcp.tools.contacts import read_messages_from_contact as _read_messages_from_contact_impl
@@ -578,124 +577,11 @@ def register_tools(
             limit=limit,
         )
 
-    # -- Legacy compatibility aliases --
-    #
-    # Hosted MCP clients can cache a tool list across deploys. Keep the old
-    # names as thin delegates so existing ChatGPT/Claude sessions do not fail
-    # with "Unknown tool" while new docs and clients use the canonical verbs.
-
-    @mcp.tool(
-        name="check_inbox",
-        description=(
-            "Legacy compatibility alias for check_mail. Prefer check_mail. "
-            "Hosted custodial identities decrypt encrypted E2E mail for this MCP session."
-        ),
-    )
-    async def check_inbox(
-        unread_only: bool = True, limit: int = 50, include_bodies: bool = True
-    ) -> str:
-        return await _check_inbox_impl(
-            db_infra,
-            hosted_decryptor=hosted_decryptor,
-            unread_only=unread_only,
-            limit=limit,
-            include_bodies=include_bodies,
-        )
-
-    @mcp.tool(
-        name="chat_send",
-        description="Legacy compatibility alias for send_chat. Prefer send_chat.",
-    )
-    async def chat_send(
-        message: str = "",
-        to_alias: str = "",
-        to_did: str = "",
-        to_address: str = "",
-        session_id: str = "",
-        wait: bool = False,
-        wait_seconds: int = 120,
-        leaving: bool = False,
-        hang_on: bool = False,
-        plaintext: bool = False,
-    ) -> str:
-        return await _chat_send_impl(
-            db_infra,
-            redis,
-            registry_client=registry_client,
-            hosted_signer=hosted_signer,
-            hosted_encryptor=hosted_encryptor,
-            hosted_decryptor=hosted_decryptor,
-            message=message,
-            to_alias=to_alias,
-            to_did=to_did,
-            to_address=to_address,
-            session_id=session_id,
-            wait=wait,
-            wait_seconds=wait_seconds,
-            leaving=leaving,
-            hang_on=hang_on,
-            plaintext=plaintext,
-            federation_transport=federation_chat_transport,
-            public_origin=public_origin,
-        )
-
-    @mcp.tool(
-        name="chat_pending",
-        description="Legacy compatibility alias for check_chats. Prefer check_chats.",
-    )
-    async def chat_pending() -> str:
-        return await _chat_pending_impl(db_infra, redis, hosted_decryptor=hosted_decryptor)
-
-    @mcp.tool(
-        name="chat_history",
-        description="Legacy compatibility alias for read_chat. Prefer read_chat.",
-    )
-    async def chat_history(
-        session_id: str,
-        unread_only: bool = False,
-        limit: int = 50,
-    ) -> str:
-        return await _chat_history_impl(
-            db_infra,
-            session_id=session_id,
-            unread_only=unread_only,
-            limit=limit,
-            hosted_decryptor=hosted_decryptor,
-        )
-
-    @mcp.tool(
-        name="chat_read",
-        description="Legacy compatibility alias for mark_chat_read. Prefer mark_chat_read.",
-    )
-    async def chat_read(session_id: str, up_to_message_id: str) -> str:
-        return await _chat_read_impl(
-            db_infra, session_id=session_id, up_to_message_id=up_to_message_id
-        )
-
-    @mcp.tool(
-        name="contacts_list",
-        description="Legacy compatibility alias for list_contacts. Prefer list_contacts.",
-    )
-    async def contacts_list() -> str:
-        return await _contacts_list_impl(db_infra)
-
-    @mcp.tool(
-        name="contacts_add",
-        description="Legacy compatibility alias for add_contact. Prefer add_contact.",
-    )
-    async def contacts_add(contact_address: str, label: str = "") -> str:
-        return await _contacts_add_impl(db_infra, contact_address=contact_address, label=label)
-
-    @mcp.tool(
-        name="contacts_remove",
-        description="Legacy compatibility alias for remove_contact. Prefer remove_contact.",
-    )
-    async def contacts_remove(contact_id: str) -> str:
-        return await _contacts_remove_impl(db_infra, contact_id=contact_id)
+    # -- Contact messaging (distinct ops — not channel send/check) --
 
     @mcp.tool(
         name="add_contact_by_email",
-        description="Legacy compatibility alias for email contact requests.",
+        description="Add a pending contact by email address.",
     )
     async def add_contact_by_email(email: str, label: str = "") -> str:
         return await _add_contact_by_email_impl(db_infra, email=email, label=label)
@@ -703,8 +589,8 @@ def register_tools(
     @mcp.tool(
         name="send_message_to_contact",
         description=(
-            "Legacy compatibility alias for hosted server-readable mail or chat to a saved contact. "
-            "This hosted MCP tool is not E2E; use local aw clients for E2E messaging."
+            "Send hosted server-readable mail or chat to a saved contact by contact_id. "
+            "Not E2E; use a local aw client for E2E messaging."
         ),
     )
     async def send_message_to_contact(
@@ -732,26 +618,6 @@ def register_tools(
             federation_mail_transport=federation_mail_transport,
             federation_chat_transport=federation_chat_transport,
             public_origin=public_origin,
-        )
-
-    @mcp.tool(
-        name="read_messages_from_contact",
-        description=(
-            "Legacy compatibility alias for read_contact_messages. "
-            "Prefer read_contact_messages. Hosted MCP cannot decrypt E2E contents."
-        ),
-    )
-    async def read_messages_from_contact(
-        contact_id: str,
-        channel: str = "mail",
-        limit: int = 50,
-    ) -> str:
-        return await _read_messages_from_contact_impl(
-            db_infra,
-            registry_client=registry_client,
-            contact_id=contact_id,
-            channel=channel,
-            limit=limit,
         )
 
 
