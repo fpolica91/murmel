@@ -125,6 +125,17 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   return payload as T;
 }
 
+/** Rename a team's mutable display label (owner/admin only; team_id is immutable). */
+export async function renameTeam(
+  teamId: string,
+  displayName: string,
+): Promise<{ team_id: string; display_name: string }> {
+  return request(`/v1/teams/${encodeURIComponent(teamId)}`, {
+    method: "PATCH",
+    body: { display_name: displayName },
+  });
+}
+
 /** Strongly-typed surface over the work-hierarchy endpoints. */
 export const workApi = {
   // ----- Epics -----------------------------------------------------------

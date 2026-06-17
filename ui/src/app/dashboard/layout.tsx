@@ -26,10 +26,14 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  const { teamIds } = await resolveSubjectClaims(session.user.id);
+  const { teamIds, teams } = await resolveSubjectClaims(session.user.id);
+  const teamLabels = Object.fromEntries(
+    teams.map((t) => [t.teamId, t.displayName]),
+  );
+  const teamRoles = Object.fromEntries(teams.map((t) => [t.teamId, t.role]));
 
   return (
-    <TeamProvider teams={teamIds}>
+    <TeamProvider teams={teamIds} teamLabels={teamLabels} teamRoles={teamRoles}>
       <div className="dashboard-shell">
         <AppSidebar userName={session.user.name ?? session.user.email} />
         <main className="content">{children}</main>

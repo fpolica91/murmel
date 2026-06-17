@@ -101,6 +101,12 @@ async def test_hint_correct_header_returns_active_teams_only(aweb_cloud_db, monk
     assert "ops:acme.com" not in body["team_ids"]
     assert body["roles"] == ["admin", "member"]
     assert "owner" not in body["roles"]
+    # New: per-team display names for the switcher (falls back to team_name/id).
+    assert {t["team_id"] for t in body["teams"]} == {
+        "backend:acme.com",
+        "frontend:acme.com",
+    }
+    assert all(t["display_name"] for t in body["teams"])
 
 
 @pytest.mark.asyncio
@@ -150,7 +156,7 @@ async def test_hint_unknown_subject_returns_empty_lists(aweb_cloud_db, monkeypat
         )
 
     assert resp.status_code == 200, resp.text
-    assert resp.json() == {"team_ids": [], "roles": []}
+    assert resp.json() == {"team_ids": [], "roles": [], "teams": []}
 
 
 @pytest.mark.asyncio

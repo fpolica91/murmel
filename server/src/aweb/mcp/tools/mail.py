@@ -21,6 +21,7 @@ from aweb.mcp.signing import (
     sign_hosted_message,
 )
 from aweb.e2ee_messages import encrypted_message_storage_metadata
+from aweb.identity_auth_deps import selected_team_filter
 from aweb.mcp.tools.federation import (
     mcp_federation_request,
     mcp_federation_server_key,
@@ -643,6 +644,11 @@ async def check_inbox(
     except Exception:
         return json.dumps({"error": "limit must be an integer"})
 
+    # Scope token (synthetic-DID) callers to the request-selected team: the same
+    # did:key:jwt-<sub> is addressed in every team the human joins, so without
+    # this a team-A-scoped inbox would read (and auto-ack) team-B mail. Real
+    # did:aw/did:key callers span teams legitimately -> team_filter is None.
+    team_filter = selected_team_filter(auth, inbox_dids)
     rows = await aweb_db.fetch_all(
         """
         SELECT message_id, conversation_id, from_agent_id, from_alias, from_address, to_alias,
@@ -652,15 +658,18 @@ async def check_inbox(
         FROM {{tables.messages}}
         WHERE to_did = ANY($1::text[])
           AND ($2::bool IS FALSE OR read_at IS NULL)
+          AND ($4::text IS NULL OR team_id IS NULL OR team_id = $4)
         ORDER BY created_at DESC
         LIMIT $3
         """,
         inbox_dids,
         bool(unread_only),
         limit_value,
+        team_filter,
     )
 
-    # Auto-acknowledge unread messages
+    # Auto-acknowledge unread messages (same team scope, so a team-A read cannot
+    # flip read-state on a team-B message addressed to the subject).
     unread_message_ids = [r["message_id"] for r in rows if r["read_at"] is None]
     if unread_message_ids:
         await aweb_db.execute(
@@ -669,9 +678,11 @@ async def check_inbox(
             SET read_at = COALESCE(read_at, NOW())
             WHERE to_did = ANY($1::text[])
               AND message_id = ANY($2::uuid[])
+              AND ($3::text IS NULL OR team_id IS NULL OR team_id = $3)
             """,
             inbox_dids,
             unread_message_ids,
+            team_filter,
         )
 
     messages = []

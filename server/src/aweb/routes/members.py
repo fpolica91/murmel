@@ -326,6 +326,39 @@ async def remove_member(
     return None
 
 
+class RenameTeamRequest(BaseModel):
+    display_name: str = Field(..., min_length=1, max_length=80)
+
+
+@router.patch("/{team_id}")
+async def rename_team(
+    payload: RenameTeamRequest,
+    team_id: str = Path(..., min_length=1, max_length=128),
+    db: Any = Depends(get_db),
+    auth: TokenAuthContext = Depends(get_token_auth()),
+) -> dict:
+    """Set a team's mutable ``display_name`` (admin/owner only).
+
+    ``team_id`` is the immutable PK (foreign-keyed everywhere); renaming only
+    edits the user-facing label.
+    """
+    await _require_team_admin(db, auth, team_id)
+    manager = _aweb_db(db)
+    row = await manager.fetch_one(
+        """
+        UPDATE {{tables.teams}}
+        SET display_name = $2
+        WHERE team_id = $1
+        RETURNING team_id, display_name
+        """,
+        team_id,
+        payload.display_name.strip(),
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Team not found")
+    return {"team_id": str(row["team_id"]), "display_name": str(row["display_name"])}
+
+
 # ---------------------------------------------------------------------------
 # Membership hint endpoint (server-to-server; populates the UI team switcher)
 # ---------------------------------------------------------------------------
@@ -360,14 +393,25 @@ async def memberships_hint(
     manager = _aweb_db(db)
     rows = await manager.fetch_all(
         """
-        SELECT team_id, role
-        FROM {{tables.memberships}}
-        WHERE subject = $1 AND status = 'active'
-        ORDER BY team_id
+        SELECT m.team_id, m.role, t.display_name, t.team_name
+        FROM {{tables.memberships}} m
+        JOIN {{tables.teams}} t ON t.team_id = m.team_id
+        WHERE m.subject = $1 AND m.status = 'active'
+        ORDER BY m.team_id
         """,
         subject,
     )
     return {
         "team_ids": [str(r["team_id"]) for r in rows],
         "roles": sorted({str(r["role"]) for r in rows if r["role"]}),
+        # Per-team display name (mutable label; falls back to team_name/id) so the
+        # UI team switcher can show a friendly name instead of the raw team_id.
+        "teams": [
+            {
+                "team_id": str(r["team_id"]),
+                "display_name": (r["display_name"] or r["team_name"] or str(r["team_id"])),
+                "role": str(r["role"] or ""),
+            }
+            for r in rows
+        ],
     }

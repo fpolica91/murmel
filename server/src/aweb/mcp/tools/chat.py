@@ -56,6 +56,7 @@ from aweb.routes.chat import (
 )
 from aweb.service_errors import ServiceError
 from aweb.e2ee_messages import encrypted_message_storage_metadata
+from aweb.identity_auth_deps import selected_team_filter
 
 MAX_TOTAL_WAIT_SECONDS = 600
 
@@ -66,6 +67,24 @@ def _actor_dids() -> list[str]:
 
 def _actor_did() -> str:
     return primary_auth_did(get_auth())
+
+
+def _is_cross_team_session(sess_team_id, auth, actor_dids: list[str]) -> bool:
+    """True when a single-session read/mutate must be rejected because the session
+    belongs to a team other than the caller's selected one.
+
+    Mirrors routes/chat.py ``_reject_cross_team_session`` but returns a bool so the
+    MCP tools can surface "Session not found" (no existence disclosure) instead of
+    raising. Only token (synthetic ``did:key:jwt-`` DID) callers are scoped — that
+    DID is provisioned into every team the human joins, so DID-membership alone
+    would leak a team-B session into a team-A-scoped request. Real did:aw/did:key
+    identities legitimately span teams and stay unfiltered.
+    """
+    team_filter = selected_team_filter(auth, actor_dids)
+    if team_filter is None:
+        return False
+    sess_team = str(sess_team_id or "").strip()
+    return bool(sess_team and sess_team != team_filter)
 
 
 def _actor_alias(actor_agent: dict | None) -> str:
@@ -672,8 +691,9 @@ async def chat_send(
         except Exception:
             return json.dumps({"error": "Invalid session_id format"})
 
-        sess = await aweb_db.fetch_one("SELECT 1 FROM {{tables.chat_sessions}} WHERE session_id = $1", sid)
-        if not sess:
+        sess = await aweb_db.fetch_one("SELECT team_id FROM {{tables.chat_sessions}} WHERE session_id = $1", sid)
+        if not sess or _is_cross_team_session(sess["team_id"], auth, actor_dids):
+            # No cross-team writes: a team-A caller cannot inject into a team-B session.
             return json.dumps({"error": "Session not found"})
 
         session_actor_did = await _resolve_session_actor_did(
@@ -929,8 +949,9 @@ async def chat_history(
         return json.dumps({"error": "Invalid session_id format"})
 
     aweb_db = db_infra.get_manager("aweb")
-    sess = await aweb_db.fetch_one("SELECT 1 FROM {{tables.chat_sessions}} WHERE session_id = $1", session_uuid)
-    if not sess:
+    sess = await aweb_db.fetch_one("SELECT team_id FROM {{tables.chat_sessions}} WHERE session_id = $1", session_uuid)
+    if not sess or _is_cross_team_session(sess["team_id"], auth, actor_dids):
+        # Cross-team sessions are reported as "not found" (no existence disclosure).
         return json.dumps({"error": "Session not found"})
 
     actor_did = await _resolve_session_actor_did(
@@ -999,6 +1020,12 @@ async def chat_read(db_infra, *, session_id: str, up_to_message_id: str) -> str:
         UUID(up_to_message_id.strip())
     except Exception:
         return json.dumps({"error": "Invalid message_id format"})
+
+    aweb_db = db_infra.get_manager("aweb")
+    sess = await aweb_db.fetch_one("SELECT team_id FROM {{tables.chat_sessions}} WHERE session_id = $1", session_uuid)
+    if not sess or _is_cross_team_session(sess["team_id"], auth, actor_dids):
+        # No cross-team read-receipt mutation on another team's session.
+        return json.dumps({"error": "Session not found"})
 
     actor_did = await _resolve_session_actor_did(
         db_infra,

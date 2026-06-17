@@ -1393,6 +1393,99 @@ async def test_mcp_chat_send_rejects_legacy_bound_session_continuation(aweb_clou
 
 
 @pytest.mark.asyncio
+async def test_mcp_chat_history_rejects_cross_team_session_for_token_caller(
+    aweb_cloud_db, monkeypatch
+):
+    """A token (synthetic-DID) caller scoped to team A must NOT read a chat
+    session that belongs to team B — even though the same did:key:jwt-<sub> is a
+    participant in both teams. Regression for the MCP team-isolation gap (the
+    REST path already guarded this; the MCP path did not)."""
+    team_a = "team-a:acme.com"
+    team_b = "team-b:acme.com"
+    syn_did = "did:key:jwt-testsubject"
+    alice_agent_id = uuid4()
+    bob_agent_id = uuid4()
+    session_id = uuid4()  # lives in team B
+    message_id = uuid4()
+    alice_sk, alice_pub = generate_keypair()
+    alice_did = did_from_public_key(alice_pub)
+
+    # Agents + the session live in team B; the synthetic DID is a participant.
+    await _insert_mcp_chat_agents(
+        aweb_cloud_db.aweb_db,
+        team_id=team_b,
+        alice_agent_id=alice_agent_id,
+        bob_agent_id=bob_agent_id,
+        alice_did=alice_did,
+    )
+    await aweb_cloud_db.aweb_db.execute(
+        "INSERT INTO {{tables.chat_sessions}} (session_id, team_id, created_by) VALUES ($1, $2, 'alice')",
+        session_id,
+        team_b,
+    )
+    await aweb_cloud_db.aweb_db.execute(
+        """
+        INSERT INTO {{tables.chat_participants}} (session_id, did, agent_id, alias, address)
+        VALUES ($1, 'did:aw:alice', $2, 'alice', 'acme.com/alice'),
+               ($1, $3, $4, 'human', 'acme.com/human')
+        """,
+        session_id,
+        alice_agent_id,
+        syn_did,
+        bob_agent_id,
+    )
+    signed_payload = canonical_signed_payload(
+        {
+            "body": "team B secret",
+            "from": "alice",
+            "from_did": alice_did,
+            "message_id": str(message_id),
+            "subject": "",
+            "timestamp": "2026-05-03T00:00:00Z",
+            "to": "human",
+            "to_did": syn_did,
+            "type": "chat",
+        }
+    )
+    await aweb_cloud_db.aweb_db.execute(
+        """
+        INSERT INTO {{tables.chat_messages}}
+            (message_id, session_id, from_agent_id, from_did, from_alias, body,
+             signature, signed_payload, created_at)
+        VALUES ($1, $2, $3, 'did:aw:alice', 'alice', 'team B secret', $4, $5, NOW())
+        """,
+        message_id,
+        session_id,
+        alice_agent_id,
+        sign_message(alice_sk, signed_payload.encode("utf-8")),
+        signed_payload,
+    )
+
+    # Caller is a token human scoped to team A (NOT team B), same synthetic DID.
+    monkeypatch.setattr(
+        chat_tools,
+        "get_auth",
+        lambda: AuthContext(
+            team_id=team_a,
+            agent_id=str(bob_agent_id),
+            alias="human",
+            did_key=syn_did,
+            did_aw=None,
+            address="acme.com/human",
+        ),
+    )
+
+    result = json.loads(
+        await chat_tools.chat_history(
+            DBInfra(aweb_cloud_db.aweb_db), session_id=str(session_id)
+        )
+    )
+    # Cross-team session is reported as not found; the team-B body never leaks.
+    assert result.get("error") == "Session not found"
+    assert "team B secret" not in json.dumps(result)
+
+
+@pytest.mark.asyncio
 async def test_mcp_chat_send_uses_hosted_signer_for_trusted_proxy(aweb_cloud_db, monkeypatch):
     team_id = "ops:acme.com"
     alice_agent_id = uuid4()

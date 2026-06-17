@@ -21,6 +21,8 @@ export interface SubjectClaims {
   teamIds: string[];
   /** Role hints, e.g. ["member"] or ["owner"]. */
   roles: string[];
+  /** Per-team display label + role, for the switcher. (HINT only.) */
+  teams: { teamId: string; displayName: string; role: string }[];
   /** Set when the subject is an agent rather than a human. */
   agentName?: string;
 }
@@ -57,10 +59,16 @@ export async function resolveSubjectClaims(
           team_ids?: string[];
           roles?: string[];
           agent_name?: string;
+          teams?: { team_id: string; display_name: string; role: string }[];
         };
         return {
           teamIds: data.team_ids ?? [],
           roles: data.roles ?? [],
+          teams: (data.teams ?? []).map((t) => ({
+            teamId: t.team_id,
+            displayName: t.display_name,
+            role: t.role,
+          })),
           agentName: data.agent_name,
         };
       }
@@ -69,5 +77,5 @@ export async function resolveSubjectClaims(
     }
   }
 
-  return { teamIds: [], roles: [] };
+  return { teamIds: [], roles: [], teams: [] };
 }
