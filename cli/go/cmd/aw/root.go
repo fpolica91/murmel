@@ -86,7 +86,6 @@ func init() {
 	logCmd.GroupID = groupNetwork
 
 	workCmd.GroupID = groupCoordination
-	taskCmd.GroupID = groupCoordination
 	runCmd.GroupID = groupCoordination
 	lockCmd.GroupID = groupCoordination
 	notifyCmd.GroupID = groupCoordination
@@ -106,7 +105,6 @@ func init() {
 	bindTeamSelector(mailCmd)
 	bindTeamSelector(chatCmd)
 	bindTeamSelector(workCmd)
-	bindTeamSelector(taskCmd)
 	bindTeamSelector(workspaceCmd)
 	bindTeamSelector(checkCmd)
 	bindTeamSelector(runCmd)

@@ -24,7 +24,7 @@ func TestAwWorkReadyFiltersClaimsHeldByOthers(t *testing.T) {
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"claims": []map[string]any{
 					{
-						"bead_id":      "TASK-002",
+						"bead_id":      "ISSUE-002",
 						"workspace_id": otherID,
 						"alias":        "bob",
 						"human_name":   "Bob",
@@ -33,11 +33,16 @@ func TestAwWorkReadyFiltersClaimsHeldByOthers(t *testing.T) {
 				},
 				"has_more": false,
 			})
-		case "/v1/tasks/ready":
+		case "/v1/issues":
+			// `aw work ready` filters todo issues to unassigned ones.
+			if got := r.URL.Query().Get("status"); got != "todo" {
+				t.Fatalf("status=%q", got)
+			}
 			_ = json.NewEncoder(w).Encode(map[string]any{
-				"tasks": []map[string]any{
-					{"task_ref": "TASK-001", "title": "Unclaimed ready task", "priority": 1, "task_type": "task", "status": "open"},
-					{"task_ref": "TASK-002", "title": "Claimed elsewhere", "priority": 2, "task_type": "bug", "status": "open"},
+				"issues": []map[string]any{
+					{"issue_id": "ISSUE-001", "title": "Unclaimed ready issue", "status": "todo"},
+					{"issue_id": "ISSUE-002", "title": "Claimed elsewhere", "status": "todo"},
+					{"issue_id": "ISSUE-003", "title": "Already assigned", "status": "todo", "assignee_type": "agent", "assignee_id": "carol"},
 				},
 			})
 		case "/v1/agents/heartbeat":
@@ -63,43 +68,40 @@ func TestAwWorkReadyFiltersClaimsHeldByOthers(t *testing.T) {
 		t.Fatalf("run failed: %v\n%s", err, string(out))
 	}
 	text := string(out)
-	if !strings.Contains(text, "TASK-001") {
-		t.Fatalf("ready output missing unclaimed task:\n%s", text)
+	if !strings.Contains(text, "ISSUE-001") {
+		t.Fatalf("ready output missing unclaimed issue:\n%s", text)
 	}
-	if strings.Contains(text, "TASK-002") {
-		t.Fatalf("ready output should filter claimed task:\n%s", text)
+	if strings.Contains(text, "ISSUE-002") {
+		t.Fatalf("ready output should filter claimed issue:\n%s", text)
+	}
+	if strings.Contains(text, "ISSUE-003") {
+		t.Fatalf("ready output should filter assigned issue:\n%s", text)
 	}
 }
 
-func TestAwWorkActiveGroupsByRepo(t *testing.T) {
+func TestAwWorkActiveListsInProgressIssues(t *testing.T) {
 	t.Parallel()
 
 	server := newLocalHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requireCertificateAuthForTest(t, r)
 		switch r.URL.Path {
-		case "/v1/tasks/active":
+		case "/v1/issues":
+			if got := r.URL.Query().Get("status"); got != "in_progress" {
+				t.Fatalf("status=%q", got)
+			}
 			_ = json.NewEncoder(w).Encode(map[string]any{
-				"tasks": []map[string]any{
+				"issues": []map[string]any{
 					{
-						"task_ref":         "TASK-010",
-						"title":            "Native task",
-						"priority":         1,
-						"task_type":        "task",
-						"status":           "in_progress",
-						"owner_alias":      "alice",
-						"canonical_origin": "github.com/awebai/ac",
-						"branch":           "main",
+						"issue_id":      "ISSUE-010",
+						"title":         "Native issue",
+						"status":        "in_progress",
+						"assignee_type": "agent",
+						"assignee_id":   "alice",
 					},
 					{
-						"task_ref":         "TASK-020",
-						"title":            "Claim-backed task",
-						"priority":         2,
-						"task_type":        "bug",
-						"status":           "in_progress",
-						"owner_alias":      "bob",
-						"canonical_origin": "github.com/awebai/aweb",
-						"branch":           "feat/summary",
-						"claimed_at":       "2026-03-10T10:00:00Z",
+						"issue_id": "ISSUE-020",
+						"title":    "Unowned issue",
+						"status":   "in_progress",
 					},
 				},
 			})
@@ -128,16 +130,11 @@ func TestAwWorkActiveGroupsByRepo(t *testing.T) {
 	text := string(out)
 	for _, want := range []string{
 		"Active work (2):",
-		"## github.com/awebai/ac",
-		"  TASK-010  P1  [task] Native task  alice",
-		"## github.com/awebai/aweb",
-		"  TASK-020  P2  [bug] Claim-backed task  bob  feat/summary",
+		"ISSUE-010  [IN_PROGRESS]  Native issue  agent:alice",
+		"ISSUE-020  [IN_PROGRESS]  Unowned issue  unassigned",
 	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("active output missing %q:\n%s", want, text)
 		}
-	}
-	if strings.Contains(text, "alice  main") {
-		t.Fatalf("active output should hide main/master branches:\n%s", text)
 	}
 }

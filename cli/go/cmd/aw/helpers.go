@@ -1418,3 +1418,37 @@ func workspaceMembershipForSelection(ws *awconfig.WorktreeWorkspace, sel *awconf
 	}
 	return awconfig.ActiveMembershipFor(ws, teamState), nil
 }
+
+// priorityIcon returns a filled/hollow dot based on priority urgency.
+func priorityIcon(p int) string {
+	if p <= 2 {
+		return "●"
+	}
+	return "○"
+}
+
+// formatDate parses an RFC3339 timestamp and returns just the date portion.
+func formatDate(ts string) string {
+	t, ok := parseTimeBestEffort(ts)
+	if !ok {
+		return ts
+	}
+	return t.Format("2006-01-02")
+}
+
+func isClaimStale(claimedAt string) bool {
+	ts, ok := parseTimeBestEffort(claimedAt)
+	if !ok {
+		return false
+	}
+	return time.Since(ts) > 24*time.Hour
+}
+
+func isDefaultBranch(branch string) bool {
+	switch strings.TrimSpace(branch) {
+	case "main", "master":
+		return true
+	default:
+		return false
+	}
+}
