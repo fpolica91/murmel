@@ -26,9 +26,10 @@ import (
 	"golang.org/x/term"
 )
 
-// DefaultAwebURL is the public aweb instance used when no aweb URL is
-// configured via flags, environment, or local config.
-const DefaultAwebURL = "https://app.aweb.ai"
+// DefaultAwebURL is the aweb instance used when no aweb URL is configured via
+// flags, environment (AWEB_URL), or local config. Points at this deployment's
+// Railway server so the CLI works with zero config; override with AWEB_URL.
+const DefaultAwebURL = "https://aweb-production-e89d.up.railway.app"
 
 func loadDotenvBestEffort() {
 	// Best effort: load from current working directory.
