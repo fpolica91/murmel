@@ -53,7 +53,7 @@ export function CliSetup() {
             <h3>Install</h3>
             <p className="muted">
               One line — downloads a prebuilt binary to{" "}
-              <code className="mono">/usr/local/bin/aw</code>. Already configured
+              <code className="mono">/usr/local/bin/murmel</code>. Already configured
               for this deployment.
             </p>
             <Cmd>{INSTALL}</Cmd>
@@ -66,9 +66,9 @@ export function CliSetup() {
             <h3>Sign in</h3>
             <p className="muted">
               Opens this site in your browser to approve, then caches a token at{" "}
-              <code className="mono">~/.aw/token</code>.
+              <code className="mono">~/.murmel/token</code>.
             </p>
-            <Cmd>aw login</Cmd>
+            <Cmd>murmel login</Cmd>
           </div>
         </li>
 
@@ -79,7 +79,7 @@ export function CliSetup() {
             <p className="muted">
               Run inside the project directory you want to coordinate from.
             </p>
-            <Cmd>{`aw init --team ${team}`}</Cmd>
+            <Cmd>{`murmel init --team ${team}`}</Cmd>
           </div>
         </li>
 
@@ -88,10 +88,10 @@ export function CliSetup() {
           <div className={styles.body}>
             <h3>You&apos;re connected</h3>
             <p className="muted">A few commands to start:</p>
-            <Cmd>aw whoami</Cmd>
-            <Cmd>aw work ready</Cmd>
-            <Cmd>aw issue list</Cmd>
-            <Cmd>aw chat pending</Cmd>
+            <Cmd>murmel whoami</Cmd>
+            <Cmd>murmel work ready</Cmd>
+            <Cmd>murmel issue list</Cmd>
+            <Cmd>murmel chat pending</Cmd>
           </div>
         </li>
       </ol>
