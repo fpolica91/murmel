@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	updateGithubRepo    = "awebai/aw"
+	updateGithubRepo    = "fpolica91/aw"
 	updateGithubAPIBase = "https://api.github.com"
 	updateCheckCacheTTL = time.Hour
 )
@@ -429,75 +429,59 @@ func selfUpdate(w io.Writer, apiBase string) error {
 
 	fmt.Fprintf(w, "Updating murmel v%s → v%s...\n", currentVersion, latestVersion)
 
-	// Determine platform archive name
+	// The fork ships raw per-platform binaries named murmel-<os>-<arch>
+	// (no archive), plus a checksums.txt — so there is nothing to extract.
 	goos := runtime.GOOS
 	goarch := runtime.GOARCH
-	ext := "tar.gz"
+	assetName := fmt.Sprintf("murmel-%s-%s", goos, goarch)
 	if goos == "windows" {
-		ext = "zip"
+		assetName += ".exe"
 	}
-	archiveName := fmt.Sprintf("aw_%s_%s_%s.%s", latestVersion, goos, goarch, ext)
 
-	// Find download URLs
-	var archiveURL, checksumsURL string
+	var assetURL, checksumsURL string
 	for _, a := range info.Assets {
-		if a.Name == archiveName {
-			archiveURL = a.BrowserDownloadURL
+		if a.Name == assetName {
+			assetURL = a.BrowserDownloadURL
 		}
 		if a.Name == "checksums.txt" {
 			checksumsURL = a.BrowserDownloadURL
 		}
 	}
-
-	if archiveURL == "" {
-		return fmt.Errorf("no release asset found for %s/%s (expected %s)", goos, goarch, archiveName)
+	if assetURL == "" {
+		return fmt.Errorf("no release asset found for %s/%s (expected %s)", goos, goarch, assetName)
 	}
 
-	// Download to temp dir
 	tmpDir, err := os.MkdirTemp("", "murmel-update-*")
 	if err != nil {
 		return err
 	}
 	defer os.RemoveAll(tmpDir)
 
-	archivePath := filepath.Join(tmpDir, archiveName)
-	if err := downloadFile(archivePath, archiveURL); err != nil {
-		return fmt.Errorf("downloading archive: %w", err)
+	binPath := filepath.Join(tmpDir, "murmel")
+	if err := downloadFile(binPath, assetURL); err != nil {
+		return fmt.Errorf("downloading binary: %w", err)
 	}
 
-	// Verify checksum if available
+	// Verify checksum if available (checksums.txt lines are "<sha256>  <asset>").
 	if checksumsURL != "" {
 		checksumsPath := filepath.Join(tmpDir, "checksums.txt")
 		if err := downloadFile(checksumsPath, checksumsURL); err != nil {
 			return fmt.Errorf("downloading checksums: %w", err)
 		}
-
-		expected, err := findChecksum(checksumsPath, archiveName)
+		expected, err := findChecksum(checksumsPath, assetName)
 		if err != nil {
 			return fmt.Errorf("reading checksums: %w", err)
 		}
-
-		if err := verifyChecksum(archivePath, expected); err != nil {
+		if err := verifyChecksum(binPath, expected); err != nil {
 			return err
 		}
 	}
 
-	// Extract binary
-	extractDir := filepath.Join(tmpDir, "extracted")
-	if err := os.MkdirAll(extractDir, 0755); err != nil {
+	if err := os.Chmod(binPath, 0o755); err != nil {
 		return err
 	}
 
-	binaryName := "murmel"
-	if goos == "windows" {
-		binaryName = "murmel.exe"
-	}
-
-	if err := extractBinary(archivePath, binaryName, extractDir); err != nil {
-		return fmt.Errorf("extracting binary: %w", err)
-	}
-
-	// Get current binary path
+	// Resolve and replace the current binary (the downloaded file IS the binary).
 	exePath, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("finding current binary: %w", err)
@@ -506,14 +490,9 @@ func selfUpdate(w io.Writer, apiBase string) error {
 	if err != nil {
 		return fmt.Errorf("resolving binary path: %w", err)
 	}
-
-	// Replace binary
-	newBinaryPath := filepath.Join(extractDir, binaryName)
-	if err := replaceBinary(exePath, newBinaryPath); err != nil {
+	if err := replaceBinary(exePath, binPath); err != nil {
 		return fmt.Errorf("replacing binary: %w", err)
 	}
-
-	// Re-sign on macOS
 	resignMacOS(exePath)
 
 	fmt.Fprintf(w, "Updated murmel v%s → v%s\n", currentVersion, latestVersion)
