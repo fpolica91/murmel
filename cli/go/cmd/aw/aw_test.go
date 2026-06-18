@@ -1938,8 +1938,8 @@ func TestAwMailSendWritesCommLog(t *testing.T) {
 
 func TestDefaultAwebURL(t *testing.T) {
 	t.Parallel()
-	if DefaultAwebURL != "https://aweb-production-e89d.up.railway.app" {
-		t.Fatalf("DefaultAwebURL=%q, want https://aweb-production-e89d.up.railway.app", DefaultAwebURL)
+	if DefaultAwebURL != "https://api.murmel.sh" {
+		t.Fatalf("DefaultAwebURL=%q, want https://api.murmel.sh", DefaultAwebURL)
 	}
 }
 
@@ -1962,19 +1962,19 @@ func TestResolveBaseURLForInitFallsBackToDefault(t *testing.T) {
 
 	// resolveBaseURLForInit should fall back to the default URL.
 	// If the server is reachable, we get a URL back; if not, the error
-	// should mention aweb-production-e89d.up.railway.app. Either way, the default was used.
+	// should mention api.murmel.sh. Either way, the default was used.
 	baseURL, serverName, err := resolveBaseURLForInit("", "")
 	if err != nil {
-		if !strings.Contains(err.Error(), "aweb-production-e89d.up.railway.app") {
-			t.Fatalf("expected error to reference default URL aweb-production-e89d.up.railway.app, got: %v", err)
+		if !strings.Contains(err.Error(), "api.murmel.sh") {
+			t.Fatalf("expected error to reference default URL api.murmel.sh, got: %v", err)
 		}
 		return
 	}
-	if !strings.Contains(baseURL, "aweb-production-e89d.up.railway.app") {
-		t.Fatalf("expected baseURL to contain aweb-production-e89d.up.railway.app, got %q", baseURL)
+	if !strings.Contains(baseURL, "api.murmel.sh") {
+		t.Fatalf("expected baseURL to contain api.murmel.sh, got %q", baseURL)
 	}
-	if !strings.Contains(serverName, "aweb-production-e89d.up.railway.app") {
-		t.Fatalf("expected serverName to contain aweb-production-e89d.up.railway.app, got %q", serverName)
+	if !strings.Contains(serverName, "api.murmel.sh") {
+		t.Fatalf("expected serverName to contain api.murmel.sh, got %q", serverName)
 	}
 }
 
