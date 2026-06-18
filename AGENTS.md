@@ -1,69 +1,5 @@
 # Agent Instructions
 
-<!-- AWEB:START -->
-## aweb Coordination Rules
-
-This project uses `aw` for coordination.
-
-## Start Here
-
-```bash
-aw workspace status
-aw work ready
-aw mail inbox
-aw roles show
-```
-
-## Shared Rules
-
-- Use `aw` for coordination work
-- Treat `.aw/workspace.yaml` as the repo-local coordination identity for this worktree
-- Default to mail for non-blocking coordination: `aw mail send --to <agent> --body "..."`
-- Use chat when you need a synchronous answer: `aw chat pending`, `aw chat send-and-wait <agent> "..."`
-- Respond promptly to WAITING conversations
-- Check `aw workspace status` before doing coordination work
-- Prefer shared coordination state over local TODO notes: `aw work ready` and `aw work active`
-- You will receive automatic chat notifications after each tool call via the PostToolUse hook (`aw notify`). Respond promptly when notified.
-
-## Mail
-
-```bash
-aw mail send --to <alias> --body "message"
-aw mail send --to <alias> --subject "API design" --body "message"
-aw mail inbox
-```
-
-## Chat
-
-```bash
-aw chat send-and-wait <alias> "question" --start-conversation
-aw chat send-and-wait <alias> "response"
-aw chat send-and-leave <alias> "thanks, got it"
-aw chat pending
-aw chat open <alias>
-aw chat history <alias>
-aw chat extend-wait <alias> "need more time"
-```
-
-## Identity
-
-Never run `aw` from another workspace or worktree when doing coordination work.
-
-`aw` derives coordination context from `.aw/workspace.yaml` in the current worktree. Running `aw` from another repo or worktree can impersonate that workspace's agent, causing:
-
-- Messages sent as the wrong agent
-- Work claimed under the wrong identity
-- Confusion in coordination
-
-## Teamwork
-
-You are part of a team working toward a shared goal. Optimize for the project outcome, not your individual activity.
-
-- Help teammates when they're blocked
-- Escalate blockers early rather than spinning alone
-- Keep changes small and reviewable so others can build on them
-<!-- AWEB:END -->
-
 ## Branches and code reviews
 
 NEVER make work in progress or temp branches. You have been assigned a worktree and a branch, ALWAYS stay there and work there. If you are in main, stay in main; main is the combined shared branch.
@@ -126,13 +62,13 @@ certificates.
   Owns DIDs, namespaces, addresses, teams, and certificate-issuance records.
   Also FastAPI + Postgres. Migrations are ordered SQL files (see the
   Database migrations rule above — this is the one place that bites).
-- **`cli/go/`** — the `aw` CLI and Go client library. `cmd/aw` is the CLI
+- **`cli/go/`** — the `murmel` CLI and Go client library. `cmd/aw` is the CLI
   entrypoint; `cmd/aweb-a2a-gw` is the A2A gateway binary. `a2a/`, `a2agw/`,
   and `awid/` are protocol/client packages; `internal/conformance/` holds
-  the A2A conformance suite. A workspace is a local `.aw/` directory binding
-  one directory to one team (`.aw/workspace.yaml` is the coordination
-  identity). Auth is the cached bearer token at `~/.aw/token` (from
-  `aw login`) or `AW_TOKEN`; `aw init` is token-only (no team certificate).
+  the A2A conformance suite. A workspace is a local `.murmel/` directory binding
+  one directory to one team (`.murmel/workspace.yaml` is the coordination
+  identity). Auth is the cached bearer token at `~/.murmel/token` (from
+  `murmel login`) or `AW_TOKEN`; `murmel init` is token-only (no team certificate).
 - **`channel/`** (+ **`channel-core/`**) — TypeScript Claude Code integration
   that pushes coordination events into a running agent session so it wakes on
   incoming mail/chat. Shipped as an npm package and a Claude Code plugin
@@ -173,7 +109,7 @@ cd channel && npx vitest run test/some.test.ts                 # TypeScript
 Build / format / run locally:
 
 ```bash
-make build                         # builds the aw CLI (cli/go && make build)
+make build                         # builds the murmel CLI (cli/go && make build)
 cd cli/go && make fmt              # gofmt -w . (Go formatting)
 cd server && cp .env.example .env && docker compose up --build -d  # full stack
 make selfhost-up / selfhost-down / selfhost-logs                   # OSS stack (aweb+awid)
@@ -216,7 +152,71 @@ plus the awid build-check and the e2e/federation journeys. **Do not
 substitute `make test`**; it is a strict subset that misses packaging and
 integration regressions (the Makefile comments document past releases that
 shipped on `make test` alone). Each product tags independently
-(`server-v*`, `aw-v*`, `awid-v*`, `channel-v*`, `a2a-gw-v*`, `skills-v*`);
+(`server-v*`, `murmel-v*`, `awid-v*`, `channel-v*`, `a2a-gw-v*`, `skills-v*`);
 CI publishes on the pushed tag. Version is the source of truth in each
 product's `pyproject.toml` / `package.json`; `CLI_VERSION` tracks
 `SERVER_VERSION`.
+
+<!-- AWEB:START -->
+## aweb Coordination Rules
+
+This project uses `murmel` for coordination.
+
+## Start Here
+
+```bash
+murmel workspace status
+murmel work ready
+murmel mail inbox
+murmel roles show
+```
+
+## Shared Rules
+
+- Use `murmel` for coordination work
+- Treat `.murmel/workspace.yaml` as the repo-local coordination identity for this worktree
+- Default to mail for non-blocking coordination: `murmel mail send --to <agent> --body "..."`
+- Use chat when you need a synchronous answer: `murmel chat pending`, `murmel chat send-and-wait <agent> "..."`
+- Respond promptly to WAITING conversations
+- Check `murmel workspace status` before doing coordination work
+- Prefer shared coordination state over local TODO notes: `murmel work ready` and `murmel work active`
+- You will receive automatic chat notifications after each tool call via the PostToolUse hook (`murmel notify`). Respond promptly when notified.
+
+## Mail
+
+```bash
+murmel mail send --to <alias> --body "message"
+murmel mail send --to <alias> --subject "API design" --body "message"
+murmel mail inbox
+```
+
+## Chat
+
+```bash
+murmel chat send-and-wait <alias> "question" --start-conversation
+murmel chat send-and-wait <alias> "response"
+murmel chat send-and-leave <alias> "thanks, got it"
+murmel chat pending
+murmel chat open <alias>
+murmel chat history <alias>
+murmel chat extend-wait <alias> "need more time"
+```
+
+## Identity
+
+Never run `murmel` from another workspace or worktree when doing coordination work.
+
+`murmel` derives coordination context from `.murmel/workspace.yaml` in the current worktree. Running `murmel` from another repo or worktree can impersonate that workspace's agent, causing:
+
+- Messages sent as the wrong agent
+- Work claimed under the wrong identity
+- Confusion in coordination
+
+## Teamwork
+
+You are part of a team working toward a shared goal. Optimize for the project outcome, not your individual activity.
+
+- Help teammates when they're blocked
+- Escalate blockers early rather than spinning alone
+- Keep changes small and reviewable so others can build on them
+<!-- AWEB:END -->
