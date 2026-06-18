@@ -45,17 +45,28 @@ var rootCmd = &cobra.Command{
 // after the aw->murmel rename. Best-effort + idempotent: it only renames when
 // the new path is absent and the old one exists; any error is ignored.
 func migrateLegacyConfigDirs() {
+	// migrate moves each entry from oldPath into newPath without clobbering
+	// anything already in newPath, then removes oldPath if it ends up empty.
+	// Merging (rather than renaming the whole dir) is robust when newPath was
+	// pre-created as a stub by a concurrent writer (e.g. a notify hook).
 	migrate := func(oldPath, newPath string) {
-		if oldPath == "" || newPath == "" {
-			return
-		}
-		if _, err := os.Stat(newPath); err == nil {
-			return // new location already present
-		}
-		if _, err := os.Stat(oldPath); err != nil {
+		entries, err := os.ReadDir(oldPath)
+		if err != nil {
 			return // nothing to migrate
 		}
-		_ = os.Rename(oldPath, newPath)
+		if err := os.MkdirAll(newPath, 0o700); err != nil {
+			return
+		}
+		for _, e := range entries {
+			dst := filepath.Join(newPath, e.Name())
+			if _, err := os.Stat(dst); err == nil {
+				continue // keep what the new location already has
+			}
+			_ = os.Rename(filepath.Join(oldPath, e.Name()), dst)
+		}
+		if rem, _ := os.ReadDir(oldPath); len(rem) == 0 {
+			_ = os.Remove(oldPath)
+		}
 	}
 	if home, err := os.UserHomeDir(); err == nil {
 		migrate(filepath.Join(home, ".aw"), filepath.Join(home, ".murmel"))
