@@ -61,7 +61,7 @@ func TestAwChatSendBySessionIDJSON(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 	writeDefaultWorkspaceBindingForTest(t, tmp, server.URL)
 
@@ -93,7 +93,7 @@ func TestAwChatSendBySessionIDRequiresSessionID(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 	writeDefaultWorkspaceBindingForTest(t, tmp, "http://127.0.0.1:1")
 
@@ -116,7 +116,7 @@ func TestAwChatSendBySessionIDRejectsE2EEPlaintextTogether(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 	writeDefaultWorkspaceBindingForTest(t, tmp, "http://127.0.0.1:1")
 
@@ -162,7 +162,7 @@ func TestAwChatReadBySessionMessageIDJSON(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 	writeDefaultWorkspaceBindingForTest(t, tmp, server.URL)
 
@@ -220,7 +220,7 @@ func TestAwChatHistoryBySessionMessageIDJSON(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 	writeDefaultWorkspaceBindingForTest(t, tmp, server.URL)
 

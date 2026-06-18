@@ -18,7 +18,7 @@ import (
 // mintGatewayJWTFromSession exchanges a Better Auth session token for a
 // short-lived JWKS-verifiable JWT at tokenURL (GET with the session as a Bearer
 // credential). It mirrors the CLI's mintJWTFromSession so the gateway's token
-// refresh stays symmetric with `aw login`. The session is preserved as the
+// refresh stays symmetric with `murmel login`. The session is preserved as the
 // refresh credential.
 func mintGatewayJWTFromSession(ctx context.Context, tokenURL, sessionToken string) (*awconfig.CachedToken, error) {
 	tokenURL = strings.TrimSpace(tokenURL)
@@ -70,22 +70,22 @@ func mintGatewayJWTFromSession(ctx context.Context, tokenURL, sessionToken strin
 
 // Token-only (bearer / SimpleAuth JWT) auth for the A2A gateway.
 //
-// The token-only `aw init` pivot writes a cert-less `.aw/workspace.yaml` (a
-// team membership with no cert_path and no .aw/team-certs/), authenticating to
+// The token-only `murmel init` pivot writes a cert-less `.murmel/workspace.yaml` (a
+// team membership with no cert_path and no .murmel/team-certs/), authenticating to
 // aweb with `Authorization: Bearer <jwt>` + `X-AWEB-Team-Id: <team>` instead of
 // a team certificate. workspaceMailClient hard-required a certificate, so the
 // gateway could not run against such a workspace.
 //
 // This file adds the bearer path additively. The cert path in
 // workspaceMailClient is untouched; the caller branches on whether the resolved
-// team membership carries a cert_path. Token resolution mirrors the `aw` CLI's
+// team membership carries a cert_path. Token resolution mirrors the `murmel` CLI's
 // canonical bearerTokenProvider: an explicit AW_TOKEN env var wins (CI/scripts,
-// no cache, no refresh), otherwise the cached ~/.aw/token (written by
-// `aw login`) is loaded and auto-refreshed.
+// no cache, no refresh), otherwise the cached ~/.murmel/token (written by
+// `murmel login`) is loaded and auto-refreshed.
 
 // gatewayInjectedBearerToken returns an explicitly supplied bearer JWT from the
 // AW_TOKEN environment variable. Like the CLI's --token/AW_TOKEN override, an
-// injected token is for non-interactive use: it bypasses the ~/.aw/token cache
+// injected token is for non-interactive use: it bypasses the ~/.murmel/token cache
 // and is never refreshed (the caller owns its lifetime). The gateway has no
 // interactive flag, so AW_TOKEN is the sole injection source. Returns "" when
 // unset.
@@ -99,7 +99,7 @@ func gatewayHasInjectedBearerToken() bool {
 }
 
 // gatewaySessionRefresher re-mints a JWT from the cached session token (recorded
-// as the refresh credential by `aw login`) at the cached token endpoint. It
+// as the refresh credential by `murmel login`) at the cached token endpoint. It
 // mirrors the CLI's sessionRefresher so an expired cached token is refreshed
 // rather than sent stale.
 type gatewaySessionRefresher struct{}
@@ -114,7 +114,7 @@ func (gatewaySessionRefresher) Refresh(ctx context.Context, refreshToken string)
 
 // gatewayBearerTokenProvider returns a valid SimpleAuth JWT for the gateway. An
 // explicit AW_TOKEN override wins and is returned verbatim (no cache, no
-// refresh). Otherwise it loads and auto-refreshes the cached ~/.aw/token,
+// refresh). Otherwise it loads and auto-refreshes the cached ~/.murmel/token,
 // returning an error wrapping os.ErrNotExist when no token is cached. Installed
 // on the awid client via SetBearerProvider so every coordination request
 // attaches the token.
@@ -126,7 +126,7 @@ func gatewayBearerTokenProvider(ctx context.Context) (string, error) {
 }
 
 // hasUsableBearerToken reports whether a token is resolvable right now (either
-// AW_TOKEN or a cached ~/.aw/token). It is used to fail the gateway build with a
+// AW_TOKEN or a cached ~/.murmel/token). It is used to fail the gateway build with a
 // clear message before wiring a bearer client that would 401.
 func hasUsableBearerToken() bool {
 	if gatewayHasInjectedBearerToken() {
@@ -163,7 +163,7 @@ func tokenWorkspaceMailClient(workspaceDir, teamIDOverride, registryURLOverride,
 	}
 
 	if !hasUsableBearerToken() {
-		return nil, "", fmt.Errorf("token-only workspace for team %q has no usable bearer token: set AW_TOKEN or run `aw login`", teamID)
+		return nil, "", fmt.Errorf("token-only workspace for team %q has no usable bearer token: set AW_TOKEN or run `murmel login`", teamID)
 	}
 
 	baseURL := ""

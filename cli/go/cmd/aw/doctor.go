@@ -68,7 +68,7 @@ var checkCmd = &cobra.Command{
 	Short: "Check local identity, workspace, team, and service connectivity",
 	Long: "Check local identity, workspace, team, and service connectivity.\n\n" +
 		"This is the everyday setup diagnostic entrypoint. It runs the same checks as\n" +
-		"`aw doctor` and is safe to run before asking a teammate or support for help.",
+		"`murmel doctor` and is safe to run before asking a teammate or support for help.",
 	Args: cobra.RangeArgs(0, 1),
 	RunE: runDoctorAllCommand,
 }

@@ -205,7 +205,7 @@ func prohibitedDoctorFixMutation(mutation doctorFixMutation) string {
 	}, " "))
 	normalized := strings.NewReplacer("_", " ", "-", " ", "\\", "/", ".", " ").Replace(text)
 	switch {
-	case hasDoctorFixTerm(text, ".aw/signing.key", "signing.key") || hasDoctorFixTerm(normalized, "signing key", "private key", "private key material"):
+	case hasDoctorFixTerm(text, ".murmel/signing.key", "signing.key") || hasDoctorFixTerm(normalized, "signing key", "private key", "private key material"):
 		return "private_key_material"
 	case strings.Contains(normalized, "unclaim") || (strings.Contains(normalized, "presence") && hasDoctorFixTerm(normalized, "cleanup", "clear", "delete")):
 		return "coordination_cleanup"
@@ -221,7 +221,7 @@ func doctorFixLifecycleMutation(text, normalized string) bool {
 		return false
 	}
 	return strings.Contains(text, "did:aw:") ||
-		strings.Contains(normalized, "did aw") ||
+		strings.Contains(normalized, "did murmel") ||
 		strings.Contains(normalized, "identity") ||
 		strings.Contains(normalized, "address")
 }

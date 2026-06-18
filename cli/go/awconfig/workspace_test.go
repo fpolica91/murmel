@@ -169,7 +169,7 @@ aweb_url: https://app.aweb.ai
 identity_handle: alice
 did: did:key:z6MkWorkspace
 stable_id: did:aw:workspace
-signing_key: .aw/signing.key
+signing_key: .murmel/signing.key
 custody: self
 lifetime: persistent
 project_slug: acme

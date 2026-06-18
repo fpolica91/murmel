@@ -6,7 +6,7 @@ GOENV = env GOCACHE="$(GOCACHE)" GOMODCACHE="$(GOMODCACHE)"
 
 help:
 	@echo "Targets:"
-	@echo "  build   Build ./aw"
+	@echo "  build   Build ./murmel"
 	@echo "  test    Run unit tests"
 	@echo "  test-a2a Run A2A conformance, gateway, AWID lookup, and CLI command gates"
 	@echo "  tidy    go mod tidy"
@@ -14,7 +14,7 @@ help:
 	@echo "  clean   Remove built binary"
 
 build:
-	$(GOENV) go build -o aw ./cmd/aw
+	$(GOENV) go build -o murmel ./cmd/aw
 
 test:
 	$(GOENV) go test ./...
@@ -31,7 +31,7 @@ fmt:
 	gofmt -w .
 
 clean:
-	rm -f aw
+	rm -f murmel
 
 .PHONY: docs-check
 docs-check:

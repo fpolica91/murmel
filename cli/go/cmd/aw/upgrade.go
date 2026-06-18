@@ -52,7 +52,7 @@ var (
 
 var upgradeCmd = &cobra.Command{
 	Use:   "upgrade",
-	Short: "Upgrade aw to the latest version",
+	Short: "Upgrade murmel to the latest version",
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		// No heartbeat for upgrade.
 	},
@@ -125,7 +125,7 @@ func defaultUpdateCheckCachePath() string {
 		}
 		configHome = filepath.Join(home, ".config")
 	}
-	return filepath.Join(configHome, "aw", "update-check.json")
+	return filepath.Join(configHome, "murmel", "update-check.json")
 }
 
 func maybeCheckLatestVersion(cmd *cobra.Command) {
@@ -150,7 +150,7 @@ func shouldSkipUpdateCheck(cmd *cobra.Command) bool {
 	if len(path) == 0 {
 		return false
 	}
-	if path[0] == "aw" {
+	if path[0] == "murmel" {
 		path = path[1:]
 	}
 	if len(path) == 0 {
@@ -238,7 +238,7 @@ func writeUpdateCheckCache(cache updateCheckCache) {
 func printUpgradeHintIfNewer(w io.Writer, currentVersion, latestVersion string) {
 	latestVersion = strings.TrimPrefix(strings.TrimSpace(latestVersion), "v")
 	if latestVersion != "" && compareVersions(currentVersion, latestVersion) < 0 {
-		fmt.Fprintf(w, "Upgrade available: v%s → v%s (run `aw upgrade`)\n", currentVersion, latestVersion)
+		fmt.Fprintf(w, "Upgrade available: v%s → v%s (run `murmel upgrade`)\n", currentVersion, latestVersion)
 	}
 }
 
@@ -423,11 +423,11 @@ func selfUpdate(w io.Writer, apiBase string) error {
 	latestVersion := strings.TrimPrefix(info.TagName, "v")
 
 	if compareVersions(currentVersion, latestVersion) >= 0 {
-		fmt.Fprintf(w, "aw v%s is already the latest version.\n", currentVersion)
+		fmt.Fprintf(w, "murmel v%s is already the latest version.\n", currentVersion)
 		return nil
 	}
 
-	fmt.Fprintf(w, "Updating aw v%s → v%s...\n", currentVersion, latestVersion)
+	fmt.Fprintf(w, "Updating murmel v%s → v%s...\n", currentVersion, latestVersion)
 
 	// Determine platform archive name
 	goos := runtime.GOOS
@@ -454,7 +454,7 @@ func selfUpdate(w io.Writer, apiBase string) error {
 	}
 
 	// Download to temp dir
-	tmpDir, err := os.MkdirTemp("", "aw-update-*")
+	tmpDir, err := os.MkdirTemp("", "murmel-update-*")
 	if err != nil {
 		return err
 	}
@@ -488,9 +488,9 @@ func selfUpdate(w io.Writer, apiBase string) error {
 		return err
 	}
 
-	binaryName := "aw"
+	binaryName := "murmel"
 	if goos == "windows" {
-		binaryName = "aw.exe"
+		binaryName = "murmel.exe"
 	}
 
 	if err := extractBinary(archivePath, binaryName, extractDir); err != nil {
@@ -516,7 +516,7 @@ func selfUpdate(w io.Writer, apiBase string) error {
 	// Re-sign on macOS
 	resignMacOS(exePath)
 
-	fmt.Fprintf(w, "Updated aw v%s → v%s\n", currentVersion, latestVersion)
+	fmt.Fprintf(w, "Updated murmel v%s → v%s\n", currentVersion, latestVersion)
 	return nil
 }
 

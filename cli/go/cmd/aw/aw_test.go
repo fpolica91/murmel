@@ -28,7 +28,7 @@ func newLocalHTTPServer(t *testing.T, handler http.Handler) *httptest.Server {
 		t.Fatalf("listen: %v", err)
 	}
 	wrapped := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// aw probes for aweb by calling GET /v1/agents/heartbeat on candidate bases.
+		// murmel probes for aweb by calling GET /v1/agents/heartbeat on candidate bases.
 		// Return any non-404 to indicate "endpoint exists" without side effects.
 		// Only intercept GET; POST is the actual heartbeat and should reach the inner handler.
 		if r.Method == http.MethodGet && (r.URL.Path == "/v1/agents/heartbeat" || r.URL.Path == "/api/v1/agents/heartbeat") {
@@ -73,7 +73,7 @@ func TestAwTopLevelHelpGroupsCommandsByArchitecture(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 
 	helpCmd := exec.CommandContext(ctx, bin, "--help")
@@ -132,7 +132,7 @@ func TestAwTopLevelHelpGroupsCommandsByArchitecture(t *testing.T) {
 		t.Fatalf("expected run in Coordination & Runtime group:\n%s", text)
 	}
 
-	// The cert/DID/namespace/team cluster (and the `aw agents` repo-local
+	// The cert/DID/namespace/team cluster (and the `murmel agents` repo-local
 	// layout bootstrap that depended on it) is removed under token-only auth,
 	// so neither agents nor spawn should appear in top-level help.
 	if strings.Contains(text, "\n  agents") {
@@ -150,7 +150,7 @@ func TestGlobalLocalHelpDoesNotAdvertiseLegacyLifetimeFlags(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 
 	legacyPersistentIdentity := "Persistent" + " identity"
@@ -205,7 +205,7 @@ func TestAwWhoAmIIsCanonicalCommandName(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 
 	helpCmd := exec.CommandContext(ctx, bin, "whoami", "--help")
@@ -216,7 +216,7 @@ func TestAwWhoAmIIsCanonicalCommandName(t *testing.T) {
 	}
 
 	text := string(out)
-	if !strings.Contains(text, "Usage:\n  aw whoami [flags]") {
+	if !strings.Contains(text, "Usage:\n  murmel whoami [flags]") {
 		t.Fatalf("expected canonical whoami usage:\n%s", text)
 	}
 	if !strings.Contains(text, "Aliases:\n  whoami, introspect") {
@@ -231,7 +231,7 @@ func TestAwWhoamiJSONUsesActiveCertMemberAddress(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 
 	server := newLocalHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -291,17 +291,17 @@ func TestAwInitRejectsProjectOverrideFlag(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 
 	run := exec.CommandContext(ctx, bin, "init", "--project", "demo")
 	run.Dir = tmp
 	out, err := run.CombinedOutput()
 	if err == nil {
-		t.Fatalf("expected aw init --project to fail, got success:\n%s", string(out))
+		t.Fatalf("expected murmel init --project to fail, got success:\n%s", string(out))
 	}
 	if !strings.Contains(string(out), `unknown flag: --project`) {
-		t.Fatalf("expected unknown flag error for aw init --project:\n%s", string(out))
+		t.Fatalf("expected unknown flag error for murmel init --project:\n%s", string(out))
 	}
 }
 
@@ -338,7 +338,7 @@ func TestAwLockRenew(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 
 	build := exec.CommandContext(ctx, "go", "build", "-o", bin, "./cmd/aw")
 	wd, err := os.Getwd()
@@ -405,7 +405,7 @@ func TestAwLockRevoke(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 
 	build := exec.CommandContext(ctx, "go", "build", "-o", bin, "./cmd/aw")
 	wd, err := os.Getwd()
@@ -480,7 +480,7 @@ func TestAwChatSendAndLeavePositionalArgs(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 
 	build := exec.CommandContext(ctx, "go", "build", "-o", bin, "./cmd/aw")
 	wd, err := os.Getwd()
@@ -531,7 +531,7 @@ func TestAwChatSendAndWaitMissingArgs(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 
 	build := exec.CommandContext(ctx, "go", "build", "-o", bin, "./cmd/aw")
 	wd, err := os.Getwd()
@@ -564,7 +564,7 @@ func TestAwChatSendAndWaitExtraArgsRejected(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 
 	build := exec.CommandContext(ctx, "go", "build", "-o", bin, "./cmd/aw")
 	wd, err := os.Getwd()
@@ -632,7 +632,7 @@ func TestAwChatSendAndLeavePositionalArgsOrder(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 
 	build := exec.CommandContext(ctx, "go", "build", "-o", bin, "./cmd/aw")
 	wd, err := os.Getwd()
@@ -682,7 +682,7 @@ func TestVersionCommand(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 
 	build := exec.CommandContext(ctx, "go", "build", "-o", bin, "./cmd/aw")
 	wd, err := os.Getwd()
@@ -702,7 +702,7 @@ func TestVersionCommand(t *testing.T) {
 		t.Fatalf("run failed: %v\n%s", err, string(out))
 	}
 
-	if !strings.HasPrefix(string(out), "aw ") {
+	if !strings.HasPrefix(string(out), "murmel ") {
 		t.Fatalf("unexpected version output: %s", string(out))
 	}
 }
@@ -738,7 +738,7 @@ func TestAwContactsList(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 
 	build := exec.CommandContext(ctx, "go", "build", "-o", bin, "./cmd/aw")
 	wd, err := os.Getwd()
@@ -805,7 +805,7 @@ func TestAwContactsAdd(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 
 	build := exec.CommandContext(ctx, "go", "build", "-o", bin, "./cmd/aw")
 	wd, err := os.Getwd()
@@ -873,7 +873,7 @@ func TestAwContactsRemove(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 
 	build := exec.CommandContext(ctx, "go", "build", "-o", bin, "./cmd/aw")
 	wd, err := os.Getwd()
@@ -928,7 +928,7 @@ func TestAwContactsRemoveNotFound(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 
 	build := exec.CommandContext(ctx, "go", "build", "-o", bin, "./cmd/aw")
 	wd, err := os.Getwd()
@@ -957,7 +957,7 @@ func TestAwContactsRemoveNotFound(t *testing.T) {
 
 // TestAwIntrospectVerificationRequired was removed: the email verification
 // flow was part of the old API-key architecture. In the team architecture,
-// aw whoami reads local state and there is no server-side email gate.
+// murmel whoami reads local state and there is no server-side email gate.
 
 func TestAwMailSendAliasUsesTeamScopedTarget(t *testing.T) {
 	t.Parallel()
@@ -992,7 +992,7 @@ func TestAwMailSendAliasUsesTeamScopedTarget(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 
 	build := exec.CommandContext(ctx, "go", "build", "-o", bin, "./cmd/aw")
 	wd, err := os.Getwd()
@@ -1080,7 +1080,7 @@ func TestAwMailSendToDIDStableFirstContactFailsClosed(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 
 	build := exec.CommandContext(ctx, "go", "build", "-o", bin, "./cmd/aw")
 	wd, err := os.Getwd()
@@ -1167,7 +1167,7 @@ func TestAwMailSendToAddressUsesIdentityAuth(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 
 	build := exec.CommandContext(ctx, "go", "build", "-o", bin, "./cmd/aw")
 	wd, err := os.Getwd()
@@ -1308,7 +1308,7 @@ func TestAwMessagingUsesIdentityRegistryURLForRecipientBinding(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	build := exec.CommandContext(ctx, "go", "build", "-o", bin, "./cmd/aw")
 	wd, err := os.Getwd()
 	if err != nil {
@@ -1431,7 +1431,7 @@ func TestAwMessagingUsesKnownAgentPinWhenRegistryAddressMissing(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	build := exec.CommandContext(ctx, "go", "build", "-o", bin, "./cmd/aw")
 	wd, err := os.Getwd()
 	if err != nil {
@@ -1472,7 +1472,7 @@ func TestAwMessagingUsesKnownAgentPinWhenRegistryAddressMissing(t *testing.T) {
 		Server:   registryServer.URL,
 	}
 	pins.Addresses[recipientAddress] = recipientStableID
-	if err := pins.Save(filepath.Join(tmp, ".config", "aw", "known_agents.yaml")); err != nil {
+	if err := pins.Save(filepath.Join(tmp, ".config", "murmel", "known_agents.yaml")); err != nil {
 		t.Fatalf("write known_agents: %v", err)
 	}
 
@@ -1543,7 +1543,7 @@ func TestAwChatSendFailsClosedWhenRecipientBindingCannotResolve(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	build := exec.CommandContext(ctx, "go", "build", "-o", bin, "./cmd/aw")
 	wd, err := os.Getwd()
 	if err != nil {
@@ -1662,7 +1662,7 @@ func TestAwMailSendToDIDStandaloneFirstContactFailsClosed(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 
 	writeIdentityForTest(t, tmp, awconfig.WorktreeIdentity{
@@ -1673,7 +1673,7 @@ func TestAwMailSendToDIDStandaloneFirstContactFailsClosed(t *testing.T) {
 		RegistryURL: server.URL,
 		CreatedAt:   "2026-04-04T00:00:00Z",
 	})
-	if err := awid.SaveSigningKey(filepath.Join(tmp, ".aw", "signing.key"), priv); err != nil {
+	if err := awid.SaveSigningKey(filepath.Join(tmp, ".murmel", "signing.key"), priv); err != nil {
 		t.Fatalf("write signing key: %v", err)
 	}
 
@@ -1696,7 +1696,7 @@ func TestAwMailSendRejectsMultipleRecipientFlags(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 	writeDefaultWorkspaceBindingForTest(t, tmp, "http://127.0.0.1:1")
 
@@ -1755,7 +1755,7 @@ func TestAwMailInboxLogsStableIDWhenAddressMissing(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 
 	writeSelectionFixtureForTest(t, tmp, testSelectionFixture{
@@ -1803,7 +1803,7 @@ func TestAwResetLocal(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 
 	build := exec.CommandContext(ctx, "go", "build", "-o", bin, "./cmd/aw")
 	wd, err := os.Getwd()
@@ -1816,8 +1816,8 @@ func TestAwResetLocal(t *testing.T) {
 		t.Fatalf("build failed: %v\n%s", err, string(out))
 	}
 
-	// Create .aw/context and .aw/workspace.yaml.
-	awDir := filepath.Join(tmp, ".aw")
+	// Create .murmel/context and .murmel/workspace.yaml.
+	awDir := filepath.Join(tmp, ".murmel")
 	if err := os.MkdirAll(awDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -1835,19 +1835,19 @@ func TestAwResetLocal(t *testing.T) {
 	run.Env = os.Environ()
 	out, err := run.CombinedOutput()
 	if err != nil {
-		t.Fatalf("aw reset failed: %v\n%s", err, string(out))
+		t.Fatalf("murmel reset failed: %v\n%s", err, string(out))
 	}
 	if !strings.Contains(string(out), "Removed") {
 		t.Fatalf("expected 'Removed' message, got: %s", string(out))
 	}
 	if _, err := os.Stat(ctxPath); !os.IsNotExist(err) {
-		t.Fatal(".aw/context still exists after reset")
+		t.Fatal(".murmel/context still exists after reset")
 	}
 	if _, err := os.Stat(workspacePath); !os.IsNotExist(err) {
-		t.Fatal(".aw/workspace.yaml still exists after reset")
+		t.Fatal(".murmel/workspace.yaml still exists after reset")
 	}
 	if _, err := os.Stat(awDir); !os.IsNotExist(err) {
-		t.Fatal(".aw directory still exists after reset (should be cleaned up when empty)")
+		t.Fatal(".murmel directory still exists after reset (should be cleaned up when empty)")
 	}
 }
 
@@ -1875,7 +1875,7 @@ func TestAwMailSendWritesCommLog(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 
 	build := exec.CommandContext(ctx, "go", "build", "-o", bin, "./cmd/aw")
 	wd, err := os.Getwd()
@@ -1903,7 +1903,7 @@ func TestAwMailSendWritesCommLog(t *testing.T) {
 	}
 
 	// Communication logs now live in the per-user state dir under ~/.config/aw/logs.
-	logMatches, err := filepath.Glob(filepath.Join(tmp, ".config", "aw", "logs", "*.jsonl"))
+	logMatches, err := filepath.Glob(filepath.Join(tmp, ".config", "murmel", "logs", "*.jsonl"))
 	if err != nil {
 		t.Fatalf("glob log files: %v", err)
 	}
@@ -1938,8 +1938,8 @@ func TestAwMailSendWritesCommLog(t *testing.T) {
 
 func TestDefaultAwebURL(t *testing.T) {
 	t.Parallel()
-	if DefaultAwebURL != "https://app.aweb.ai" {
-		t.Fatalf("DefaultAwebURL=%q, want https://app.aweb.ai", DefaultAwebURL)
+	if DefaultAwebURL != "https://aweb-production-e89d.up.railway.app" {
+		t.Fatalf("DefaultAwebURL=%q, want https://aweb-production-e89d.up.railway.app", DefaultAwebURL)
 	}
 }
 
@@ -1962,19 +1962,19 @@ func TestResolveBaseURLForInitFallsBackToDefault(t *testing.T) {
 
 	// resolveBaseURLForInit should fall back to the default URL.
 	// If the server is reachable, we get a URL back; if not, the error
-	// should mention app.aweb.ai. Either way, the default was used.
+	// should mention aweb-production-e89d.up.railway.app. Either way, the default was used.
 	baseURL, serverName, err := resolveBaseURLForInit("", "")
 	if err != nil {
-		if !strings.Contains(err.Error(), "app.aweb.ai") {
-			t.Fatalf("expected error to reference default URL app.aweb.ai, got: %v", err)
+		if !strings.Contains(err.Error(), "aweb-production-e89d.up.railway.app") {
+			t.Fatalf("expected error to reference default URL aweb-production-e89d.up.railway.app, got: %v", err)
 		}
 		return
 	}
-	if !strings.Contains(baseURL, "app.aweb.ai") {
-		t.Fatalf("expected baseURL to contain app.aweb.ai, got %q", baseURL)
+	if !strings.Contains(baseURL, "aweb-production-e89d.up.railway.app") {
+		t.Fatalf("expected baseURL to contain aweb-production-e89d.up.railway.app, got %q", baseURL)
 	}
-	if !strings.Contains(serverName, "app.aweb.ai") {
-		t.Fatalf("expected serverName to contain app.aweb.ai, got %q", serverName)
+	if !strings.Contains(serverName, "aweb-production-e89d.up.railway.app") {
+		t.Fatalf("expected serverName to contain aweb-production-e89d.up.railway.app, got %q", serverName)
 	}
 }
 
@@ -1985,12 +1985,12 @@ func TestMCPConfigEmitsTokenBridgeByDefault(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	writeWorkspaceBindingForTest(t, tmp, workspaceBinding("https://app.aweb.ai", "backend:demo", "alice", "workspace-1"))
 
 	buildAwBinary(t, ctx, bin)
 
-	// Default: the token-only bridge (`aw mcp-serve`), no team certificate needed.
+	// Default: the token-only bridge (`murmel mcp-serve`), no team certificate needed.
 	run := exec.CommandContext(ctx, bin, "mcp-config")
 	run.Env = testCommandEnv(tmp)
 	run.Dir = tmp

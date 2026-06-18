@@ -239,7 +239,7 @@ func buildA2ACardOutput(ctx context.Context, cardURL, address, registryURL strin
 	}
 	verification := a2a.VerificationResult{Tier: a2a.VerificationTier0, Status: a2a.VerificationUnsigned, Digest: digest.Value}
 	if len(card.Signatures) > 0 {
-		verification.Message = "Agent Card contains signatures; aw a2a does not verify JWS yet. Use --address for AWID publication verification."
+		verification.Message = "Agent Card contains signatures; murmel a2a does not verify JWS yet. Use --address for AWID publication verification."
 	}
 	if strings.TrimSpace(address) != "" {
 		verification = verifyA2ACardWithAWID(ctx, cardURL, digest.Value, strings.TrimSpace(address), strings.TrimSpace(registryURL))
@@ -262,7 +262,7 @@ func verifyA2ACardWithAWID(ctx context.Context, cardURL, digestValue, address, r
 		return a2a.VerificationResult{Tier: a2a.VerificationTier2, Status: a2a.VerificationFailed, Code: "a2a_address_invalid", Message: err.Error(), Digest: digestValue}
 	}
 	registry := awid.NewAWIDRegistryClient(a2aHTTPClient(), nil)
-	registry.RequestID = "aw-a2a-" + time.Now().UTC().Format("20060102T150405.000000000")
+	registry.RequestID = "murmel-a2a-" + time.Now().UTC().Format("20060102T150405.000000000")
 	if registryURL != "" {
 		if err := registry.SetFallbackRegistryURL(registryURL); err != nil {
 			return a2a.VerificationResult{Tier: a2a.VerificationTier2, Status: a2a.VerificationFailed, Code: "a2a_registry_url_invalid", Message: err.Error(), Digest: digestValue}
@@ -316,7 +316,7 @@ func runA2ASend(ctx context.Context, cardURL, text string) (a2a.Task, error) {
 		params.Metadata = metadata
 	}
 	var resp a2aTaskEnvelope
-	if err := (&a2a.Client{HTTPClient: a2aHTTPClient(), UserAgent: "aw/" + version}).Call(ctx, rpcURL, a2a.MethodSendMessage, params, credential, &resp); err != nil {
+	if err := (&a2a.Client{HTTPClient: a2aHTTPClient(), UserAgent: "murmel/" + version}).Call(ctx, rpcURL, a2a.MethodSendMessage, params, credential, &resp); err != nil {
 		return a2a.Task{}, err
 	}
 	saveA2ATaskTokenBestEffort(rpcURL, resp.Task)
@@ -326,9 +326,9 @@ func runA2ASend(ctx context.Context, cardURL, text string) (a2a.Task, error) {
 const maxStoredA2ATaskTokens = 50
 
 // saveA2ATaskTokenBestEffort persists the task bearer token issued by the
-// gateway so later `aw a2a status`/`aw a2a cancel` calls can present it.
+// gateway so later `murmel a2a status`/`murmel a2a cancel` calls can present it.
 // Without it, scoped routes correctly answer task_not_found to the async
-// caller the contract tells to poll. Saving requires an existing .aw
+// caller the contract tells to poll. Saving requires an existing .murmel
 // directory; otherwise the token is only printed.
 func saveA2ATaskTokenBestEffort(rpcURL string, task a2a.Task) {
 	taskID := strings.TrimSpace(task.ID)
@@ -337,10 +337,10 @@ func saveA2ATaskTokenBestEffort(rpcURL string, task a2a.Task) {
 	if taskID == "" || token == "" {
 		return
 	}
-	if info, err := os.Stat(".aw"); err != nil || !info.IsDir() {
+	if info, err := os.Stat(".murmel"); err != nil || !info.IsDir() {
 		return
 	}
-	path := filepath.Join(".aw", "a2a-credentials.yaml")
+	path := filepath.Join(".murmel", "a2a-credentials.yaml")
 	var file a2aCredentialsFile
 	if data, err := os.ReadFile(path); err == nil {
 		_ = yaml.Unmarshal(data, &file)
@@ -382,7 +382,7 @@ func saveA2ATaskTokenBestEffort(rpcURL string, task a2a.Task) {
 
 // loadA2ATaskTokenBestEffort returns the stored token for a specific task.
 func loadA2ATaskTokenBestEffort(cardURL, rpcURL, taskID string) string {
-	data, err := os.ReadFile(filepath.Join(".aw", "a2a-credentials.yaml"))
+	data, err := os.ReadFile(filepath.Join(".murmel", "a2a-credentials.yaml"))
 	if err != nil {
 		return ""
 	}
@@ -418,7 +418,7 @@ func runA2AStatus(ctx context.Context, cardURL, taskID string) (a2a.Task, error)
 		params["historyLength"] = a2aHistoryLength
 	}
 	var task a2a.Task
-	if err := (&a2a.Client{HTTPClient: a2aHTTPClient(), UserAgent: "aw/" + version}).Call(ctx, rpcURL, a2a.MethodGetTask, params, credential, &task); err != nil {
+	if err := (&a2a.Client{HTTPClient: a2aHTTPClient(), UserAgent: "murmel/" + version}).Call(ctx, rpcURL, a2a.MethodGetTask, params, credential, &task); err != nil {
 		return a2a.Task{}, err
 	}
 	return task, nil
@@ -433,7 +433,7 @@ func runA2ACancel(ctx context.Context, cardURL, taskID string) (a2a.Task, error)
 		credential.TaskToken = token
 	}
 	var task a2a.Task
-	if err := (&a2a.Client{HTTPClient: a2aHTTPClient(), UserAgent: "aw/" + version}).Call(ctx, rpcURL, a2a.MethodCancelTask, map[string]any{"id": strings.TrimSpace(taskID)}, credential, &task); err != nil {
+	if err := (&a2a.Client{HTTPClient: a2aHTTPClient(), UserAgent: "murmel/" + version}).Call(ctx, rpcURL, a2a.MethodCancelTask, map[string]any{"id": strings.TrimSpace(taskID)}, credential, &task); err != nil {
 		return a2a.Task{}, err
 	}
 	return task, nil
@@ -456,7 +456,7 @@ func runA2APublish(ctx context.Context, cardURL string) (a2aPublishOutput, error
 		return a2aPublishOutput{}, err
 	}
 	if strings.TrimSpace(iface.Tenant) != "" {
-		return a2aPublishOutput{}, usageError("aw a2a publish supports path-routed per-address cards only; remove supportedInterfaces[].tenant")
+		return a2aPublishOutput{}, usageError("murmel a2a publish supports path-routed per-address cards only; remove supportedInterfaces[].tenant")
 	}
 	digest, err := a2a.CardDigest(card)
 	if err != nil {
@@ -484,13 +484,13 @@ func runA2APublish(ctx context.Context, cardURL string) (a2aPublishOutput, error
 		return a2aPublishOutput{}, usageError("--address %s does not match current identity address %s; publish from the address identity workspace", address, selection.Address)
 	}
 	if strings.TrimSpace(selection.StableID) != "" && strings.TrimSpace(selection.StableID) != didAW {
-		return a2aPublishOutput{}, usageError("current identity stable_id %s does not match signing key %s; repair .aw/identity.yaml before publishing", selection.StableID, didAW)
+		return a2aPublishOutput{}, usageError("current identity stable_id %s does not match signing key %s; repair .murmel/identity.yaml before publishing", selection.StableID, didAW)
 	}
 	if strings.TrimSpace(selection.DID) != "" && strings.TrimSpace(selection.DID) != currentDIDKey {
-		return a2aPublishOutput{}, usageError("current identity did %s does not match signing key %s; repair .aw/identity.yaml before publishing", selection.DID, currentDIDKey)
+		return a2aPublishOutput{}, usageError("current identity did %s does not match signing key %s; repair .murmel/identity.yaml before publishing", selection.DID, currentDIDKey)
 	}
 	registry := awid.NewAWIDRegistryClient(a2aHTTPClient(), nil)
-	registry.RequestID = "aw-a2a-publish-" + time.Now().UTC().Format("20060102T150405.000000000")
+	registry.RequestID = "murmel-a2a-publish-" + time.Now().UTC().Format("20060102T150405.000000000")
 	registryURL := strings.TrimSpace(a2aPublishRegistry)
 	if registryURL == "" {
 		registryURL = strings.TrimSpace(selection.RegistryURL)
@@ -673,9 +673,9 @@ func a2aPublishError(action string, err error) error {
 	if errors.As(err, &conflict) {
 		switch conflict.Code {
 		case awid.A2APublicationCodeDelegationMissing:
-			return usageError("%s: bridge delegation is missing; publish from the address identity with --gateway-identity so aw can create the delegation first", action)
+			return usageError("%s: bridge delegation is missing; publish from the address identity with --gateway-identity so murmel can create the delegation first", action)
 		case awid.A2APublicationCodeDelegationDigestMismatch:
-			return usageError("%s: bridge delegation digest mismatch; fetch the current card and rerun aw a2a publish so delegation and publication use the same card digest", action)
+			return usageError("%s: bridge delegation digest mismatch; fetch the current card and rerun murmel a2a publish so delegation and publication use the same card digest", action)
 		case awid.A2APublicationCodeCardDigestMismatch:
 			return usageError("%s: card digest mismatch; confirm the served card at the URL is the card you intend to publish", action)
 		case awid.A2APublicationCodeAddressNotRegistered:
@@ -709,13 +709,13 @@ func resolveA2ACallTarget(ctx context.Context, cardURL string) (a2a.Card, string
 	}
 	credential := loadA2ACredentialBestEffort(cardURL, iface.URL)
 	if strings.TrimSpace(iface.Tenant) != "" {
-		return a2a.Card{}, "", a2a.Credential{}, usageError("A2A tenant-routed interfaces are not supported by aw a2a yet; use a path-routed per-address card")
+		return a2a.Card{}, "", a2a.Credential{}, usageError("A2A tenant-routed interfaces are not supported by murmel a2a yet; use a path-routed per-address card")
 	}
 	return card, iface.URL, credential, nil
 }
 
 func loadA2ACredentialBestEffort(cardURL, rpcURL string) a2a.Credential {
-	path := filepath.Join(".aw", "a2a-credentials.yaml")
+	path := filepath.Join(".murmel", "a2a-credentials.yaml")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return a2a.Credential{}

@@ -12,7 +12,7 @@ import (
 var resetCmd = &cobra.Command{
 	Use:   "reset",
 	Short: "Remove the local workspace binding in the current directory",
-	Long:  "Removes the local .aw/context and .aw/workspace.yaml files in the current directory without mutating any server-side identity state.",
+	Long:  "Removes the local .murmel/context and .murmel/workspace.yaml files in the current directory without mutating any server-side identity state.",
 	RunE:  runReset,
 }
 
@@ -48,11 +48,11 @@ func runReset(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(removed) == 0 {
-		fmt.Fprintln(os.Stderr, "No local .aw binding found in current directory.")
+		fmt.Fprintln(os.Stderr, "No local .murmel binding found in current directory.")
 		return nil
 	}
 
-	awDir := filepath.Join(wd, ".aw")
+	awDir := filepath.Join(wd, ".murmel")
 	entries, readErr := os.ReadDir(awDir)
 	if readErr == nil && len(entries) == 0 {
 		_ = os.Remove(awDir)

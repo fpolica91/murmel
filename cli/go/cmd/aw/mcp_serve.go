@@ -20,16 +20,16 @@ import (
 // mcpServeCmd is the token-only MCP bridge. A host (e.g. Claude Code) launches
 // it as a stdio MCP server; it forwards each MCP message to this workspace's
 // aweb `/mcp/` endpoint over Streamable HTTP, attaching a fresh Better Auth JWT
-// (auto-refreshed from ~/.aw/token) and the active team on every request. This
+// (auto-refreshed from ~/.murmel/token) and the active team on every request. This
 // is the token-only replacement for the certificate-based channel: it works for
-// any user who has run `aw login` + `aw init`, with no per-account config.
+// any user who has run `murmel login` + `murmel init`, with no per-account config.
 var mcpServeCmd = &cobra.Command{
 	Use:   "mcp-serve",
 	Short: "Run a local MCP server bridging this session to the aweb /mcp/ endpoint (token-only, auto-refreshing)",
 	Long: `mcp-serve is a stdio MCP server. Configure it with the JSON from
-'aw mcp-config' and a host like Claude Code will launch it. It proxies MCP
+'murmel mcp-config' and a host like Claude Code will launch it. It proxies MCP
 requests to this workspace's aweb /mcp/ endpoint, attaching a fresh
-auto-refreshed Better Auth JWT (~/.aw/token, or AW_TOKEN) plus the active team
+auto-refreshed Better Auth JWT (~/.murmel/token, or AW_TOKEN) plus the active team
 on every request — so the agent gets the native aweb tools without a team
 certificate.`,
 	SilenceUsage: true,
@@ -103,7 +103,7 @@ func resolveMCPTarget() (baseURL, teamID string, err error) {
 		baseURL = DefaultAwebURL
 	}
 	if strings.TrimSpace(baseURL) == "" {
-		return "", "", fmt.Errorf("no aweb server configured; run `aw init` or set AWEB_URL")
+		return "", "", fmt.Errorf("no aweb server configured; run `murmel init` or set AWEB_URL")
 	}
 
 	switch {
@@ -130,7 +130,7 @@ func forwardMCPMessage(ctx context.Context, client *http.Client, mcpURL, teamID,
 	req.Header.Set("Accept", "application/json, text/event-stream")
 	tok, terr := bearerTokenProvider(ctx)
 	if terr != nil {
-		return [][]byte{mcpErrorFor(msg, fmt.Errorf("not authenticated (%v); run `aw login`", terr))}, ""
+		return [][]byte{mcpErrorFor(msg, fmt.Errorf("not authenticated (%v); run `murmel login`", terr))}, ""
 	}
 	if tok != "" {
 		req.Header.Set("Authorization", "Bearer "+tok)

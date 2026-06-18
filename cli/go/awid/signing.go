@@ -129,7 +129,7 @@ func SignMessage(key ed25519.PrivateKey, env *MessageEnvelope) (string, error) {
 
 // CanonicalJSONValue builds canonical JSON for an arbitrary JSON-compatible
 // value. It is used for generic DIDKey-authenticated payload signing on
-// the aw id sign / aw id request code path.
+// the murmel id sign / murmel id request code path.
 //
 // HTML escaping is explicitly disabled via json.Encoder.SetEscapeHTML(false)
 // so the output bytes match Python's canonical_json_bytes on the awid /

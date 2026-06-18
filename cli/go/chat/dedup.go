@@ -36,7 +36,7 @@ func deliveredIDsPath(startDir string) string {
 	if override := strings.TrimSpace(os.Getenv(DeliveredIDsPathEnv)); override != "" {
 		return filepath.Clean(override)
 	}
-	return filepath.Join(deliveredIDsRoot(startDir), ".aw", DeliveredIDsFileName)
+	return filepath.Join(deliveredIDsRoot(startDir), ".murmel", DeliveredIDsFileName)
 }
 
 func LoadDeliveredIDs() (map[string]struct{}, error) {

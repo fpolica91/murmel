@@ -189,7 +189,7 @@ func TestRunInitTokenFlowWritesCertlessWorkspace(t *testing.T) {
 		t.Fatalf("runInit: %v", err)
 	}
 
-	ws, err := awconfig.LoadWorktreeWorkspaceFrom(filepath.Join(tmp, ".aw", "workspace.yaml"))
+	ws, err := awconfig.LoadWorktreeWorkspaceFrom(filepath.Join(tmp, ".murmel", "workspace.yaml"))
 	if err != nil {
 		t.Fatalf("load workspace: %v", err)
 	}
@@ -207,11 +207,11 @@ func TestRunInitTokenFlowWritesCertlessWorkspace(t *testing.T) {
 	}
 
 	// Local self-custody identity must exist for E2EE messaging.
-	if _, err := os.Stat(filepath.Join(tmp, ".aw", "identity.yaml")); err != nil {
-		t.Fatalf("expected .aw/identity.yaml: %v", err)
+	if _, err := os.Stat(filepath.Join(tmp, ".murmel", "identity.yaml")); err != nil {
+		t.Fatalf("expected .murmel/identity.yaml: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(tmp, ".aw", "signing.key")); err != nil {
-		t.Fatalf("expected .aw/signing.key: %v", err)
+	if _, err := os.Stat(filepath.Join(tmp, ".murmel", "signing.key")); err != nil {
+		t.Fatalf("expected .murmel/signing.key: %v", err)
 	}
 }
 
@@ -241,7 +241,7 @@ func TestRunInitRejectsExistingWorkspace(t *testing.T) {
 	tokenFlag = ""
 
 	// Pre-write a workspace binding.
-	wsPath := filepath.Join(tmp, ".aw", "workspace.yaml")
+	wsPath := filepath.Join(tmp, ".murmel", "workspace.yaml")
 	if err := os.MkdirAll(filepath.Dir(wsPath), 0o755); err != nil {
 		t.Fatal(err)
 	}

@@ -790,14 +790,14 @@ func findSessionWithOptions(ctx context.Context, client *awid.Client, targetAlia
 				identityKeys = normalizeMatchedIdentityKeys(ctx, client, identityKeys)
 			}
 			if !(trackConcreteIdentity && len(identityKeys) == 1) {
-				return "", false, fmt.Errorf("multiple conversations match %s; run `aw chat pending` to choose one", targetAlias)
+				return "", false, fmt.Errorf("multiple conversations match %s; run `murmel chat pending` to choose one", targetAlias)
 			}
 		}
 		if requireUniqueConcreteAlias && trackConcreteIdentity && len(identityKeys) > 1 {
 			identityKeys = normalizeMatchedIdentityKeys(ctx, client, identityKeys)
 		}
 		if requireUniqueConcreteAlias && trackConcreteIdentity && len(identityKeys) > 1 {
-			return "", false, fmt.Errorf("multiple conversations match %s; run `aw chat pending` to choose one", targetAlias)
+			return "", false, fmt.Errorf("multiple conversations match %s; run `murmel chat pending` to choose one", targetAlias)
 		}
 		if bestPendingID != "" {
 			return bestPendingID, bestPendingWaiting, nil
@@ -877,14 +877,14 @@ func findSessionWithOptions(ctx context.Context, client *awid.Client, targetAlia
 				identityKeys = normalizeMatchedIdentityKeys(ctx, client, identityKeys)
 			}
 			if !(trackConcreteIdentity && len(identityKeys) == 1) {
-				return "", fmt.Errorf("multiple conversations match %s; run `aw chat pending` to choose one", targetAlias)
+				return "", fmt.Errorf("multiple conversations match %s; run `murmel chat pending` to choose one", targetAlias)
 			}
 		}
 		if requireUniqueConcreteAlias && trackConcreteIdentity && len(identityKeys) > 1 {
 			identityKeys = normalizeMatchedIdentityKeys(ctx, client, identityKeys)
 		}
 		if requireUniqueConcreteAlias && trackConcreteIdentity && len(identityKeys) > 1 {
-			return "", fmt.Errorf("multiple conversations match %s; run `aw chat pending` to choose one", targetAlias)
+			return "", fmt.Errorf("multiple conversations match %s; run `murmel chat pending` to choose one", targetAlias)
 		}
 		return bestSessionID, nil
 	}

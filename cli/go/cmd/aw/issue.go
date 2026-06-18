@@ -10,9 +10,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// `aw issue` — terminal access to the Epic -> Story -> Issue work hierarchy,
+// `murmel issue` — terminal access to the Epic -> Story -> Issue work hierarchy,
 // complementing the issues_* MCP tools. Works with both team-certificate and
-// `aw login` (bearer) auth.
+// `murmel login` (bearer) auth.
 
 var issueCmd = &cobra.Command{
 	Use:   "issue",

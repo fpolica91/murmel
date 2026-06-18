@@ -47,7 +47,7 @@ func TestAwLockMutationUnsupportedMessage(t *testing.T) {
 			defer cancel()
 
 			tmp := t.TempDir()
-			bin := filepath.Join(tmp, "aw")
+			bin := filepath.Join(tmp, "murmel")
 			buildAwBinary(t, ctx, bin)
 			writeDefaultWorkspaceBindingForTest(t, tmp, server.URL)
 
@@ -58,7 +58,7 @@ func TestAwLockMutationUnsupportedMessage(t *testing.T) {
 			if err == nil {
 				t.Fatalf("expected error, got success:\n%s", string(out))
 			}
-			if !strings.Contains(string(out), "only `aw lock list` is currently available") {
+			if !strings.Contains(string(out), "only `murmel lock list` is currently available") {
 				t.Fatalf("unexpected output:\n%s", string(out))
 			}
 		})
@@ -102,7 +102,7 @@ func TestAwLockListMineFiltersByCurrentAlias(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 	writeWorkspaceBindingForTest(t, tmp, workspaceBinding(server.URL, "backend:demo", "alice", "workspace-1"))
 

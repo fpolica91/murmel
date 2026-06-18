@@ -969,10 +969,10 @@ func writeGatewayWorkspace(t *testing.T, dir, awebURL string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.MkdirAll(filepath.Join(dir, ".aw"), 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, ".murmel"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := awid.SaveSigningKey(filepath.Join(dir, ".aw", "signing.key"), memberPriv); err != nil {
+	if err := awid.SaveSigningKey(filepath.Join(dir, ".murmel", "signing.key"), memberPriv); err != nil {
 		t.Fatal(err)
 	}
 	certRel, err := awconfig.SaveTeamCertificateForTeam(dir, teamID, cert)
@@ -987,7 +987,7 @@ func writeGatewayWorkspace(t *testing.T, dir, awebURL string) {
 			CertPath: certRel,
 		}},
 	}
-	if err := awconfig.SaveWorktreeWorkspaceTo(filepath.Join(dir, ".aw", "workspace.yaml"), workspace); err != nil {
+	if err := awconfig.SaveWorktreeWorkspaceTo(filepath.Join(dir, ".murmel", "workspace.yaml"), workspace); err != nil {
 		t.Fatal(err)
 	}
 	if err := awconfig.SaveTeamState(dir, &awconfig.TeamState{

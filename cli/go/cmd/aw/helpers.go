@@ -57,7 +57,7 @@ func (e *identityMismatchError) Error() string {
 	if strings.TrimSpace(wsPath) == "" {
 		wsPath = "(unknown)"
 	}
-	return fmt.Sprintf("identity mismatch: .aw/context at %s resolves to %q, but .aw/workspace.yaml at %s says %q. Run 'aw init' in this worktree to fix.",
+	return fmt.Sprintf("identity mismatch: .murmel/context at %s resolves to %q, but .murmel/workspace.yaml at %s says %q. Run 'murmel init' in this worktree to fix.",
 		ctxPath, strings.TrimSpace(e.ResolvedAlias), wsPath, strings.TrimSpace(e.WorkspaceAlias))
 }
 
@@ -128,14 +128,14 @@ func resolveEphemeralIdentityWithoutState(workingDir string) (*awconfig.Resolved
 		activeTeamID = strings.TrimSpace(teamState.ActiveTeam)
 	}
 	if activeTeamID == "" {
-		return nil, usageError("current worktree is missing active_team membership; run `aw init` first")
+		return nil, usageError("current worktree is missing active_team membership; run `murmel init` first")
 	}
 	cert, err := awconfig.LoadTeamCertificateForTeam(workingDir, activeTeamID)
 	if err != nil {
 		return nil, fmt.Errorf("load active team certificate for %s: %w", activeTeamID, err)
 	}
 	if awid.NormalizeIdentityScope(firstNonEmpty(cert.IdentityScope, cert.Lifetime)) != awid.IdentityModeLocal {
-		return nil, usageError("current global identity is missing .aw/identity.yaml; restore it or run `aw init` again")
+		return nil, usageError("current global identity is missing .murmel/identity.yaml; restore it or run `murmel init` again")
 	}
 
 	signingKeyPath := awconfig.WorktreeSigningKeyPath(workingDir)
@@ -177,18 +177,18 @@ func validateResolvedIdentity(identity *awconfig.ResolvedIdentity) error {
 		return fmt.Errorf("missing identity context")
 	}
 	if strings.TrimSpace(identity.DID) == "" {
-		return usageError("current identity is invalid: .aw/identity.yaml is missing did")
+		return usageError("current identity is invalid: .murmel/identity.yaml is missing did")
 	}
 	lifetime := strings.TrimSpace(identity.Lifetime)
 	if lifetime == "" {
-		return usageError("current identity is invalid: .aw/identity.yaml is missing lifetime")
+		return usageError("current identity is invalid: .murmel/identity.yaml is missing lifetime")
 	}
 	custody := strings.TrimSpace(identity.Custody)
 	if custody == "" {
-		return usageError("current identity is invalid: .aw/identity.yaml is missing custody")
+		return usageError("current identity is invalid: .murmel/identity.yaml is missing custody")
 	}
 	if lifetime == awid.LifetimePersistent && strings.TrimSpace(identity.StableID) == "" {
-		return usageError("current identity is invalid: global .aw/identity.yaml is missing stable_id")
+		return usageError("current identity is invalid: global .murmel/identity.yaml is missing stable_id")
 	}
 	if custody != awid.CustodySelf {
 		return nil
@@ -206,7 +206,7 @@ func validateResolvedIdentity(identity *awconfig.ResolvedIdentity) error {
 	}
 	computedDID := awid.ComputeDIDKey(signingKey.Public().(ed25519.PublicKey))
 	if computedDID != strings.TrimSpace(identity.DID) {
-		return usageError("current identity is invalid: .aw/identity.yaml did %q does not match .aw/signing.key %q", strings.TrimSpace(identity.DID), computedDID)
+		return usageError("current identity is invalid: .murmel/identity.yaml did %q does not match .murmel/signing.key %q", strings.TrimSpace(identity.DID), computedDID)
 	}
 	return nil
 }
@@ -237,7 +237,7 @@ func resolveClientSelectionForDirWithTeamOverride(workingDir, teamIDOverride str
 	}
 	if c == nil {
 		// SimpleAuth fallback: the workspace is not certificate-authenticated,
-		// but the user may have run `aw login`. Use the cached bearer token if
+		// but the user may have run `murmel login`. Use the cached bearer token if
 		// present; otherwise surface the original cert-auth error.
 		if bc, berr := bearerClientIfAvailable(baseURL, strings.TrimSpace(sel.TeamID)); berr == nil && bc != nil {
 			if err := configureResolvedClient(bc, sel, baseURL); err != nil {
@@ -246,7 +246,7 @@ func resolveClientSelectionForDirWithTeamOverride(workingDir, teamIDOverride str
 			lastClient = bc
 			return bc, sel, nil
 		}
-		return nil, nil, errors.New("current workspace is not certificate-authenticated; accept a team invite and run `aw init` here, or run `aw login`")
+		return nil, nil, errors.New("current workspace is not certificate-authenticated; accept a team invite and run `murmel init` here, or run `murmel login`")
 	}
 	if err := configureResolvedClient(c, sel, baseURL); err != nil {
 		return nil, nil, err
@@ -293,7 +293,7 @@ func resolveIdentityMessagingClientSelectionForDir(workingDir string) (*aweb.Cli
 	signingKey, err := awid.LoadSigningKey(signingKeyPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return nil, nil, errors.New("current workspace has no local signing key; run `aw init` here first")
+			return nil, nil, errors.New("current workspace has no local signing key; run `murmel init` here first")
 		}
 		return nil, nil, fmt.Errorf("load signing key: %w", err)
 	}
@@ -457,7 +457,7 @@ func resolveCertificateClient(workingDir, baseURL, teamID string) (*aweb.Client,
 		// caller to fall back to the bearer-token client.
 		return nil, nil
 	}
-	certPath := filepath.Join(workingDir, ".aw", filepath.FromSlash(relCertPath))
+	certPath := filepath.Join(workingDir, ".murmel", filepath.FromSlash(relCertPath))
 	cert, err := awid.LoadTeamCertificate(certPath)
 	if err != nil {
 		return nil, fmt.Errorf("load team certificate for %s: %w", selectedMembership.TeamID, err)
@@ -525,8 +525,8 @@ func resolveClient() (*aweb.Client, error) {
 	if err == nil {
 		return c, nil
 	}
-	// Workspace-less SimpleAuth fallback: no `.aw/` workspace at all, but the
-	// user ran `aw login`. Build a bearer client from AWEB_URL. On any failure
+	// Workspace-less SimpleAuth fallback: no `.murmel/` workspace at all, but the
+	// user ran `murmel login`. Build a bearer client from AWEB_URL. On any failure
 	// (no token / no base URL) surface the original workspace error.
 	if bc, berr := resolveWorkspacelessBearerClient(); berr == nil && bc != nil {
 		return bc, nil
@@ -1287,7 +1287,7 @@ func checkVerificationRequired(err error) string {
 	if envelope.Error.Details.MaskedEmail != "" {
 		hint += " (" + envelope.Error.Details.MaskedEmail + ")"
 	}
-	hint += ". Verify this account in the dashboard, then re-run `aw init`."
+	hint += ". Verify this account in the dashboard, then re-run `murmel init`."
 	return hint
 }
 
@@ -1332,7 +1332,7 @@ func mailShowConversationError(err error, conversationID string) error {
 	}
 	detail := httpErrorDetail(err)
 	if strings.Contains(strings.ToLower(detail), "legacy mail without a conversation") {
-		return fmt.Errorf("%s. Show it with: aw mail show --message-id %s", detail, conversationID)
+		return fmt.Errorf("%s. Show it with: murmel mail show --message-id %s", detail, conversationID)
 	}
 	if detail != "" && !strings.EqualFold(detail, "Conversation not found") {
 		return fmt.Errorf("%s: %s", detail, conversationID)
@@ -1342,8 +1342,8 @@ func mailShowConversationError(err error, conversationID string) error {
 
 // checkIdentityMismatch verifies that the resolved account matches
 // the local workspace identity. Prevents silently running as the
-// wrong agent when .aw/context resolves to a different account than
-// .aw/workspace.yaml expects.
+// wrong agent when .murmel/context resolves to a different account than
+// .murmel/workspace.yaml expects.
 func checkIdentityMismatch(workingDir string, sel *awconfig.Selection) error {
 	if sel == nil || strings.TrimSpace(sel.Alias) == "" {
 		return nil

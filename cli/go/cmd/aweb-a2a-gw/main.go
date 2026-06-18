@@ -1197,14 +1197,14 @@ func workspaceMailClient(workspaceDir, teamIDOverride, registryURLOverride, gate
 		certPath = strings.TrimSpace(workspaceMembership.CertPath)
 	}
 	if certPath == "" {
-		// Token-only (cert-less) binding: the pivoted `aw init` writes a
-		// membership with no cert_path and no .aw/team-certs/. Authenticate with
+		// Token-only (cert-less) binding: the pivoted `murmel init` writes a
+		// membership with no cert_path and no .murmel/team-certs/. Authenticate with
 		// a bearer JWT (Authorization: Bearer + X-AWEB-Team-Id) instead of a team
 		// certificate. The cert path below is preserved for legacy workspaces.
 		return tokenWorkspaceMailClient(workspaceDir, teamIDOverride, registryURLOverride, gatewayIdentityOverride)
 	}
 	if !filepath.IsAbs(certPath) {
-		certPath = filepath.Join(root, ".aw", filepath.FromSlash(certPath))
+		certPath = filepath.Join(root, ".murmel", filepath.FromSlash(certPath))
 	}
 	cert, err := awid.LoadTeamCertificate(certPath)
 	if err != nil {

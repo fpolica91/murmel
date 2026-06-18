@@ -170,7 +170,7 @@ func (c *Client) prepareE2EEMail(ctx context.Context, payload *SendMessageReques
 		return errors.New("E2E messaging requires a local self-custodial signing key")
 	}
 	if c.e2eeEncryptionKey == nil {
-		return errors.New("E2E messaging requires a local encryption key; upgrade aw and run `aw id encryption-key setup`, or pass --plaintext only for explicit server-readable messaging")
+		return errors.New("E2E messaging requires a local encryption key; upgrade murmel and run `murmel id encryption-key setup`, or pass --plaintext only for explicit server-readable messaging")
 	}
 	recipient, err := c.e2eeMailRecipient(ctx, payload)
 	if err != nil {
@@ -272,7 +272,7 @@ func (c *Client) e2eeMailRecipient(ctx context.Context, payload *SendMessageRequ
 		return E2EERecipientKey{}, err
 	}
 	if identity.EncryptionKey == nil {
-		return E2EERecipientKey{}, errors.New("recipient has no published E2E encryption key; ask them to upgrade aw/Pi/channel and run `aw id encryption-key setup`, or explicitly send a server-readable upgrade note with --plaintext")
+		return E2EERecipientKey{}, errors.New("recipient has no published E2E encryption key; ask them to upgrade murmel/Pi/channel and run `murmel id encryption-key setup`, or explicitly send a server-readable upgrade note with --plaintext")
 	}
 	return E2EERecipientKey{
 		Address:        strings.TrimSpace(identity.Address),

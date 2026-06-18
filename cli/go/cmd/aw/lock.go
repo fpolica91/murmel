@@ -215,5 +215,5 @@ func normalizeReservationMutationError(action string, err error) error {
 	if !ok || (code != 404 && code != 405) {
 		return nil
 	}
-	return fmt.Errorf("lock %s is not supported by the current backend; only `aw lock list` is currently available", action)
+	return fmt.Errorf("lock %s is not supported by the current backend; only `murmel lock list` is currently available", action)
 }

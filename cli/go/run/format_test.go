@@ -59,7 +59,7 @@ func TestFormatToolCallLinesCompactsMailSendCommands(t *testing.T) {
 	lines := formatToolCallDisplay(ToolCall{
 		Name: "Bash",
 		Input: map[string]any{
-			"command": `aw mail send --to dave --subject "Review" --body "please take a look"`,
+			"command": `murmel mail send --to dave --subject "Review" --body "please take a look"`,
 		},
 	})
 	if len(lines) != 1 {
@@ -74,7 +74,7 @@ func TestFormatToolCallLinesCompactsChatSendCommands(t *testing.T) {
 	lines := formatToolCallDisplay(ToolCall{
 		Name: "Bash",
 		Input: map[string]any{
-			"command": `aw chat send-and-wait henry "can you review this?" --start-conversation`,
+			"command": `murmel chat send-and-wait henry "can you review this?" --start-conversation`,
 		},
 	})
 	if len(lines) != 1 {
@@ -89,7 +89,7 @@ func TestFormatToolCallLinesCompactsTaskUpdateCommands(t *testing.T) {
 	lines := formatToolCallDisplay(ToolCall{
 		Name: "Bash",
 		Input: map[string]any{
-			"command": `aw task update aweb-aaat.1 --status in_progress`,
+			"command": `murmel task update aweb-aaat.1 --status in_progress`,
 		},
 	})
 	if len(lines) != 1 {

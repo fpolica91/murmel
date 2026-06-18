@@ -105,7 +105,7 @@ func (p *providerInputState) SendLine(text string) error {
 const (
 	pausedNoticeText = "paused. type a prompt or clear the input to resume."
 	pausedStatusText = "paused: type or clear input to resume"
-	exitStatusText   = "exit aw run? [y/N]"
+	exitStatusText   = "exit murmel run? [y/N]"
 	startupBanner    = `                                         _           _
   __ ___      __  _    __ ___      _____| |__   __ _(_)
  / _` + "`" + ` \ \ /\ / / (_)  / _` + "`" + ` \ \ /\ / / _ \ '_ \ / _` + "`" + ` | |
@@ -117,7 +117,7 @@ const (
   /provider TEXT  send one line to the active provider stdin
   /autofeed on    enable autofeed (work events wake the agent)
   /autofeed off   disable autofeed
-  /quit           exit aw run
+  /quit           exit murmel run
   /help           show this help`
 )
 

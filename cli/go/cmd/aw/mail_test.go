@@ -258,7 +258,7 @@ func TestE2EEAssertionIdentityUsesMatchingIdentityStableID(t *testing.T) {
 	}
 	did := awid.ComputeDIDKey(pub)
 	stableID := awid.ComputeStableID(pub)
-	if err := awconfig.SaveWorktreeIdentityTo(filepath.Join(tmp, ".aw", "identity.yaml"), &awconfig.WorktreeIdentity{
+	if err := awconfig.SaveWorktreeIdentityTo(filepath.Join(tmp, ".murmel", "identity.yaml"), &awconfig.WorktreeIdentity{
 		DID:      did,
 		StableID: stableID,
 		Address:  "example.test/eve",
@@ -348,7 +348,7 @@ func TestAwMailSendBodyFilePreservesBackticksOnTheWire(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 
 	writeIdentityForTest(t, tmp, awconfig.WorktreeIdentity{
@@ -359,7 +359,7 @@ func TestAwMailSendBodyFilePreservesBackticksOnTheWire(t *testing.T) {
 		RegistryURL: server.URL,
 		CreatedAt:   "2026-04-26T00:00:00Z",
 	})
-	if err := awid.SaveSigningKey(filepath.Join(tmp, ".aw", "signing.key"), priv); err != nil {
+	if err := awid.SaveSigningKey(filepath.Join(tmp, ".murmel", "signing.key"), priv); err != nil {
 		t.Fatalf("write signing key: %v", err)
 	}
 
@@ -439,7 +439,7 @@ func TestAwMailSendConversationIDSignsPayloadWithRediscoveredRecipient(t *testin
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 
 	writeIdentityForTest(t, tmp, awconfig.WorktreeIdentity{
@@ -449,7 +449,7 @@ func TestAwMailSendConversationIDSignsPayloadWithRediscoveredRecipient(t *testin
 		Lifetime:  awid.LifetimeEphemeral,
 		CreatedAt: "2026-05-02T00:00:00Z",
 	})
-	if err := awid.SaveSigningKey(filepath.Join(tmp, ".aw", "signing.key"), priv); err != nil {
+	if err := awid.SaveSigningKey(filepath.Join(tmp, ".murmel", "signing.key"), priv); err != nil {
 		t.Fatalf("write signing key: %v", err)
 	}
 
@@ -555,7 +555,7 @@ func TestAwMailSendToAddressAutoThreadsUniqueConversation(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 
 	writeIdentityForTest(t, tmp, awconfig.WorktreeIdentity{
@@ -565,7 +565,7 @@ func TestAwMailSendToAddressAutoThreadsUniqueConversation(t *testing.T) {
 		Lifetime:  awid.LifetimeEphemeral,
 		CreatedAt: "2026-05-02T00:00:00Z",
 	})
-	if err := awid.SaveSigningKey(filepath.Join(tmp, ".aw", "signing.key"), priv); err != nil {
+	if err := awid.SaveSigningKey(filepath.Join(tmp, ".murmel", "signing.key"), priv); err != nil {
 		t.Fatalf("write signing key: %v", err)
 	}
 
@@ -670,7 +670,7 @@ func TestAwMailSendToAddressAutoThreadsSentConversationFromIndex(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 
 	writeIdentityForTest(t, tmp, awconfig.WorktreeIdentity{
@@ -682,7 +682,7 @@ func TestAwMailSendToAddressAutoThreadsSentConversationFromIndex(t *testing.T) {
 		RegistryURL: server.URL,
 		CreatedAt:   "2026-05-02T00:00:00Z",
 	})
-	if err := awid.SaveSigningKey(filepath.Join(tmp, ".aw", "signing.key"), priv); err != nil {
+	if err := awid.SaveSigningKey(filepath.Join(tmp, ".murmel", "signing.key"), priv); err != nil {
 		t.Fatalf("write signing key: %v", err)
 	}
 
@@ -799,7 +799,7 @@ func TestAwMailSendAliasAutoThreadsConcreteAgentConversation(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 
 	writeSelectionFixtureForTest(t, tmp, testSelectionFixture{
@@ -911,7 +911,7 @@ func TestAwMailSendAliasToSelfSkipsConversationDiscovery(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 
 	writeSelectionFixtureForTest(t, tmp, testSelectionFixture{
@@ -1031,7 +1031,7 @@ func TestAwMailReplyUsesMessageConversation(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 
 	writeIdentityForTest(t, tmp, awconfig.WorktreeIdentity{
@@ -1041,7 +1041,7 @@ func TestAwMailReplyUsesMessageConversation(t *testing.T) {
 		Lifetime:  awid.LifetimeEphemeral,
 		CreatedAt: "2026-05-02T00:00:00Z",
 	})
-	if err := awid.SaveSigningKey(filepath.Join(tmp, ".aw", "signing.key"), priv); err != nil {
+	if err := awid.SaveSigningKey(filepath.Join(tmp, ".murmel", "signing.key"), priv); err != nil {
 		t.Fatalf("write signing key: %v", err)
 	}
 
@@ -1107,7 +1107,7 @@ func TestAwMailSendConversationIDSurfacesNonParticipantRejection(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 	writeIdentityForTest(t, tmp, awconfig.WorktreeIdentity{
 		DID:       did,
@@ -1116,7 +1116,7 @@ func TestAwMailSendConversationIDSurfacesNonParticipantRejection(t *testing.T) {
 		Lifetime:  awid.LifetimePersistent,
 		CreatedAt: "2026-05-02T00:00:00Z",
 	})
-	if err := awid.SaveSigningKey(filepath.Join(tmp, ".aw", "signing.key"), priv); err != nil {
+	if err := awid.SaveSigningKey(filepath.Join(tmp, ".murmel", "signing.key"), priv); err != nil {
 		t.Fatalf("write signing key: %v", err)
 	}
 
@@ -1163,7 +1163,7 @@ func TestAwMailSendConversationIDSurfacesMissingConversation(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 	writeIdentityForTest(t, tmp, awconfig.WorktreeIdentity{
 		DID:       did,
@@ -1172,7 +1172,7 @@ func TestAwMailSendConversationIDSurfacesMissingConversation(t *testing.T) {
 		Lifetime:  awid.LifetimePersistent,
 		CreatedAt: "2026-05-02T00:00:00Z",
 	})
-	if err := awid.SaveSigningKey(filepath.Join(tmp, ".aw", "signing.key"), priv); err != nil {
+	if err := awid.SaveSigningKey(filepath.Join(tmp, ".murmel", "signing.key"), priv); err != nil {
 		t.Fatalf("write signing key: %v", err)
 	}
 
@@ -1245,7 +1245,7 @@ func TestAwMailShowFetchesConversation(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 	writeIdentityForTest(t, tmp, awconfig.WorktreeIdentity{
 		DID:       did,
@@ -1254,7 +1254,7 @@ func TestAwMailShowFetchesConversation(t *testing.T) {
 		Lifetime:  awid.LifetimePersistent,
 		CreatedAt: "2026-05-02T00:00:00Z",
 	})
-	if err := awid.SaveSigningKey(filepath.Join(tmp, ".aw", "signing.key"), priv); err != nil {
+	if err := awid.SaveSigningKey(filepath.Join(tmp, ".murmel", "signing.key"), priv); err != nil {
 		t.Fatalf("write signing key: %v", err)
 	}
 
@@ -1303,7 +1303,7 @@ func TestAwMailAckByMessageIDJSON(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 	writeDefaultWorkspaceBindingForTest(t, tmp, server.URL)
 
@@ -1367,7 +1367,7 @@ func TestAwMailShowLegacyConversationHintAndMessageIDFetch(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 	writeIdentityForTest(t, tmp, awconfig.WorktreeIdentity{
 		DID:       did,
@@ -1376,7 +1376,7 @@ func TestAwMailShowLegacyConversationHintAndMessageIDFetch(t *testing.T) {
 		Lifetime:  awid.LifetimePersistent,
 		CreatedAt: "2026-05-02T00:00:00Z",
 	})
-	if err := awid.SaveSigningKey(filepath.Join(tmp, ".aw", "signing.key"), priv); err != nil {
+	if err := awid.SaveSigningKey(filepath.Join(tmp, ".murmel", "signing.key"), priv); err != nil {
 		t.Fatalf("write signing key: %v", err)
 	}
 
@@ -1387,7 +1387,7 @@ func TestAwMailShowLegacyConversationHintAndMessageIDFetch(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected legacy hint failure, got success:\n%s", string(out))
 	}
-	if !strings.Contains(string(out), "aw mail show --message-id "+messageID) {
+	if !strings.Contains(string(out), "murmel mail show --message-id "+messageID) {
 		t.Fatalf("missing legacy message-id hint:\n%s", string(out))
 	}
 
@@ -1413,7 +1413,7 @@ func TestAwMailSendRejectsBothBodyAndBodyFile(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 	writeDefaultWorkspaceBindingForTest(t, tmp, "http://127.0.0.1:1")
 
@@ -1445,7 +1445,7 @@ func TestMailAndChatDefaultPlaintextAndE2EEOptInFailsClosed(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 	var mailBody map[string]any
 	var chatBody map[string]any

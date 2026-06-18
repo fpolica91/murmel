@@ -14,15 +14,15 @@ import (
 
 var initCmd = &cobra.Command{
 	Use:   "init",
-	Short: "Initialize this directory as an aw workspace",
-	Long: `Initialize the current directory as a token-authenticated aw workspace.
+	Short: "Initialize this directory as an murmel workspace",
+	Long: `Initialize the current directory as a token-authenticated murmel workspace.
 
 Authentication is by bearer token (no team certificate):
 
-- run "aw login" first to cache a token at ~/.aw/token, or
+- run "murmel login" first to cache a token at ~/.murmel/token, or
 - pass --token <jwt> / set AW_TOKEN for non-interactive use (CI, scripts).
 
-init writes a cert-less .aw/workspace.yaml bound to --team on the --aweb-url
+init writes a cert-less .murmel/workspace.yaml bound to --team on the --aweb-url
 server, plus a local signing key for end-to-end encrypted messaging (held only
 on this machine, never used for server auth).
 
@@ -70,23 +70,23 @@ type initResult struct {
 	// APIKeyAuth is true when init succeeded via an API key bootstrap.
 	// API keys are minted from an authenticated context (dashboard or
 	// programmatic), so the actor already has an account; suggesting
-	// `aw claim-human` is misleading. Other init paths leave this false
+	// `murmel claim-human` is misleading. Other init paths leave this false
 	// and the claim-human suggestion fires per shouldSuggestClaimHuman.
 	APIKeyAuth bool
 }
 
 func init() {
 	initCmd.Flags().StringVar(&initURL, "url", "", "Base URL for the aweb server used for init, bootstrap, and hosted onboarding flows")
-	initCmd.Flags().StringVar(&initAwebURL, "aweb-url", "", "Base URL for the aweb server used by aw init (overrides AWEB_URL)")
+	initCmd.Flags().StringVar(&initAwebURL, "aweb-url", "", "Base URL for the aweb server used by murmel init (overrides AWEB_URL)")
 	initCmd.Flags().StringVar(&initTeam, "team", "", "Team ID to bind this workspace to (e.g. default:local). Defaults to AWEB_TEAM_ID.")
 	initCmd.Flags().StringVar(&initAlias, "alias", "", "Local workspace routing alias (optional; default: server-suggested)")
-	initCmd.Flags().BoolVar(&initInjectDocs, "inject-docs", false, "Inject aw coordination instructions into CLAUDE.md and AGENTS.md")
+	initCmd.Flags().BoolVar(&initInjectDocs, "inject-docs", false, "Inject murmel coordination instructions into CLAUDE.md and AGENTS.md")
 	initCmd.Flags().BoolVar(&initDoNotTouchAgentsMD, "do-not-touch-agents-md", false, "Do not create or update AGENTS.md or CLAUDE.md during init")
-	initCmd.Flags().BoolVar(&initSetupHooks, "setup-hooks", false, "Set up Claude Code PostToolUse hook for aw notify")
+	initCmd.Flags().BoolVar(&initSetupHooks, "setup-hooks", false, "Set up Claude Code PostToolUse hook for murmel notify")
 	initCmd.Flags().BoolVar(&initSetupChannel, "setup-channel", false, "Set up Claude Code channel MCP server for real-time coordination")
 	initCmd.Flags().StringVar(&initHumanName, "human-name", "", "Human name (default: AWEB_HUMAN or $USER)")
 	initCmd.Flags().StringVar(&initAgentType, "agent-type", "", "Runtime type (default: AWEB_AGENT_TYPE or agent)")
-	initCmd.Flags().BoolVar(&initWriteContext, "write-context", true, "Ensure .aw/context exists in the current directory")
+	initCmd.Flags().BoolVar(&initWriteContext, "write-context", true, "Ensure .murmel/context exists in the current directory")
 	initCmd.Flags().BoolVar(&initPrintExports, "print-exports", false, "Print shell export lines after JSON output")
 	addWorkspaceRoleFlags(initCmd, &initRole, "Workspace role name (must match a role in the active team roles bundle)")
 
@@ -205,19 +205,19 @@ func resolveInitTeamID() (string, error) {
 func rejectRemovedInitFlags() error {
 	switch {
 	case initBYOD:
-		return usageError("--byod is no longer supported: aw init authenticates by token; run `aw login` (or pass --token) and use --team")
+		return usageError("--byod is no longer supported: murmel init authenticates by token; run `murmel login` (or pass --token) and use --team")
 	case initPersistent:
-		return usageError("--global/--persistent is no longer supported: aw init authenticates by token; run `aw login` (or pass --token) and use --team")
+		return usageError("--global/--persistent is no longer supported: murmel init authenticates by token; run `murmel login` (or pass --token) and use --team")
 	case strings.TrimSpace(initUsername) != "":
-		return usageError("--username is no longer supported: aw init authenticates by token; run `aw login` (or pass --token)")
+		return usageError("--username is no longer supported: murmel init authenticates by token; run `murmel login` (or pass --token)")
 	case strings.TrimSpace(initDomain) != "":
-		return usageError("--domain is no longer supported: aw init authenticates by token; run `aw login` (or pass --token)")
+		return usageError("--domain is no longer supported: murmel init authenticates by token; run `murmel login` (or pass --token)")
 	case strings.TrimSpace(initInboundMode) != "":
-		return usageError("--inbound-mode is no longer supported: aw init authenticates by token")
+		return usageError("--inbound-mode is no longer supported: murmel init authenticates by token")
 	case strings.TrimSpace(initAWIDRegistry) != "":
-		return usageError("--awid-registry is no longer supported: aw init authenticates by token; no registry is contacted")
+		return usageError("--awid-registry is no longer supported: murmel init authenticates by token; no registry is contacted")
 	case strings.TrimSpace(initName) != "":
-		return usageError("--name is no longer supported: aw init authenticates by token; run `aw login` (or pass --token)")
+		return usageError("--name is no longer supported: murmel init authenticates by token; run `murmel login` (or pass --token)")
 	}
 	return nil
 }
@@ -379,18 +379,18 @@ func initNextStepLines(result *initResult, workingDir string, didInjectDocs, did
 	var lines []string
 
 	if !didInjectDocs {
-		lines = append(lines, formatInitNextStep("aw init --inject-docs", "Add coordination instructions to CLAUDE.md / AGENTS.md"))
+		lines = append(lines, formatInitNextStep("murmel init --inject-docs", "Add coordination instructions to CLAUDE.md / AGENTS.md"))
 	}
 	if shouldSuggestClaimHuman(result) {
-		lines = append(lines, formatInitNextStep("aw claim-human --email you@example.com", "Attach your human account for dashboard access"))
+		lines = append(lines, formatInitNextStep("murmel claim-human --email you@example.com", "Attach your human account for dashboard access"))
 	}
 
 	lines = append(lines, "")
 	lines = append(lines, "  Give Claude Code the Murmel MCP tools (mail, chat, issues, work) in this workspace:")
-	lines = append(lines, "    claude mcp add aweb -- aw mcp-serve")
+	lines = append(lines, "    claude mcp add murmel -- murmel mcp-serve")
 	lines = append(lines, "    claude            # approve \"aweb\" when prompted, then /mcp to confirm")
 	lines = append(lines, "")
-	lines = append(lines, "  The bridge authenticates with your cached `aw login` token (auto-refreshing) —")
+	lines = append(lines, "  The bridge authenticates with your cached `murmel login` token (auto-refreshing) —")
 	lines = append(lines, "  no certificate or plugin needed.")
 	return lines
 }

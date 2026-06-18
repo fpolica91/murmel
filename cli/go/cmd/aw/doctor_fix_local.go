@@ -49,7 +49,7 @@ func safeDoctorFixInfo(checkID string) *doctorFixInfo {
 	return &doctorFixInfo{
 		Available: true,
 		Safe:      true,
-		Command:   "aw doctor --fix --dry-run " + strings.TrimSpace(checkID),
+		Command:   "murmel doctor --fix --dry-run " + strings.TrimSpace(checkID),
 		DryRun:    true,
 	}
 }

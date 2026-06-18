@@ -519,14 +519,14 @@ func TestRunNonInteractiveMissingContextPrintsOnboardingHint(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if !strings.Contains(err.Error(), "current directory is not initialized for aw") {
+	if !strings.Contains(err.Error(), "current directory is not initialized for murmel") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
-// TestRunInteractiveMissingWorkspaceErrorsWithLoginHint verifies aw run no
+// TestRunInteractiveMissingWorkspaceErrorsWithLoginHint verifies murmel run no
 // longer launches a guided onboarding wizard: a missing workspace fails with a
-// clear directive to run `aw login` then `aw init`, even interactively.
+// clear directive to run `murmel login` then `murmel init`, even interactively.
 func TestRunInteractiveMissingWorkspaceErrorsWithLoginHint(t *testing.T) {
 	initRunCommandVars()
 
@@ -573,8 +573,8 @@ func TestRunInteractiveMissingWorkspaceErrorsWithLoginHint(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for missing workspace")
 	}
-	if !strings.Contains(err.Error(), "aw login") || !strings.Contains(err.Error(), "aw init") {
-		t.Fatalf("expected aw login + aw init hint, got: %v", err)
+	if !strings.Contains(err.Error(), "murmel login") || !strings.Contains(err.Error(), "murmel init") {
+		t.Fatalf("expected murmel login + murmel init hint, got: %v", err)
 	}
 	if resolveCalls != 0 {
 		t.Fatalf("expected no client resolution for missing workspace, got %d", resolveCalls)
@@ -736,7 +736,7 @@ func TestNewRunDispatcherSkipsWorkWakeWithoutAutofeed(t *testing.T) {
 
 	decision, err := dispatcher.Next(context.Background(), false, &awid.AgentEvent{
 		Type:   awid.AgentEventWorkAvailable,
-		TaskID: "aw-i4h",
+		TaskID: "murmel-i4h",
 		Title:  "Surface wake stream mode transitions to the user",
 	})
 	if err != nil {
@@ -1079,8 +1079,8 @@ func TestRunContinuePrintsRecentInteractionRecap(t *testing.T) {
 	})
 
 	tmp := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(tmp, ".aw"), 0o755); err != nil {
-		t.Fatalf("mkdir .aw: %v", err)
+	if err := os.MkdirAll(filepath.Join(tmp, ".murmel"), 0o755); err != nil {
+		t.Fatalf("mkdir .murmel: %v", err)
 	}
 	appendInteractionLogForDir(tmp, &InteractionEntry{
 		Timestamp: "2026-03-22T10:00:00Z",
@@ -1255,8 +1255,8 @@ func TestRunPrintsContinueAndProviderCommandsOnExit(t *testing.T) {
 	if !strings.Contains(out, "Session sess-42") {
 		t.Fatalf("expected session id in exit summary, got %q", out)
 	}
-	if !strings.Contains(out, "aw run --dir "+tmp+" claude --continue") {
-		t.Fatalf("expected aw continue command, got %q", out)
+	if !strings.Contains(out, "murmel run --dir "+tmp+" claude --continue") {
+		t.Fatalf("expected murmel continue command, got %q", out)
 	}
 	if !strings.Contains(out, "claude --resume sess-42") {
 		t.Fatalf("expected provider resume hint, got %q", out)

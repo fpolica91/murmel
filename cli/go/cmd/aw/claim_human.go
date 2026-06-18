@@ -139,7 +139,7 @@ func resolveClaimHumanIdentity(workingDir string) (string, ed25519.PrivateKey, s
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			if identityMissing {
-				return "", nil, "", usageError("No identity found. Run aw init first to create an agent, then claim-human to attach an email.")
+				return "", nil, "", usageError("No identity found. Run murmel init first to create an agent, then claim-human to attach an email.")
 			}
 			return "", nil, "", usageError("current identity has no local signing key")
 		}
@@ -162,13 +162,13 @@ func resolveClaimHumanUsername(workingDir, address, override string) (string, er
 	workspace, teamState, _, err := awconfig.LoadWorkspaceAndTeamState(workingDir)
 	if err != nil {
 		if workspace == nil && errors.Is(err, os.ErrNotExist) {
-			return "", usageError("No identity found. Run aw init first to create an agent, then claim-human to attach an email.")
+			return "", usageError("No identity found. Run murmel init first to create an agent, then claim-human to attach an email.")
 		}
 		return "", fmt.Errorf("failed to load workspace: %w", err)
 	}
 	activeMembership := awconfig.ActiveMembershipFor(workspace, teamState)
 	if activeMembership == nil {
-		return "", usageError("current workspace is missing active_team membership; run `aw init` first")
+		return "", usageError("current workspace is missing active_team membership; run `murmel init` first")
 	}
 	teamDomain, _, err := awid.ParseTeamID(strings.TrimSpace(activeMembership.TeamID))
 	if err != nil {
@@ -213,7 +213,7 @@ func resolveClaimHumanBaseURL(mockURL string) (string, error) {
 func usernameFromMemberAddress(address string) (string, error) {
 	domain, _, ok := strings.Cut(strings.TrimSpace(address), "/")
 	if !ok || strings.TrimSpace(domain) == "" {
-		return "", fmt.Errorf("current identity is missing member_address in .aw/identity.yaml")
+		return "", fmt.Errorf("current identity is missing member_address in .murmel/identity.yaml")
 	}
 	return usernameFromManagedDomain(domain)
 }
@@ -241,9 +241,9 @@ func mapClaimHumanError(err error) error {
 	}
 	switch status {
 	case 404:
-		return errors.New("Username not registered. Run aw init first.")
+		return errors.New("Username not registered. Run murmel init first.")
 	case 401:
-		return errors.New("Your signing key does not match the registered agent. Check .aw/signing.key is intact.")
+		return errors.New("Your signing key does not match the registered agent. Check .murmel/signing.key is intact.")
 	case 409:
 		if msg := claimHumanServerMessage(err); msg != "" {
 			return errors.New(msg)

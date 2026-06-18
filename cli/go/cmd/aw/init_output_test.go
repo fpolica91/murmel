@@ -13,9 +13,9 @@ func TestInitNextStepLinesPromotesMCPBridge(t *testing.T) {
 	text := strings.Join(lines, "\n")
 
 	for _, want := range []string{
-		"aw init --inject-docs",
-		"aw claim-human --email you@example.com",
-		"claude mcp add aweb -- aw mcp-serve",
+		"murmel init --inject-docs",
+		"murmel claim-human --email you@example.com",
+		"claude mcp add murmel -- murmel mcp-serve",
 	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("missing %q in next steps:\n%s", want, text)
@@ -23,7 +23,7 @@ func TestInitNextStepLinesPromotesMCPBridge(t *testing.T) {
 	}
 	// The legacy certificate-based channel path must no longer be suggested.
 	for _, unwanted := range []string{
-		"aw init --setup-channel",
+		"murmel init --setup-channel",
 		"/plugin marketplace add awebai/claude-plugins",
 		"dangerously-load-development-channels",
 	} {
@@ -40,13 +40,13 @@ func TestInitNextStepLinesAllDoneStillShowsMCPBridge(t *testing.T) {
 	}, t.TempDir(), true, true, true)
 	text := strings.Join(lines, "\n")
 
-	if !strings.Contains(text, "claude mcp add aweb -- aw mcp-serve") {
+	if !strings.Contains(text, "claude mcp add murmel -- murmel mcp-serve") {
 		t.Fatalf("missing MCP bridge instruction:\n%s", text)
 	}
 	for _, unwanted := range []string{
-		"aw init --inject-docs",
-		"aw init --setup-channel",
-		"aw claim-human",
+		"murmel init --inject-docs",
+		"murmel init --setup-channel",
+		"murmel claim-human",
 		"dangerously-load-development-channels",
 	} {
 		if strings.Contains(text, unwanted) {
@@ -63,12 +63,12 @@ func TestInitNextStepLinesAPIKeyAuthSuppressesClaimHuman(t *testing.T) {
 	}, t.TempDir(), false, false, false)
 	text := strings.Join(lines, "\n")
 
-	if strings.Contains(text, "aw claim-human") {
+	if strings.Contains(text, "murmel claim-human") {
 		t.Fatalf("API-key auth should suppress claim-human suggestion:\n%s", text)
 	}
 	for _, want := range []string{
-		"aw init --inject-docs",
-		"claude mcp add aweb -- aw mcp-serve",
+		"murmel init --inject-docs",
+		"claude mcp add murmel -- murmel mcp-serve",
 	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("missing %q in next steps:\n%s", want, text)

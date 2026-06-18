@@ -10,7 +10,7 @@ func TestSaveWorktreeIdentityToRoundTrip(t *testing.T) {
 	t.Parallel()
 
 	tmp := t.TempDir()
-	path := filepath.Join(tmp, ".aw", "identity.yaml")
+	path := filepath.Join(tmp, ".murmel", "identity.yaml")
 	want := &WorktreeIdentity{
 		DID:            "did:key:z6MkkRoundTrip",
 		StableID:       "did:aw:roundtrip",
@@ -38,7 +38,7 @@ func TestSaveWorktreeIdentityToWrites0600(t *testing.T) {
 	t.Parallel()
 
 	tmp := t.TempDir()
-	path := filepath.Join(tmp, ".aw", "identity.yaml")
+	path := filepath.Join(tmp, ".murmel", "identity.yaml")
 	if err := SaveWorktreeIdentityTo(path, &WorktreeIdentity{
 		DID:            "did:key:z6MkkPerms",
 		StableID:       "did:aw:perms",
@@ -65,7 +65,7 @@ func TestResolveIdentityReadsStandaloneIdentityWithoutWorkspace(t *testing.T) {
 	t.Parallel()
 
 	tmp := t.TempDir()
-	path := filepath.Join(tmp, ".aw", "identity.yaml")
+	path := filepath.Join(tmp, ".murmel", "identity.yaml")
 	if err := SaveWorktreeIdentityTo(path, &WorktreeIdentity{
 		DID:            "did:key:z6MkkResolve",
 		StableID:       "did:aw:resolve",
@@ -86,7 +86,7 @@ func TestResolveIdentityReadsStandaloneIdentityWithoutWorkspace(t *testing.T) {
 	if resolved.IdentityPath != path {
 		t.Fatalf("IdentityPath=%q want %q", resolved.IdentityPath, path)
 	}
-	if resolved.SigningKeyPath != filepath.Join(tmp, ".aw", "signing.key") {
+	if resolved.SigningKeyPath != filepath.Join(tmp, ".murmel", "signing.key") {
 		t.Fatalf("SigningKeyPath=%q", resolved.SigningKeyPath)
 	}
 	if resolved.Handle != "support" {

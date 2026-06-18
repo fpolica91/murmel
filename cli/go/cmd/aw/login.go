@@ -18,9 +18,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// `aw login` performs a browser/device OAuth flow (RFC 8628 Device
+// `murmel login` performs a browser/device OAuth flow (RFC 8628 Device
 // Authorization Grant) against the Better Auth issuer, obtains a JWT plus a
-// refresh token, and caches them at ~/.aw/token via awconfig.SaveToken.
+// refresh token, and caches them at ~/.murmel/token via awconfig.SaveToken.
 //
 // The device flow is the right shape for a CLI: it does not need a local
 // callback HTTP server or a registered redirect URI per machine. The CLI
@@ -52,13 +52,13 @@ const LoginIssuerEnvVar = "AWEB_AUTH_ISSUER"
 // CLI presents to the issuer.
 const LoginClientIDEnvVar = "AWEB_AUTH_CLIENT_ID"
 
-// defaultLoginClientID is the public client identifier for the `aw` CLI. A
+// defaultLoginClientID is the public client identifier for the `murmel` CLI. A
 // device-flow public client has no secret; the issuer recognizes this id.
 const defaultLoginClientID = "aweb-cli"
 
 // defaultLoginIssuer is the Better Auth issuer (the web app) that exposes the
 // device-authorization + token endpoints. Points at this deployment's UI so
-// `aw login` works with zero config; override with --issuer / AWEB_AUTH_ISSUER.
+// `murmel login` works with zero config; override with --issuer / AWEB_AUTH_ISSUER.
 const defaultLoginIssuer = "https://ui-production-339a.up.railway.app/api/auth"
 
 // defaultLoginScope requests an offline-access scope so the issuer returns a
@@ -70,13 +70,13 @@ var loginCmd = &cobra.Command{
 	Short: "Sign in via your browser and cache an aweb access token",
 	Long: `Sign in to aweb using a browser-based device authorization flow.
 
-aw login asks the auth server for a one-time code, opens (or prints) a
+murmel login asks the auth server for a one-time code, opens (or prints) a
 verification URL, and waits for you to approve the sign-in in your browser.
 On success it caches the issued access token and its refresh token at
-~/.aw/token. Subsequent commands reuse and auto-refresh that token.
+~/.murmel/token. Subsequent commands reuse and auto-refresh that token.
 
 This is additive to team-certificate auth: a workspace bound to a team
-certificate keeps working without aw login.`,
+certificate keeps working without murmel login.`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		loadDotenvBestEffort()
 		maybeCheckLatestVersion(cmd)
@@ -335,7 +335,7 @@ func pollForToken(ctx context.Context, issuer, clientID string, device *deviceAu
 		case "access_denied":
 			return "", fmt.Errorf("login denied in the browser")
 		case "expired_token":
-			return "", fmt.Errorf("login code expired before approval; run aw login again")
+			return "", fmt.Errorf("login code expired before approval; run murmel login again")
 		default:
 			desc := strings.TrimSpace(body.ErrorDescription)
 			if desc == "" {

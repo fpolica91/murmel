@@ -17,7 +17,7 @@ import (
 // SimpleAuth token cache.
 //
 // Story1.2 caches the Better Auth issued JWT (plus its refresh token) at
-// ~/.aw/token so that subsequent `aw` commands can attach a
+// ~/.murmel/token so that subsequent `murmel` commands can attach a
 // `Authorization: Bearer <token>` header. The cache is a 0600 JSON file
 // written atomically (temp-file-and-rename) so a crash mid-write never
 // leaves a truncated secret on disk.
@@ -27,8 +27,8 @@ import (
 // path OR the bearer-token path; callers decide which based on whether a
 // cached token exists.
 
-// TokenFileName is the on-disk name of the cached token under the aw token
-// directory (~/.aw).
+// TokenFileName is the on-disk name of the cached token under the murmel token
+// directory (~/.murmel).
 const TokenFileName = "token"
 
 // tokenRefreshSkew is how long before the actual JWT expiry we treat the
@@ -36,18 +36,18 @@ const TokenFileName = "token"
 // looks valid locally is rejected server-side by the time the request lands.
 const tokenRefreshSkew = 60 * time.Second
 
-// DefaultAWTokenDir returns ~/.aw, the directory that holds the cached
+// DefaultAWTokenDir returns ~/.murmel, the directory that holds the cached
 // SimpleAuth token. This is deliberately distinct from DefaultUserStateDir
-// (~/.config/aw): the Story1.2 contract pins the token cache at ~/.aw/token.
+// (~/.config/aw): the Story1.2 contract pins the token cache at ~/.murmel/token.
 func DefaultAWTokenDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".aw"), nil
+	return filepath.Join(home, ".murmel"), nil
 }
 
-// DefaultTokenPath returns ~/.aw/token.
+// DefaultTokenPath returns ~/.murmel/token.
 func DefaultTokenPath() (string, error) {
 	dir, err := DefaultAWTokenDir()
 	if err != nil {
@@ -78,7 +78,7 @@ type CachedToken struct {
 // atomic rename guards cross-process safety; this guards in-process.
 var tokenMu sync.Mutex
 
-// SaveToken writes tok to ~/.aw/token atomically with 0600 permissions.
+// SaveToken writes tok to ~/.murmel/token atomically with 0600 permissions.
 func SaveToken(tok *CachedToken) error {
 	if tok == nil {
 		return fmt.Errorf("save token: nil token")
@@ -105,7 +105,7 @@ func SaveTokenAt(path string, tok *CachedToken) error {
 	return atomicWriteFile(path, data)
 }
 
-// LoadToken reads and parses ~/.aw/token. It returns an error wrapping
+// LoadToken reads and parses ~/.murmel/token. It returns an error wrapping
 // os.ErrNotExist when no token is cached, so callers can branch with
 // errors.Is(err, os.ErrNotExist).
 func LoadToken() (*CachedToken, error) {
@@ -142,7 +142,7 @@ func LoadTokenAt(path string) (*CachedToken, error) {
 }
 
 // DeleteToken removes the cached token. A missing file is not an error so
-// `aw logout` is idempotent.
+// `murmel logout` is idempotent.
 func DeleteToken() error {
 	path, err := DefaultTokenPath()
 	if err != nil {
@@ -197,9 +197,9 @@ func (f TokenRefresherFunc) Refresh(ctx context.Context, refreshToken string) (*
 // an Authorization header.
 //
 // Returns an error wrapping os.ErrNotExist when no token is cached (the user
-// has not run `aw login`). When the token is expired and cannot be refreshed
+// has not run `murmel login`). When the token is expired and cannot be refreshed
 // — no refresh token, no refresher, or a refresh failure — it returns an
-// error so callers surface a clear "please run aw login" message rather than
+// error so callers surface a clear "please run murmel login" message rather than
 // sending a stale bearer token.
 func LoadValidToken(ctx context.Context, refresher TokenRefresher) (string, error) {
 	tok, err := LoadToken()
@@ -210,14 +210,14 @@ func LoadValidToken(ctx context.Context, refresher TokenRefresher) (string, erro
 		return tok.AccessToken, nil
 	}
 	if strings.TrimSpace(tok.RefreshToken) == "" || refresher == nil {
-		return "", fmt.Errorf("cached token expired and cannot be refreshed; run `aw login`")
+		return "", fmt.Errorf("cached token expired and cannot be refreshed; run `murmel login`")
 	}
 	refreshed, err := refresher.Refresh(ctx, tok.RefreshToken)
 	if err != nil {
-		return "", fmt.Errorf("refresh token: %w; run `aw login`", err)
+		return "", fmt.Errorf("refresh token: %w; run `murmel login`", err)
 	}
 	if refreshed == nil || strings.TrimSpace(refreshed.AccessToken) == "" {
-		return "", fmt.Errorf("refresh token: empty response; run `aw login`")
+		return "", fmt.Errorf("refresh token: empty response; run `murmel login`")
 	}
 	// Carry forward fields the refresh response may omit so the cache stays
 	// complete for the next refresh cycle.
@@ -402,7 +402,7 @@ func jwtSubject(token string) (string, bool) {
 
 // JWTSubjectUnverified returns the sub claim of a JWT WITHOUT verifying the
 // signature. It is exported for the command layer to display who is logged in
-// after `aw login`. SECURITY: never use this for an authorization decision —
+// after `murmel login`. SECURITY: never use this for an authorization decision —
 // the server verifies the signature, expiry, revocation (jti), and team
 // membership. This is display-only convenience metadata.
 func JWTSubjectUnverified(token string) (string, bool) {

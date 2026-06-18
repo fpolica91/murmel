@@ -384,7 +384,7 @@ func resolveMailWakeForAlias(ctx context.Context, client *aweb.Client, selfAlias
 		if strings.TrimSpace(msg.MessageID) != "" && strings.TrimSpace(msg.ConversationID) != "" {
 			contextText = joinPromptSections(
 				contextText,
-				fmt.Sprintf("Reply with: aw mail reply %s --body \"...\"", strings.TrimSpace(msg.MessageID)),
+				fmt.Sprintf("Reply with: murmel mail reply %s --body \"...\"", strings.TrimSpace(msg.MessageID)),
 			)
 		}
 		return runWakeResolution{CycleContext: contextText}, nil

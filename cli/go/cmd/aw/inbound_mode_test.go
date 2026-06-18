@@ -40,7 +40,7 @@ func TestAwInboundModeShow(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 	writeDefaultWorkspaceBindingForTest(t, tmp, server.URL)
 
@@ -100,7 +100,7 @@ func TestAwInboundModeSetContactsOnly(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 	writeDefaultWorkspaceBindingForTest(t, tmp, server.URL)
 

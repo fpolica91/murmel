@@ -75,7 +75,7 @@ func TestReplaceLegacyNotifyHooks(t *testing.T) {
 		t.Fatal("expected migration")
 	}
 	if !hookExists(settings) {
-		t.Fatal("expected aw notify after migration")
+		t.Fatal("expected murmel notify after migration")
 	}
 	if findNotifyHook(settings, legacyNotifyHookCommand) {
 		t.Fatal("legacy hook should be gone")
@@ -146,7 +146,7 @@ func TestSetupClaudeHooksMigratesLegacyHook(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !hookExists(updated) {
-		t.Fatal("expected aw notify hook")
+		t.Fatal("expected murmel notify hook")
 	}
 	if findNotifyHook(updated, legacyNotifyHookCommand) {
 		t.Fatal("legacy hook should be migrated")

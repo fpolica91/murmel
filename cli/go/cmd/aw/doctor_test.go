@@ -26,7 +26,7 @@ func buildDoctorBinary(t *testing.T) (string, string) {
 	t.Cleanup(cancel)
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 	return bin, tmp
 }
@@ -129,8 +129,8 @@ func writeDoctorGlobalFixture(t *testing.T, workingDir, awebURL string) ed25519.
 
 func writeDoctorWorkspaceYAML(t *testing.T, workingDir, body string) {
 	t.Helper()
-	if err := os.MkdirAll(filepath.Join(workingDir, ".aw"), 0o700); err != nil {
-		t.Fatalf("mkdir .aw: %v", err)
+	if err := os.MkdirAll(filepath.Join(workingDir, ".murmel"), 0o700); err != nil {
+		t.Fatalf("mkdir .murmel: %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(workingDir, awconfig.DefaultWorktreeWorkspaceRelativePath()), []byte(body), 0o600); err != nil {
 		t.Fatalf("write workspace.yaml: %v", err)
@@ -497,8 +497,8 @@ func TestAwDoctorFixReportsBlockedWithoutMutation(t *testing.T) {
 	if check.Fix == nil || check.Fix.Available || check.Fix.Safe || !check.Fix.DryRun {
 		t.Fatalf("unexpected fix payload: %#v", check.Fix)
 	}
-	if _, err := os.Stat(filepath.Join(tmp, ".aw")); !os.IsNotExist(err) {
-		t.Fatalf("doctor --fix skeleton mutated workspace; .aw stat err=%v", err)
+	if _, err := os.Stat(filepath.Join(tmp, ".murmel")); !os.IsNotExist(err) {
+		t.Fatalf("doctor --fix skeleton mutated workspace; .murmel stat err=%v", err)
 	}
 }
 
@@ -634,11 +634,11 @@ func TestAwDoctorFixFakeSafeDryRunDoesNotApply(t *testing.T) {
 			CheckID:   "fake.safe",
 			Safe:      true,
 			Authority: doctorAuthorityCaller,
-			Target:    &doctorTarget{Type: "local_path", ID: ".aw/workspace.yaml"},
+			Target:    &doctorTarget{Type: "local_path", ID: ".murmel/workspace.yaml"},
 			PlannedMutations: []doctorFixMutation{{
 				Operation:   "write_metadata",
 				Description: "write non-secret metadata",
-				Path:        ".aw/workspace.yaml",
+				Path:        ".murmel/workspace.yaml",
 			}},
 		},
 	}
@@ -664,7 +664,7 @@ func TestAwDoctorFixApplyRequiresAdvertisedSafe(t *testing.T) {
 			PlannedMutations: []doctorFixMutation{{
 				Operation:   "write_metadata",
 				Description: "write non-secret metadata",
-				Path:        ".aw/workspace.yaml",
+				Path:        ".murmel/workspace.yaml",
 			}},
 		},
 	}
@@ -697,10 +697,10 @@ func TestAwDoctorFixSafetyValidatorRefusesSensitivePlans(t *testing.T) {
 		{name: "authority", plan: doctorFixPlan{Safe: true, Authority: doctorAuthoritySupport}, want: "authority"},
 		{name: "precondition", plan: doctorFixPlan{Safe: true, Authority: doctorAuthorityCaller, Preconditions: []doctorFixPrecondition{{ID: "fresh_state", Passed: false}}}, want: "precondition"},
 		{name: "global lifecycle", plan: doctorFixPlan{Safe: true, Authority: doctorAuthorityCaller, PlannedMutations: []doctorFixMutation{{Operation: "delete global identity lifecycle"}}}, want: "global_identity_lifecycle"},
-		{name: "did aw delete", plan: doctorFixPlan{Safe: true, Authority: doctorAuthorityCaller, PlannedMutations: []doctorFixMutation{{Operation: "delete", Target: &doctorTarget{Type: "did", ID: "did:aw:example"}}}}, want: "global_identity_lifecycle"},
+		{name: "did murmel delete", plan: doctorFixPlan{Safe: true, Authority: doctorAuthorityCaller, PlannedMutations: []doctorFixMutation{{Operation: "delete", Target: &doctorTarget{Type: "did", ID: "did:aw:example"}}}}, want: "global_identity_lifecycle"},
 		{name: "identity reassign", plan: doctorFixPlan{Safe: true, Authority: doctorAuthorityCaller, PlannedMutations: []doctorFixMutation{{Operation: "reassign identity binding"}}}, want: "global_identity_lifecycle"},
 		{name: "managed address reassign", plan: doctorFixPlan{Safe: true, Authority: doctorAuthorityCaller, PlannedMutations: []doctorFixMutation{{Operation: "reassign managed address"}}}, want: "global_identity_lifecycle"},
-		{name: "private key", plan: doctorFixPlan{Safe: true, Authority: doctorAuthorityCaller, PlannedMutations: []doctorFixMutation{{Operation: "write", Path: ".aw/signing.key"}}}, want: "private_key_material"},
+		{name: "private key", plan: doctorFixPlan{Safe: true, Authority: doctorAuthorityCaller, PlannedMutations: []doctorFixMutation{{Operation: "write", Path: ".murmel/signing.key"}}}, want: "private_key_material"},
 		{name: "signing key underscore", plan: doctorFixPlan{Safe: true, Authority: doctorAuthorityCaller, PlannedMutations: []doctorFixMutation{{Operation: "rotate signing_key"}}}, want: "private_key_material"},
 		{name: "private key hyphen", plan: doctorFixPlan{Safe: true, Authority: doctorAuthorityCaller, PlannedMutations: []doctorFixMutation{{Operation: "write private-key material"}}}, want: "private_key_material"},
 		{name: "task unclaim", plan: doctorFixPlan{Safe: true, Authority: doctorAuthorityCaller, PlannedMutations: []doctorFixMutation{{Operation: "task unclaim"}}}, want: "coordination_cleanup"},
@@ -753,7 +753,7 @@ func TestAwDoctorFixApplyErrorDoesNotLeakHandlerError(t *testing.T) {
 			PlannedMutations: []doctorFixMutation{{
 				Operation:   "write_metadata",
 				Description: "write non-secret metadata",
-				Path:        ".aw/workspace.yaml",
+				Path:        ".murmel/workspace.yaml",
 			}},
 		},
 		applyErr: errors.New("synthetic-secret-apply-body"),

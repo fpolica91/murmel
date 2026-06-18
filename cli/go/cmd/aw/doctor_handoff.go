@@ -53,7 +53,7 @@ func globalIdentityRegistryRepairReviewHandoff(authorityStatus doctorAuthoritySt
 		CallerAuthorityStatus:   authorityStatus,
 		CallerAuthorityEvidence: evidence,
 		ExpectedAction:          "Review caller-authorized DID registry repair; register or repair the existing DID when the local DID key is valid.",
-		DryRunCommand:           "aw doctor registry --online",
+		DryRunCommand:           "murmel doctor registry --online",
 		Consequences: []string{
 			"DID registration changes registry state for the global identity",
 			"doctor will not register or replace the identity automatically",
@@ -63,7 +63,7 @@ func globalIdentityRegistryRepairReviewHandoff(authorityStatus doctorAuthoritySt
 		SupportRunbookRef:   doctorIdentityRecoveryRunbook,
 	}
 	if authorityStatus == doctorAuthorityStatusPresent {
-		handoff.ExplicitCommand = "aw id register"
+		handoff.ExplicitCommand = "murmel id register"
 	}
 	return handoff
 }

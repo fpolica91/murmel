@@ -54,17 +54,17 @@ func TestAwRolesShowUsesWorkspaceRoleName(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 
 	writeDefaultWorkspaceBindingForTest(t, tmp, server.URL)
 
-	if err := os.MkdirAll(filepath.Join(tmp, ".aw"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(tmp, ".murmel"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	state := workspaceBinding(server.URL, "backend:demo", "alice", "agent-1")
 	state.Memberships[0].RoleName = "reviewer"
-	if err := awconfig.SaveWorktreeWorkspaceTo(filepath.Join(tmp, ".aw", "workspace.yaml"), &state); err != nil {
+	if err := awconfig.SaveWorktreeWorkspaceTo(filepath.Join(tmp, ".murmel", "workspace.yaml"), &state); err != nil {
 		t.Fatalf("save workspace state: %v", err)
 	}
 
@@ -127,7 +127,7 @@ func TestAwRolesShowAcceptsPositionalRoleName(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 	writeDefaultWorkspaceBindingForTest(t, tmp, server.URL)
 
@@ -174,7 +174,7 @@ func TestAwRolesListListsSortedRoles(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 
 	writeDefaultWorkspaceBindingForTest(t, tmp, server.URL)
@@ -227,7 +227,7 @@ func TestAwRolesShowAllRolesRendersPlaybooks(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 	writeTestConfig(t, tmp, server.URL)
 
@@ -254,7 +254,7 @@ func TestAwRolesShowAllRolesRendersPlaybooks(t *testing.T) {
 
 func TestAwRolesShowEmptyBundleExitsZero(t *testing.T) {
 	// New teams bootstrap with an empty roles bundle (per team_roles.py:113
-	// in the onboarding rework). `aw roles show` with no explicit role and
+	// in the onboarding rework). `murmel roles show` with no explicit role and
 	// no membership role must list the empty bundle and exit 0; previously
 	// the CLI defaulted role_name to "developer" and the server returned 400
 	// because no such role existed in the bundle.
@@ -288,7 +288,7 @@ func TestAwRolesShowEmptyBundleExitsZero(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 	writeDefaultWorkspaceBindingForTest(t, tmp, server.URL)
 
@@ -344,7 +344,7 @@ func TestAwRolesHistoryListsVersions(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 	writeTestConfig(t, tmp, server.URL)
 
@@ -415,7 +415,7 @@ func TestAwRolesSetCreatesAndActivatesNewVersion(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 	writeTestConfig(t, tmp, server.URL)
 
@@ -510,7 +510,7 @@ func TestAwRolesAddAddsOneRoleToActiveBundle(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 	writeTestConfig(t, tmp, server.URL)
 
@@ -582,7 +582,7 @@ func TestAwRolesAddRefusesExistingRoleWithoutReplace(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 	writeTestConfig(t, tmp, server.URL)
 
@@ -645,7 +645,7 @@ func TestAwRolesSetAcceptsArrayBundleShape(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 	writeTestConfig(t, tmp, server.URL)
 
@@ -766,7 +766,7 @@ func TestAwRolesActivateActivatesExistingVersion(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 	writeTestConfig(t, tmp, server.URL)
 
@@ -805,7 +805,7 @@ func TestAwRolesResetResetsToDefault(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 	writeTestConfig(t, tmp, server.URL)
 
@@ -844,7 +844,7 @@ func TestAwRolesDeactivateDeactivatesToEmptyBundle(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 	writeTestConfig(t, tmp, server.URL)
 

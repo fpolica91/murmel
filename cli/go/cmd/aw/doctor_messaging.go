@@ -101,8 +101,8 @@ func (r *doctorRunner) addMessagingLocalSignatureChecks(state *doctorMessagingSt
 			reason = "no_workspace_context"
 		}
 		detail := map[string]any{"reason": reason}
-		r.add(awebCheck(doctorCheckMessagingMailSignature, status, localPathTarget(awconfig.WorktreeSigningKeyPath(r.workingDir)), "Mail signature dry-run requires a local signing key.", "Restore .aw/signing.key before using signed messaging.", detail))
-		r.add(awebCheck(doctorCheckMessagingChatSignature, status, localPathTarget(awconfig.WorktreeSigningKeyPath(r.workingDir)), "Chat signature dry-run requires a local signing key.", "Restore .aw/signing.key before using signed messaging.", detail))
+		r.add(awebCheck(doctorCheckMessagingMailSignature, status, localPathTarget(awconfig.WorktreeSigningKeyPath(r.workingDir)), "Mail signature dry-run requires a local signing key.", "Restore .murmel/signing.key before using signed messaging.", detail))
+		r.add(awebCheck(doctorCheckMessagingChatSignature, status, localPathTarget(awconfig.WorktreeSigningKeyPath(r.workingDir)), "Chat signature dry-run requires a local signing key.", "Restore .murmel/signing.key before using signed messaging.", detail))
 		return
 	}
 	did := strings.TrimSpace(state.did)

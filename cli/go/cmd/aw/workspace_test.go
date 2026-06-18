@@ -111,8 +111,8 @@ func TestEnsureConnectTargetCleanAddsAwebRuntimeToGitExclude(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read git exclude: %v", err)
 	}
-	if got := strings.Count(string(data), ".aw/"); got != 1 {
-		t.Fatalf("expected one .aw/ exclude entry, got %d:\n%s", got, string(data))
+	if got := strings.Count(string(data), ".murmel/"); got != 1 {
+		t.Fatalf("expected one .murmel/ exclude entry, got %d:\n%s", got, string(data))
 	}
 }
 
@@ -213,8 +213,8 @@ func TestAwWorkspaceStatusShowsTeamState(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
-	if err := os.MkdirAll(filepath.Join(tmp, ".aw"), 0o755); err != nil {
+	bin := filepath.Join(tmp, "murmel")
+	if err := os.MkdirAll(filepath.Join(tmp, ".murmel"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	buildAwBinary(t, ctx, bin)
@@ -297,8 +297,8 @@ func TestAwWorkspaceStatusAllShowsAllMemberships(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
-	if err := os.MkdirAll(filepath.Join(tmp, ".aw"), 0o755); err != nil {
+	bin := filepath.Join(tmp, "murmel")
+	if err := os.MkdirAll(filepath.Join(tmp, ".murmel"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	buildAwBinary(t, ctx, bin)
@@ -480,7 +480,7 @@ func TestAwWorkspaceStatusWithoutLocalWorkspaceShowsAgentContext(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 	writeWorkspaceBindingForTest(t, tmp, workspaceBinding(server.URL, "backend:demo", "coordinator", selfID))
 
@@ -579,7 +579,7 @@ func TestAwWorkspaceStatusTruncatesTeamLocks(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 	writeWorkspaceBindingForTest(t, tmp, workspaceBinding(server.URL, "backend:demo", "alice", selfID))
 
@@ -670,8 +670,8 @@ func TestAwWorkspaceStatusDeletesGoneLocalIdentity(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
-	if err := os.MkdirAll(filepath.Join(tmp, ".aw"), 0o755); err != nil {
+	bin := filepath.Join(tmp, "murmel")
+	if err := os.MkdirAll(filepath.Join(tmp, ".murmel"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	buildAwBinary(t, ctx, bin)
@@ -765,8 +765,8 @@ func TestAwWorkspaceStatusDeletesGoneLocalIdentityFromIdentityScope(t *testing.T
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
-	if err := os.MkdirAll(filepath.Join(tmp, ".aw"), 0o755); err != nil {
+	bin := filepath.Join(tmp, "murmel")
+	if err := os.MkdirAll(filepath.Join(tmp, ".murmel"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	buildAwBinary(t, ctx, bin)
@@ -834,8 +834,8 @@ func TestAwWorkspaceDeleteByAlias(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
-	if err := os.MkdirAll(filepath.Join(tmp, ".aw"), 0o755); err != nil {
+	bin := filepath.Join(tmp, "murmel")
+	if err := os.MkdirAll(filepath.Join(tmp, ".murmel"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	buildAwBinary(t, ctx, bin)
@@ -922,8 +922,8 @@ func TestAwWorkspaceStatusKeepsGoneGlobalIdentity(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
-	if err := os.MkdirAll(filepath.Join(tmp, ".aw"), 0o755); err != nil {
+	bin := filepath.Join(tmp, "murmel")
+	if err := os.MkdirAll(filepath.Join(tmp, ".murmel"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	buildAwBinary(t, ctx, bin)
@@ -1018,8 +1018,8 @@ func TestAwWorkspaceStatusSkipsGoneWorkspaceWithUnknownLifetime(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
-	if err := os.MkdirAll(filepath.Join(tmp, ".aw"), 0o755); err != nil {
+	bin := filepath.Join(tmp, "murmel")
+	if err := os.MkdirAll(filepath.Join(tmp, ".murmel"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	buildAwBinary(t, ctx, bin)
@@ -1070,41 +1070,41 @@ func TestAwWorkspaceAddWorktreeRejectsTrackedAwebRuntimeState(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	repo := filepath.Join(tmp, "repo")
-	if err := os.MkdirAll(filepath.Join(repo, ".aw", "team-certs"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(repo, ".murmel", "team-certs"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	initGitRepoWithOriginAndCommit(t, repo, "https://github.com/acme/repo.git")
 	buildAwBinary(t, ctx, bin)
 
 	for path, body := range map[string]string{
-		".aw/signing.key":                      "tracked parent key\n",
-		".aw/team-certs/backend__acme.com.pem": "tracked parent cert\n",
-		".aw/teams.yaml":                       "active_team: backend:acme.com\n",
-		".aw/workspace.yaml":                   "aweb_url: https://app.aweb.ai/api\n",
-		".aw/context":                          "{}\n",
+		".murmel/signing.key":                      "tracked parent key\n",
+		".murmel/team-certs/backend__acme.com.pem": "tracked parent cert\n",
+		".murmel/teams.yaml":                       "active_team: backend:acme.com\n",
+		".murmel/workspace.yaml":                   "aweb_url: https://app.aweb.ai/api\n",
+		".murmel/context":                          "{}\n",
 	} {
 		if err := os.WriteFile(filepath.Join(repo, path), []byte(body), 0o600); err != nil {
 			t.Fatalf("write %s: %v", path, err)
 		}
 	}
-	runGitForTest(t, repo, "add", ".aw")
-	runGitForTest(t, repo, "commit", "-m", "Accidentally track aw runtime")
+	runGitForTest(t, repo, "add", ".murmel")
+	runGitForTest(t, repo, "commit", "-m", "Accidentally track murmel runtime")
 
 	run := exec.CommandContext(ctx, bin, "workspace", "add-worktree", "developer", "--alias", "bob")
 	run.Env = testCommandEnv(tmp)
 	run.Dir = repo
 	out, err := run.CombinedOutput()
 	if err == nil {
-		t.Fatalf("expected tracked .aw error, got success:\n%s", string(out))
+		t.Fatalf("expected tracked .murmel error, got success:\n%s", string(out))
 	}
 	text := string(out)
 	for _, want := range []string{
 		"cannot create a new worktree because aweb runtime files are tracked",
-		".aw/signing.key",
-		".aw/team-certs/backend__acme.com.pem",
-		"git rm --cached -r .aw",
+		".murmel/signing.key",
+		".murmel/team-certs/backend__acme.com.pem",
+		"git rm --cached -r .murmel",
 	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("expected output to contain %q:\n%s", want, text)
@@ -1121,7 +1121,7 @@ func TestAwWorkspaceAddWorktreeRejectsTrackedAwebRuntimeState(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read git exclude: %v", err)
 	}
-	if strings.Contains(string(data), ".aw/") {
+	if strings.Contains(string(data), ".murmel/") {
 		t.Fatalf("refused add-worktree should not mutate git exclude:\n%s", string(data))
 	}
 }
@@ -1180,7 +1180,7 @@ func TestAwWorkspaceAddWorktreeRejectsAliasAlreadyInUse(t *testing.T) {
 	}))
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	repo := filepath.Join(tmp, "repo")
 	if err := os.MkdirAll(repo, 0o755); err != nil {
 		t.Fatal(err)
@@ -1189,8 +1189,8 @@ func TestAwWorkspaceAddWorktreeRejectsAliasAlreadyInUse(t *testing.T) {
 	buildAwBinary(t, ctx, bin)
 
 	writeWorkspaceBindingForTest(t, repo, workspaceBinding(server.URL, "backend:source", "alice", "source-1"))
-	if err := awconfig.SaveWorktreeContextTo(filepath.Join(repo, ".aw", "context"), &awconfig.WorktreeContext{}); err != nil {
-		t.Fatalf("seed .aw/context: %v", err)
+	if err := awconfig.SaveWorktreeContextTo(filepath.Join(repo, ".murmel", "context"), &awconfig.WorktreeContext{}); err != nil {
+		t.Fatalf("seed .murmel/context: %v", err)
 	}
 
 	run := exec.CommandContext(ctx, bin, "workspace", "add-worktree", "developer", "--alias", "bob")
@@ -1213,7 +1213,7 @@ func TestAwWorkspaceAddWorktreeRequiresGitWorktree(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 	writeWorkspaceBindingForTest(t, tmp, workspaceBinding("https://example.com", "backend:source", "alice", "source-1"))
 
@@ -1237,10 +1237,10 @@ func TestAwWorkspaceMigrateMultiTeamMigratesLegacyWorkspace(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 
-	if err := os.MkdirAll(filepath.Join(tmp, ".aw"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(tmp, ".murmel"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	legacyWorkspace := strings.TrimSpace(`
@@ -1254,7 +1254,7 @@ workspace_path: /tmp/repo
 canonical_origin: github.com/acme/repo
 updated_at: "2026-04-09T00:00:00Z"
 `) + "\n"
-	if err := os.WriteFile(filepath.Join(tmp, ".aw", "workspace.yaml"), []byte(legacyWorkspace), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(tmp, ".murmel", "workspace.yaml"), []byte(legacyWorkspace), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1275,7 +1275,7 @@ updated_at: "2026-04-09T00:00:00Z"
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := awid.SaveTeamCertificate(filepath.Join(tmp, ".aw", "team-cert.pem"), cert); err != nil {
+	if err := awid.SaveTeamCertificate(filepath.Join(tmp, ".murmel", "team-cert.pem"), cert); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1287,7 +1287,7 @@ updated_at: "2026-04-09T00:00:00Z"
 		t.Fatalf("migrate-multi-team failed: %v\n%s", err, string(out))
 	}
 
-	state, err := awconfig.LoadWorktreeWorkspaceFrom(filepath.Join(tmp, ".aw", "workspace.yaml"))
+	state, err := awconfig.LoadWorktreeWorkspaceFrom(filepath.Join(tmp, ".murmel", "workspace.yaml"))
 	if err != nil {
 		t.Fatalf("load migrated workspace: %v", err)
 	}
@@ -1311,7 +1311,7 @@ updated_at: "2026-04-09T00:00:00Z"
 	if activeMembership.CertPath != "team-certs/backend__acme.com.pem" {
 		t.Fatalf("cert_path=%q", activeMembership.CertPath)
 	}
-	if _, err := os.Stat(filepath.Join(tmp, ".aw", "team-cert.pem")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(tmp, ".murmel", "team-cert.pem")); !os.IsNotExist(err) {
 		t.Fatalf("legacy team-cert.pem should be removed, stat err=%v", err)
 	}
 	if _, err := os.Stat(awconfig.TeamCertificatePath(tmp, "backend:acme.com")); err != nil {
@@ -1329,7 +1329,7 @@ func TestAwWorkspaceMigrateMultiTeamNoopsOnCanonicalWorkspace(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 	writeWorkspaceBindingForTest(t, tmp, workspaceBinding("https://app.aweb.ai", "backend:acme.com", "alice", "ws-1"))
 
@@ -1347,7 +1347,7 @@ func TestAwWorkspaceMigrateMultiTeamNoopsOnCanonicalWorkspace(t *testing.T) {
 
 func TestAwWorkspaceMigrateMultiTeamKeepsLegacyCertWhenWorkspaceWriteFails(t *testing.T) {
 	tmp := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(tmp, ".aw"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(tmp, ".murmel"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	legacyWorkspace := strings.TrimSpace(`
@@ -1361,7 +1361,7 @@ workspace_path: /tmp/repo
 canonical_origin: github.com/acme/repo
 updated_at: "2026-04-09T00:00:00Z"
 `) + "\n"
-	workspacePath := filepath.Join(tmp, ".aw", "workspace.yaml")
+	workspacePath := filepath.Join(tmp, ".murmel", "workspace.yaml")
 	if err := os.WriteFile(workspacePath, []byte(legacyWorkspace), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -1383,7 +1383,7 @@ updated_at: "2026-04-09T00:00:00Z"
 	if err != nil {
 		t.Fatal(err)
 	}
-	legacyCertPath := filepath.Join(tmp, ".aw", "team-cert.pem")
+	legacyCertPath := filepath.Join(tmp, ".murmel", "team-cert.pem")
 	if err := awid.SaveTeamCertificate(legacyCertPath, cert); err != nil {
 		t.Fatal(err)
 	}
@@ -1470,7 +1470,7 @@ func TestResolveWorkspaceTeamRegistryURLPrefersControllerRegistryOverIdentity(t 
 	t.Setenv("HOME", home)
 
 	workingDir := t.TempDir()
-	if err := awconfig.SaveWorktreeIdentityTo(filepath.Join(workingDir, ".aw", "identity.yaml"), &awconfig.WorktreeIdentity{
+	if err := awconfig.SaveWorktreeIdentityTo(filepath.Join(workingDir, ".murmel", "identity.yaml"), &awconfig.WorktreeIdentity{
 		DID:         "did:key:z6MkMember",
 		RegistryURL: "https://member-registry.example",
 		CreatedAt:   "2026-04-08T00:00:00Z",

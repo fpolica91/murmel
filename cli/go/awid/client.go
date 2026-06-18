@@ -184,7 +184,7 @@ type agentMeta struct {
 // Client is an aweb HTTP client.
 //
 // It is designed to be easy to extract into a standalone repo and to be used by:
-// - the `aw` CLI
+// - the `murmel` CLI
 // - higher-level coordination products built on the same transport
 type Client struct {
 	baseURL    string

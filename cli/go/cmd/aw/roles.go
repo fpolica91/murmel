@@ -651,7 +651,7 @@ func formatTeamRolesShow(v any) string {
 	}
 
 	if len(out.TeamRoles.Roles) == 0 {
-		sb.WriteString("\nNo roles configured for this team. Add roles with `aw roles add`.\n")
+		sb.WriteString("\nNo roles configured for this team. Add roles with `murmel roles add`.\n")
 		return sb.String()
 	}
 

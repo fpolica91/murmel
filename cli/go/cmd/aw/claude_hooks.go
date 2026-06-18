@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	notifyHookCommand       = "aw notify"
+	notifyHookCommand       = "murmel notify"
 	legacyNotifyHookCommand = "bdh :notify"
 )
 
@@ -222,7 +222,7 @@ func printManualHookInstructions() {
     "hooks": {
       "PostToolUse": [{
         "matcher": ".*",
-        "hooks": [{"type": "command", "command": "aw notify"}]
+        "hooks": [{"type": "command", "command": "murmel notify"}]
       }]
     }
   }`)

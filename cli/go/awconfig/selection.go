@@ -76,11 +76,11 @@ func ResolveWorkspace(opts ResolveOptions) (*Selection, error) {
 	workspace, teamState, rootDir, err := LoadWorkspaceAndTeamState(workingDir)
 	if err != nil {
 		if workspace == nil && errors.Is(err, os.ErrNotExist) {
-			// No workspace — check for a standalone identity (created by aw id create).
+			// No workspace — check for a standalone identity (created by murmel id create).
 			if identity, _, identityErr := LoadWorktreeIdentityFromDir(workingDir); identityErr == nil {
 				return finalizeStandaloneIdentitySelection(workingDir, identity), nil
 			}
-			return nil, errors.New("current directory is not initialized for aw; run `aw init` here or start with `aw run <provider>` in a TTY")
+			return nil, errors.New("current directory is not initialized for murmel; run `murmel init` here or start with `murmel run <provider>` in a TTY")
 		}
 		return nil, fmt.Errorf("invalid worktree workspace: %w", err)
 	}
@@ -114,7 +114,7 @@ func ResolveWorkspace(opts ResolveOptions) (*Selection, error) {
 	}
 	if teamID == "" {
 		if strings.TrimSpace(teamState.ActiveTeam) != "" {
-			return nil, fmt.Errorf("active team %q is not in memberships; run aw id team switch <valid-team>", teamState.ActiveTeam)
+			return nil, fmt.Errorf("active team %q is not in memberships; run murmel id team switch <valid-team>", teamState.ActiveTeam)
 		}
 		return nil, errors.New("worktree workspace binding is missing active_team membership")
 	}
@@ -159,9 +159,9 @@ func finalizeWorkspaceSelection(workingDir, workspacePath, serverName, baseURL s
 			alias = strings.TrimSpace(selectedMembership.Alias)
 			workspaceID = strings.TrimSpace(selectedMembership.WorkspaceID)
 			// Token-only (cert-less) bindings leave cert_path empty; skip the
-			// certificate load entirely rather than resolving to the .aw dir.
+			// certificate load entirely rather than resolving to the .murmel dir.
 			if relCertPath := strings.TrimSpace(selectedMembership.CertPath); relCertPath != "" {
-				certPath := filepath.Join(workingDir, ".aw", filepath.FromSlash(relCertPath))
+				certPath := filepath.Join(workingDir, ".murmel", filepath.FromSlash(relCertPath))
 				if cert, err := awid.LoadTeamCertificate(certPath); err == nil {
 					if v := strings.TrimSpace(cert.MemberDIDKey); v != "" {
 						did = v

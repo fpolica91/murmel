@@ -141,7 +141,7 @@ func TestLoadTeamStateRejectsEmptyMemberships(t *testing.T) {
 
 	tmp := t.TempDir()
 	if err := os.MkdirAll(filepath.Dir(TeamStatePath(tmp)), 0o755); err != nil {
-		t.Fatalf("mkdir .aw: %v", err)
+		t.Fatalf("mkdir .murmel: %v", err)
 	}
 	if err := os.WriteFile(TeamStatePath(tmp), []byte(strings.TrimSpace(`
 active_team: backend:acme.com
@@ -164,13 +164,13 @@ func TestLoadTeamStateRejectsMissingActiveTeam(t *testing.T) {
 
 	tmp := t.TempDir()
 	if err := os.MkdirAll(filepath.Dir(TeamStatePath(tmp)), 0o755); err != nil {
-		t.Fatalf("mkdir .aw: %v", err)
+		t.Fatalf("mkdir .murmel: %v", err)
 	}
 	if err := os.WriteFile(TeamStatePath(tmp), []byte(strings.TrimSpace(`
 memberships:
   - team_id: backend:acme.com
     alias: alice
-    cert_path: .aw/team-certs/backend__acme.com.pem
+    cert_path: .murmel/team-certs/backend__acme.com.pem
 `)+"\n"), 0o600); err != nil {
 		t.Fatalf("write teams.yaml: %v", err)
 	}
@@ -189,17 +189,17 @@ func TestLoadTeamStateRejectsDuplicateTeamID(t *testing.T) {
 
 	tmp := t.TempDir()
 	if err := os.MkdirAll(filepath.Dir(TeamStatePath(tmp)), 0o755); err != nil {
-		t.Fatalf("mkdir .aw: %v", err)
+		t.Fatalf("mkdir .murmel: %v", err)
 	}
 	if err := os.WriteFile(TeamStatePath(tmp), []byte(strings.TrimSpace(`
 active_team: backend:acme.com
 memberships:
   - team_id: backend:acme.com
     alias: alice
-    cert_path: .aw/team-certs/backend__acme.com.pem
+    cert_path: .murmel/team-certs/backend__acme.com.pem
   - team_id: backend:acme.com
     alias: alice-2
-    cert_path: .aw/team-certs/backend__acme.com.pem
+    cert_path: .murmel/team-certs/backend__acme.com.pem
 `)+"\n"), 0o600); err != nil {
 		t.Fatalf("write teams.yaml: %v", err)
 	}
@@ -218,14 +218,14 @@ func TestLoadTeamStateRejectsActiveTeamOutsideMemberships(t *testing.T) {
 
 	tmp := t.TempDir()
 	if err := os.MkdirAll(filepath.Dir(TeamStatePath(tmp)), 0o755); err != nil {
-		t.Fatalf("mkdir .aw: %v", err)
+		t.Fatalf("mkdir .murmel: %v", err)
 	}
 	if err := os.WriteFile(TeamStatePath(tmp), []byte(strings.TrimSpace(`
 active_team: ops:acme.com
 memberships:
   - team_id: backend:acme.com
     alias: alice
-    cert_path: .aw/team-certs/backend__acme.com.pem
+    cert_path: .murmel/team-certs/backend__acme.com.pem
 `)+"\n"), 0o600); err != nil {
 		t.Fatalf("write teams.yaml: %v", err)
 	}
@@ -245,7 +245,7 @@ func TestLoadTeamStateMigratesFromLegacyWorkspaceYAML(t *testing.T) {
 	tmp := t.TempDir()
 	workspacePath := filepath.Join(tmp, DefaultWorktreeWorkspaceRelativePath())
 	if err := os.MkdirAll(filepath.Dir(workspacePath), 0o700); err != nil {
-		t.Fatalf("mkdir .aw: %v", err)
+		t.Fatalf("mkdir .murmel: %v", err)
 	}
 	if err := os.WriteFile(workspacePath, []byte(strings.TrimSpace(`
 aweb_url: https://app.aweb.ai/api

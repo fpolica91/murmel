@@ -283,7 +283,7 @@ func formatChatSend(v any) string {
 				sb.WriteString("Status: WAITING for your reply\n")
 			}
 			sb.WriteString(fmt.Sprintf("Body: %s\n", result.Reply))
-			sb.WriteString(fmt.Sprintf("Next: Run \"aw chat send-and-wait %s \\\"your reply\\\"\"\n", result.TargetAgent))
+			sb.WriteString(fmt.Sprintf("Next: Run \"murmel chat send-and-wait %s \\\"your reply\\\"\"\n", result.TargetAgent))
 		} else {
 			writeChatLine("Chat to", result.TargetAgent, timestamp)
 			sb.WriteString(fmt.Sprintf("Body: %s\n", result.Reply))
@@ -309,7 +309,7 @@ func formatChatSend(v any) string {
 	case "targets_left":
 		sb.WriteString(fmt.Sprintf("Message sent to %s\n", result.TargetAgent))
 		sb.WriteString(fmt.Sprintf("%s previously left the conversation.\n", result.TargetAgent))
-		sb.WriteString(fmt.Sprintf("To start a new exchange, run: \"aw chat send-and-wait %s \\\"message\\\" --start-conversation\"\n", result.TargetAgent))
+		sb.WriteString(fmt.Sprintf("To start a new exchange, run: \"murmel chat send-and-wait %s \\\"message\\\" --start-conversation\"\n", result.TargetAgent))
 		return sb.String()
 	}
 
@@ -485,7 +485,7 @@ func formatChatPending(v any) string {
 		displayFrom := preferredPendingSenderLabel(p, "")
 		openTarget := pendingOpenTarget(p)
 		if openTarget != "" {
-			openHint = fmt.Sprintf(" — Run \"aw chat open %s\"", openTarget)
+			openHint = fmt.Sprintf(" — Run \"murmel chat open %s\"", openTarget)
 		}
 
 		if p.SenderWaiting {
@@ -528,9 +528,9 @@ func formatChatOpen(v any) string {
 		sb.WriteString(formatChatEventLine(m))
 	}
 
-	sb.WriteString(fmt.Sprintf("\nNext: Run \"aw chat send-and-wait %s \\\"your reply\\\"\"", result.TargetAgent))
+	sb.WriteString(fmt.Sprintf("\nNext: Run \"murmel chat send-and-wait %s \\\"your reply\\\"\"", result.TargetAgent))
 	if result.SenderWaiting {
-		sb.WriteString(fmt.Sprintf(" or \"aw chat extend-wait %s \\\"message\\\"\"", result.TargetAgent))
+		sb.WriteString(fmt.Sprintf(" or \"murmel chat extend-wait %s \\\"message\\\"\"", result.TargetAgent))
 	}
 	sb.WriteString("\n")
 

@@ -22,7 +22,7 @@ func TestInjectAgentDocsCreatesAgentsWhenNoFilesExist(t *testing.T) {
 	t.Parallel()
 
 	tmp := t.TempDir()
-	result := InjectProvidedAgentDocs(tmp, "## Shared Rules\n\nUse `aw`.")
+	result := InjectProvidedAgentDocs(tmp, "## Shared Rules\n\nUse `murmel`.")
 	// Creates AGENTS.md and a CLAUDE.md symlink pointing at it so Claude Code
 	// picks up the same source-of-truth.
 	if len(result.Created) != 2 {
@@ -39,7 +39,7 @@ func TestInjectAgentDocsCreatesAgentsWhenNoFilesExist(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := string(data)
-	for _, want := range []string{awDocsMarkerStart, "# Agent Instructions", "## Shared Rules", "Use `aw`."} {
+	for _, want := range []string{awDocsMarkerStart, "# Agent Instructions", "## Shared Rules", "Use `murmel`."} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("missing %q in AGENTS.md:\n%s", want, text)
 		}
@@ -79,7 +79,7 @@ func TestInjectAgentDocsDoesNotClobberExistingClaude(t *testing.T) {
 	if err := os.WriteFile(claudePath, []byte("# Local Notes\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	result := InjectProvidedAgentDocs(tmp, "## Shared Rules\n\nUse `aw`.")
+	result := InjectProvidedAgentDocs(tmp, "## Shared Rules\n\nUse `murmel`.")
 	// Existing CLAUDE.md path: inject into existing file, do not create AGENTS.md
 	// or a symlink (the symlink branch only fires when neither file exists).
 	if len(result.Injected) != 1 || result.Injected[0] != "CLAUDE.md" {
@@ -106,7 +106,7 @@ func TestInjectAgentDocsAppendsToExistingFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	result := InjectProvidedAgentDocs(tmp, "## Shared Rules\n\nUse `aw`.")
+	result := InjectProvidedAgentDocs(tmp, "## Shared Rules\n\nUse `murmel`.")
 	if len(result.Injected) != 1 || result.Injected[0] != "CLAUDE.md" {
 		t.Fatalf("injected=%v", result.Injected)
 	}
@@ -130,7 +130,7 @@ func TestInjectAgentDocsReplacesExistingInjectedSection(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	InjectProvidedAgentDocs(tmp, "## Shared Rules\n\nUse `aw`.")
+	InjectProvidedAgentDocs(tmp, "## Shared Rules\n\nUse `murmel`.")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
@@ -157,7 +157,7 @@ func TestInjectAgentDocsAvoidsDoubleWriteForSymlink(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	InjectProvidedAgentDocs(tmp, "## Shared Rules\n\nUse `aw`.")
+	InjectProvidedAgentDocs(tmp, "## Shared Rules\n\nUse `murmel`.")
 	data, err := os.ReadFile(target)
 	if err != nil {
 		t.Fatal(err)

@@ -40,7 +40,7 @@ func writeDoctorFixWorkspaceYAML(t *testing.T, workingDir, awebURL, activeTeam s
 	t.Helper()
 	workspacePath := filepath.Join(workingDir, awconfig.DefaultWorktreeWorkspaceRelativePath())
 	if err := os.MkdirAll(filepath.Dir(workspacePath), 0o700); err != nil {
-		t.Fatalf("mkdir .aw: %v", err)
+		t.Fatalf("mkdir .murmel: %v", err)
 	}
 	var sb strings.Builder
 	sb.WriteString("aweb_url: " + awebURL + "\n")

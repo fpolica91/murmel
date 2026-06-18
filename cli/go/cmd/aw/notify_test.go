@@ -86,7 +86,7 @@ func TestFormatNotifyOutputUrgentAndFallback(t *testing.T) {
 		"URGENT",
 		"rose",
 		"Unread message from henry",
-		"YOU MUST RUN: aw chat pending",
+		"YOU MUST RUN: murmel chat pending",
 	} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("output missing %q:\n%s", want, out)
@@ -333,7 +333,7 @@ func TestAwNotifySilentWithoutConfig(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 
 	run := exec.CommandContext(ctx, bin, "notify")
@@ -367,7 +367,7 @@ func TestAwNotifySilentOnAPIError(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 	writeWorkspaceBindingForTest(t, tmp, workspaceBinding(server.URL, "backend:demo", "notify-api-error", "workspace-1"))
 
@@ -417,7 +417,7 @@ func TestAwNotifyOutputsHookJSONWhenPendingChatsExist(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 	writeWorkspaceBindingForTest(t, tmp, workspaceBinding(server.URL, "backend:demo", "notify-pending", "workspace-1"))
 
@@ -435,7 +435,7 @@ func TestAwNotifyOutputsHookJSONWhenPendingChatsExist(t *testing.T) {
 	}
 	hook := parsed["hookSpecificOutput"].(map[string]any)
 	contextText := hook["additionalContext"].(string)
-	for _, want := range []string{"URGENT", "otherco/rose", "aw chat pending"} {
+	for _, want := range []string{"URGENT", "otherco/rose", "murmel chat pending"} {
 		if !strings.Contains(contextText, want) {
 			t.Fatalf("missing %q in context:\n%s", want, contextText)
 		}

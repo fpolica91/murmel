@@ -33,7 +33,7 @@ var workspaceAddWorktreeCmd = &cobra.Command{
 	Use:   "add-worktree [role]",
 	Short: "Legacy convenience: create a sibling git worktree and coordination workspace",
 	Long: "Legacy convenience for existing users: create a sibling git worktree and initialize a new coordination workspace in it.\n\n" +
-		"New setup flows should prefer explicit git worktree/filesystem steps followed by aw init, invite/join, or service init primitives unless this command is reduced to a transparent wrapper with no identity/team orchestration.",
+		"New setup flows should prefer explicit git worktree/filesystem steps followed by murmel init, invite/join, or service init primitives unless this command is reduced to a transparent wrapper with no identity/team orchestration.",
 	Args: cobra.RangeArgs(0, 1),
 	RunE: runWorkspaceAddWorktree,
 }
@@ -126,7 +126,7 @@ func runWorkspaceStatus(cmd *cobra.Command, args []string) error {
 		strings.TrimSpace(sel.DID) != "" ||
 		strings.TrimSpace(sel.Alias) != ""
 	if !hasIdentity {
-		return usageError("selected account has no identity; run 'aw init' first")
+		return usageError("selected account has no identity; run 'murmel init' first")
 	}
 
 	state, teamState, _, err := awconfig.LoadWorkspaceAndTeamState(workingDir)
@@ -324,20 +324,20 @@ func runWorkspaceAddWorktree(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("load workspace binding: %w", err)
 	}
 	if !state.HasTeamBinding() {
-		return usageError("current worktree is missing team binding; run `aw init` first")
+		return usageError("current worktree is missing team binding; run `murmel init` first")
 	}
 
 	activeMembership := awconfig.ActiveMembershipFor(state, teamState)
 	if activeMembership == nil {
-		return usageError("current worktree is missing active_team membership; run `aw init` first")
+		return usageError("current worktree is missing active_team membership; run `murmel init` first")
 	}
 	teamID := strings.TrimSpace(activeMembership.TeamID)
 	if teamID == "" {
-		return usageError("current worktree is missing team_id; run `aw init` first")
+		return usageError("current worktree is missing team_id; run `murmel init` first")
 	}
 	sourceServerURL := strings.TrimSpace(state.AwebURL)
 	if sourceServerURL == "" {
-		return usageError("current worktree is missing aweb_url; run `aw init` first")
+		return usageError("current worktree is missing aweb_url; run `murmel init` first")
 	}
 
 	alias := strings.TrimSpace(workspaceAddAlias)
@@ -452,7 +452,7 @@ func runWorkspaceMigrateMultiTeam(cmd *cobra.Command, args []string) error {
 	workspacePath, err := awconfig.FindWorktreeWorkspacePath(workingDir)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return usageError("current worktree is missing .aw/workspace.yaml")
+			return usageError("current worktree is missing .murmel/workspace.yaml")
 		}
 		return err
 	}
@@ -490,7 +490,7 @@ func migrateLegacyWorkspaceToMultiTeam(workingDir, workspacePath string) (worksp
 	if err != nil {
 		return workspaceMigrateMultiTeamOutput{}, err
 	}
-	legacyCertPath := filepath.Join(workingDir, ".aw", "team-cert.pem")
+	legacyCertPath := filepath.Join(workingDir, ".murmel", "team-cert.pem")
 	cert, err := awid.LoadTeamCertificate(legacyCertPath)
 	if err != nil {
 		return workspaceMigrateMultiTeamOutput{}, fmt.Errorf("load legacy team certificate %s: %w", legacyCertPath, err)
@@ -650,7 +650,7 @@ func formatWorkspaceAddWorktree(v any) string {
 	sb.WriteString(fmt.Sprintf("Role:       %s\n", out.Role))
 	sb.WriteString(fmt.Sprintf("Branch:     %s\n", out.Branch))
 	sb.WriteString(fmt.Sprintf("Workspace:  this worktree is now agent %s\n", out.Alias))
-	sb.WriteString("State:      .aw/ in that worktree stores the local identity and workspace binding\n")
+	sb.WriteString("State:      .murmel/ in that worktree stores the local identity and workspace binding\n")
 	sb.WriteString("\nTo use:\n")
 	sb.WriteString(fmt.Sprintf("  cd %s\n", abbreviateUserHome(out.WorktreePath)))
 	sb.WriteString("  Tell your agent: please read https://aweb.ai/docs/cli-tutorial.md\n")
@@ -863,7 +863,7 @@ func resolveWorkspaceTeamRegistryURL(workingDir, awebURL, teamDomain string) (st
 				return registryURL, nil
 			}
 		}
-		return "", usageError("current worktree is missing identity registry_url; run `aw init` again or restore .aw/identity.yaml")
+		return "", usageError("current worktree is missing identity registry_url; run `murmel init` again or restore .murmel/identity.yaml")
 	}
 	return "", usageError("current worktree is missing registry configuration for %s", teamDomain)
 }

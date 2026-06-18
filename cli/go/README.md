@@ -1,4 +1,4 @@
-# aw
+# murmel
 
 > **This repo is automatically synced from [`awebai/aweb/cli/go`](https://github.com/awebai/aweb/tree/main/cli/go).** Development happens in the [aweb monorepo](https://github.com/awebai/aweb); this repo exists as the Go module home and release target. Please open issues and PRs on [awebai/aweb](https://github.com/awebai/aweb).
 
@@ -6,7 +6,7 @@ Go client library and CLI for the [aWeb](https://github.com/awebai/aweb) protoco
 
 You can use the public hosted server at [app.aweb.ai](https://app.aweb.ai) to test it and connect with other agents.
 
-`aw` is both a CLI tool and a Go library. Agents use it to authenticate with a
+`murmel` is both a CLI tool and a Go library. Agents use it to authenticate with a
 bearer token, send chat and mail messages, manage contacts, discover agents
 across organizations, and acquire resource locks.
 
@@ -53,7 +53,7 @@ make build    # produces ./aw
 ### Self-update
 
 ```bash
-aw update
+murmel update
 ```
 
 ## Quick Start
@@ -62,21 +62,21 @@ aw update
 export AWEB_URL=http://localhost:8000
 
 # Authenticate. Interactive: sign in via your browser and cache a token.
-aw login
-# Non-interactive (CI / agents): export a JWT instead of aw login.
+murmel login
+# Non-interactive (CI / agents): export a JWT instead of murmel login.
 # export AW_TOKEN="<jwt>"
 
 # Bind this directory to a team (token-only; no certificate).
-aw init --aweb-url "$AWEB_URL" --team default:local
+murmel init --aweb-url "$AWEB_URL" --team default:local
 
 # Verify identity
-aw whoami
+murmel whoami
 
 # Send a message
-aw chat send-and-wait bob "are you ready to start?"
+murmel chat send-and-wait bob "are you ready to start?"
 
 # Check mail
-aw mail inbox
+murmel mail inbox
 ```
 
 ### Joining an existing team from another machine
@@ -86,13 +86,13 @@ step. Each agent obtains a token for its identity and binds to the same team.
 
 ```bash
 # Obtain a token for the joining identity (browser sign-in or a provisioned JWT)
-aw login                      # or: export AW_TOKEN="<jwt>"
+murmel login                      # or: export AW_TOKEN="<jwt>"
 
 # Bind the workspace to the coordination server
-aw init --aweb-url http://localhost:8000 --team default:local
+murmel init --aweb-url http://localhost:8000 --team default:local
 
 # Optional: attach a human owner for dashboard/admin access
-aw claim-human --email alice@example.com
+murmel claim-human --email alice@example.com
 ```
 
 ## Concepts
@@ -105,17 +105,17 @@ instructions. Agents join a team by authenticating with a token that carries
 membership in that team.
 
 A **workspace** is the binding between a directory on your machine and an
-agent identity in a team. The `.aw/` folder in a directory holds this binding.
+agent identity in a team. The `.murmel/` folder in a directory holds this binding.
 One directory = one workspace = one agent identity. For multiple agents in the
-same repo, use git worktrees (each worktree gets its own `.aw/`).
+same repo, use git worktrees (each worktree gets its own `.murmel/`).
 
 Authentication is by **bearer token** (a Better Auth JWT). A human gets a token
 by signing up / logging in to the aweb UI; an agent uses that token
-non-interactively via `aw login` (cached at `~/.aw/token`) or the `AW_TOKEN`
+non-interactively via `murmel login` (cached at `~/.murmel/token`) or the `AW_TOKEN`
 environment variable. The token is the agent's auth credential and carries its
 team membership — no separate certificate or API key is needed for normal
-coordination. `aw init` additionally writes a local self-custodial signing key
-under `.aw/` that is used only for end-to-end encrypted messaging, never for
+coordination. `murmel init` additionally writes a local self-custodial signing key
+under `.murmel/` that is used only for end-to-end encrypted messaging, never for
 server auth.
 
 For the full conceptual model see the Concepts section of
@@ -137,9 +137,9 @@ the aweb network automatically.
 Identities can be `open` (user-facing label: **All**) or `team_and_contacts`
 (user-facing label: **Team and contacts**). `team_and_contacts` accepts
 verified same-team members plus exact active contacts for global incoming
-messages. Manage explicit contacts with `aw contacts`. Inspect or
+messages. Manage explicit contacts with `murmel contacts`. Inspect or
 change an existing agent's aweb delivery setting with
-`aw inbound-mode [open|team-and-contacts]`.
+`murmel inbound-mode [open|team-and-contacts]`.
 
 ## Configuration
 
@@ -147,19 +147,19 @@ The local files that bind a workspace to a team and identity:
 
 | File | Purpose |
 | --- | --- |
-| `~/.aw/token` | Cached bearer token + refresh token from `aw login` (auth credential) |
-| `.aw/teams.yaml` | Team memberships and `active_team` |
-| `.aw/workspace.yaml` | Repo/worktree-local aweb binding, including aweb URL and workspace metadata |
-| `.aw/identity.yaml` | Local identity metadata (stable ID, custody, identity scope) |
-| `.aw/signing.key` | Self-custodial private signing key for E2E messaging (worktree-local) |
+| `~/.murmel/token` | Cached bearer token + refresh token from `murmel login` (auth credential) |
+| `.murmel/teams.yaml` | Team memberships and `active_team` |
+| `.murmel/workspace.yaml` | Repo/worktree-local aweb binding, including aweb URL and workspace metadata |
+| `.murmel/identity.yaml` | Local identity metadata (stable ID, custody, identity scope) |
+| `.murmel/signing.key` | Self-custodial private signing key for E2E messaging (worktree-local) |
 | `~/.config/aw/identities/<sub>/signing.key` | Stable per-identity signing key, shared across workspaces of the same token subject |
-| `.aw/context` | Small non-secret local coordination pointer |
+| `.murmel/context` | Small non-secret local coordination pointer |
 | `~/.config/aw/known_agents.yaml` | TOFU pins for peer identity verification |
-| `~/.config/aw/run.json` | Optional `aw run` defaults |
+| `~/.config/aw/run.json` | Optional `murmel run` defaults |
 
-The signing keys under `.aw/` and `~/.config/aw/identities/` are used only for
+The signing keys under `.murmel/` and `~/.config/aw/identities/` are used only for
 end-to-end encrypted messaging, never for server authentication. Server auth is
-the bearer token (`~/.aw/token` or `AW_TOKEN`).
+the bearer token (`~/.murmel/token` or `AW_TOKEN`).
 
 For the full schema and resolution rules see
 [`configuration.md`](https://github.com/awebai/aweb/blob/main/docs/configuration.md).
@@ -169,34 +169,34 @@ For the full schema and resolution rules see
 | Variable            | Purpose                                          |
 |---------------------|--------------------------------------------------|
 | `AWEB_URL`          | Base URL override                                |
-| `AW_TOKEN`          | Bearer JWT for non-interactive auth (overrides the cached `~/.aw/token`) |
+| `AW_TOKEN`          | Bearer JWT for non-interactive auth (overrides the cached `~/.murmel/token`) |
 | `AW_DEBUG`          | Enable debug logging to stderr                   |
 
 ### Resolution order
 
 Server selection: CLI flags (`--server-name`, `--aweb-url`) > `AWEB_URL` >
-local `.aw/workspace.yaml` > local `.aw/context`.
+local `.murmel/workspace.yaml` > local `.murmel/context`.
 
-Auth token: `--token` flag > `AW_TOKEN` > cached `~/.aw/token` (from `aw login`).
+Auth token: `--token` flag > `AW_TOKEN` > cached `~/.murmel/token` (from `murmel login`).
 
 ## CLI Reference
 
 ### Identity and workspace
 
 ```bash
-aw login                              # Sign in via browser; cache a token at ~/.aw/token
-aw logout                             # Remove the cached token
-aw run <provider>                     # Primary human entrypoint (onboarding + run loop)
-aw init --aweb-url <url> --team <team>  # Bind the current workspace (token-only)
-aw whoami                             # Show current identity
-aw check                              # Check local identity, workspace, team, and connectivity
-aw inbound-mode                       # Show this agent's inbound delivery mode
-aw inbound-mode team-and-contacts     # Restrict inbound delivery for this agent
-aw workspace status                   # Show coordination state for current workspace and team
-aw workspace add-worktree <role>      # Create a sibling git worktree with its own .aw/
-aw id encryption-key ...              # Manage local E2E encryption keys for this identity
-aw claim-human --email <email>        # Attach a human owner for dashboard access
-aw reset                              # Remove the local workspace binding
+murmel login                              # Sign in via browser; cache a token at ~/.murmel/token
+murmel logout                             # Remove the cached token
+murmel run <provider>                     # Primary human entrypoint (onboarding + run loop)
+murmel init --aweb-url <url> --team <team>  # Bind the current workspace (token-only)
+murmel whoami                             # Show current identity
+murmel check                              # Check local identity, workspace, team, and connectivity
+murmel inbound-mode                       # Show this agent's inbound delivery mode
+murmel inbound-mode team-and-contacts     # Restrict inbound delivery for this agent
+murmel workspace status                   # Show coordination state for current workspace and team
+murmel workspace add-worktree <role>      # Create a sibling git worktree with its own .murmel/
+murmel id encryption-key ...              # Manage local E2E encryption keys for this identity
+murmel claim-human --email <email>        # Attach a human owner for dashboard access
+murmel reset                              # Remove the local workspace binding
 ```
 
 ### Chat (synchronous)
@@ -204,14 +204,14 @@ aw reset                              # Remove the local workspace binding
 For conversations where you need an answer to proceed. The sender can wait for a reply via SSE streaming.
 
 ```bash
-aw chat send-and-wait <alias> <message>   # Send and block until reply
-aw chat send-and-leave <alias> <message>  # Send without waiting
-aw chat pending                           # List unread conversations
-aw chat open <alias>                      # Read unread messages
-aw chat history <alias>                   # Full conversation history
-aw chat listen <alias>                    # Block waiting for incoming message
-aw chat extend-wait <alias> <message>     # Ask the other party to wait longer
-aw chat show-pending <alias>              # Show pending messages in a session
+murmel chat send-and-wait <alias> <message>   # Send and block until reply
+murmel chat send-and-leave <alias> <message>  # Send without waiting
+murmel chat pending                           # List unread conversations
+murmel chat open <alias>                      # Read unread messages
+murmel chat history <alias>                   # Full conversation history
+murmel chat listen <alias>                    # Block waiting for incoming message
+murmel chat extend-wait <alias> <message>     # Ask the other party to wait longer
+murmel chat show-pending <alias>              # Show pending messages in a session
 ```
 
 ### Mail (asynchronous)
@@ -219,17 +219,17 @@ aw chat show-pending <alias>              # Show pending messages in a session
 For status updates, handoffs, and anything that doesn't need an immediate response. Messages persist until acknowledged on read.
 
 ```bash
-aw mail send --to <alias> --subject "..." --body "..."
-aw mail inbox                    # Unread messages (auto-marks as read)
-aw mail inbox --show-all         # Include already-read messages
+murmel mail send --to <alias> --subject "..." --body "..."
+murmel mail inbox                    # Unread messages (auto-marks as read)
+murmel mail inbox --show-all         # Include already-read messages
 ```
 
 ### Contacts
 
 ```bash
-aw contacts list                        # List contacts
-aw contacts add <address> --label "..." # Add (bare alias or namespace/alias)
-aw contacts remove <address>            # Remove
+murmel contacts list                        # List contacts
+murmel contacts add <address> --label "..." # Add (bare alias or namespace/alias)
+murmel contacts remove <address>            # Remove
 ```
 
 ### Network Directory
@@ -237,18 +237,18 @@ aw contacts remove <address>            # Remove
 Discover identities across organizations.
 
 ```bash
-aw directory                                    # List discoverable identities
-aw directory acme.com/alice                     # Look up a specific identity
-aw directory --capability code --query "python" # Filter
+murmel directory                                    # List discoverable identities
+murmel directory acme.com/alice                     # Look up a specific identity
+murmel directory --capability code --query "python" # Filter
 ```
 
-Use `aw doctor` for local support diagnostics:
+Use `murmel doctor` for local support diagnostics:
 
 ```bash
-aw doctor
-aw doctor --online --json
-aw doctor --fix --dry-run
-aw doctor support-bundle --output support-bundle.json --json
+murmel doctor
+murmel doctor --online --json
+murmel doctor --fix --dry-run
+murmel doctor support-bundle --output support-bundle.json --json
 ```
 
 For lifecycle, doctor, support bundle, and high-impact handoff details, see
@@ -259,18 +259,18 @@ For lifecycle, doctor, support bundle, and high-impact handoff details, see
 General-purpose resource reservations with TTL-based expiry.
 
 ```bash
-aw lock acquire --resource-key <key> --ttl-seconds 300
-aw lock renew --resource-key <key> --ttl-seconds 300
-aw lock release --resource-key <key>
-aw lock revoke --prefix <prefix>    # Revoke all matching
-aw lock list --prefix <prefix>      # List active locks
+murmel lock acquire --resource-key <key> --ttl-seconds 300
+murmel lock renew --resource-key <key> --ttl-seconds 300
+murmel lock release --resource-key <key>
+murmel lock revoke --prefix <prefix>    # Revoke all matching
+murmel lock list --prefix <prefix>      # List active locks
 ```
 
 ### Utility
 
 ```bash
-aw version    # Print version (checks for updates)
-aw update     # Self-update to latest release
+murmel version    # Print version (checks for updates)
+murmel update     # Self-update to latest release
 ```
 
 ### Global Flags
@@ -281,7 +281,7 @@ aw update     # Self-update to latest release
 --json                Output as JSON when supported
 ```
 
-`aw init` accepts `--aweb-url <url>` as its explicit server override and
+`murmel init` accepts `--aweb-url <url>` as its explicit server override and
 `--team <team>` to select the team to bind. Use `--token <jwt>` (or `AW_TOKEN`)
 for non-interactive auth.
 
@@ -290,13 +290,13 @@ For the full canonical CLI surface see
 
 ## Go Library
 
-`aw` is also a Go library. Import it to build your own aweb clients.
+`murmel` is also a Go library. Import it to build your own aweb clients.
 
 ### Packages
 
 | Package    | Purpose                                                            |
 |------------|--------------------------------------------------------------------|
-| `aw`       | HTTP client for the aweb API (chat, mail, locks, directory)        |
+| `murmel`       | HTTP client for the aweb API (chat, mail, locks, directory)        |
 | `awid`     | Protocol types, event parsing, identity resolution, TOFU pinning   |
 | `awconfig` | Config loading, account resolution, atomic file writes             |
 | `chat`     | High-level chat protocol (send/wait, SSE streaming)                |
@@ -310,7 +310,7 @@ under `pkg.go.dev/github.com/awebai/aw` or the live source at
 
 ## Background Heartbeat
 
-Normal `aw` commands do not send a background heartbeat anymore. Use `aw heartbeat` when you want an explicit presence ping; long-running runtimes such as `aw run` manage their own control/wake flow separately.
+Normal `murmel` commands do not send a background heartbeat anymore. Use `murmel heartbeat` when you want an explicit presence ping; long-running runtimes such as `murmel run` manage their own control/wake flow separately.
 
 ## Development
 

@@ -55,7 +55,7 @@ func formatCoordinationToolCall(call ToolCall) (DisplayLine, bool) {
 
 func formatAWCoordinationCommand(command string) (DisplayLine, bool) {
 	fields := strings.Fields(strings.TrimSpace(command))
-	if len(fields) < 3 || fields[0] != "aw" {
+	if len(fields) < 3 || fields[0] != "murmel" {
 		return DisplayLine{}, false
 	}
 

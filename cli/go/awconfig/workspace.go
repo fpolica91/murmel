@@ -71,9 +71,9 @@ type LegacySingleTeamWorkspace struct {
 	UpdatedAt       string `yaml:"updated_at,omitempty"`
 }
 
-const legacyWorkspaceFormatError = "workspace.yaml uses removed server_url. Run `aw init` to reinitialize this worktree."
-const legacyWorkspaceTeamAddressError = "workspace.yaml uses removed team_address. team_address was renamed to team_id with colon-form value; run `aw init` to regenerate this worktree."
-const legacyWorkspaceSingleTeamError = "workspace.yaml uses single-team shape. Run `aw workspace migrate-multi-team`."
+const legacyWorkspaceFormatError = "workspace.yaml uses removed server_url. Run `murmel init` to reinitialize this worktree."
+const legacyWorkspaceTeamAddressError = "workspace.yaml uses removed team_address. team_address was renamed to team_id with colon-form value; run `murmel init` to regenerate this worktree."
+const legacyWorkspaceSingleTeamError = "workspace.yaml uses single-team shape. Run `murmel workspace migrate-multi-team`."
 const legacyWorkspaceRemovedFieldsErrorPrefix = "workspace.yaml uses removed fields"
 const workspaceUnsupportedFieldsErrorPrefix = "workspace.yaml contains unsupported fields"
 
@@ -323,7 +323,7 @@ func (w *WorktreeWorkspace) UnmarshalYAML(value *yaml.Node) error {
 		return errors.New(legacyWorkspaceSingleTeamError)
 	}
 	if len(removed) > 0 {
-		return fmt.Errorf("%s: %s. Run `aw init` to reinitialize this worktree.", legacyWorkspaceRemovedFieldsErrorPrefix, strings.Join(removed, ", "))
+		return fmt.Errorf("%s: %s. Run `murmel init` to reinitialize this worktree.", legacyWorkspaceRemovedFieldsErrorPrefix, strings.Join(removed, ", "))
 	}
 	if len(unsupported) > 0 {
 		return fmt.Errorf("%s: %s. Remove them and keep only the canonical workspace binding keys.", workspaceUnsupportedFieldsErrorPrefix, strings.Join(unsupported, ", "))
@@ -388,7 +388,7 @@ func (w WorktreeWorkspace) MarshalYAML() (any, error) {
 }
 
 func DefaultWorktreeWorkspaceRelativePath() string {
-	return filepath.Join(".aw", "workspace.yaml")
+	return filepath.Join(".murmel", "workspace.yaml")
 }
 
 func FindWorktreeWorkspacePath(startDir string) (string, error) {

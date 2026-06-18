@@ -93,7 +93,7 @@ func TestInitTokenWorkspaceWritesCertlessBinding(t *testing.T) {
 func TestInitTokenWorkspaceRequiresToken(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("AW_TOKEN", "")
-	t.Setenv("HOME", dir) // isolate ~/.aw/token cache lookups to an empty dir
+	t.Setenv("HOME", dir) // isolate ~/.murmel/token cache lookups to an empty dir
 	savedTokenFlag := tokenFlag
 	tokenFlag = ""
 	t.Cleanup(func() { tokenFlag = savedTokenFlag })
@@ -106,7 +106,7 @@ func TestInitTokenWorkspaceRequiresToken(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error when no token available")
 	}
-	if !strings.Contains(err.Error(), "aw login") {
-		t.Fatalf("expected guidance to run aw login, got: %v", err)
+	if !strings.Contains(err.Error(), "murmel login") {
+		t.Fatalf("expected guidance to run murmel login, got: %v", err)
 	}
 }

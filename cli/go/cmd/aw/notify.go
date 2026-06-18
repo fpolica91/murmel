@@ -28,11 +28,11 @@ Silent if no pending chats; outputs JSON with additionalContext if there are
 messages waiting. Designed for Claude Code PostToolUse hooks so notifications
 are surfaced to the agent automatically.
 
-Hook configuration in .claude/settings.json (set up via aw init --setup-hooks):
+Hook configuration in .claude/settings.json (set up via murmel init --setup-hooks):
   "hooks": {
     "PostToolUse": [{
       "matcher": ".*",
-      "hooks": [{"type": "command", "command": "aw notify"}]
+      "hooks": [{"type": "command", "command": "murmel notify"}]
     }]
   }`,
 	Args: cobra.NoArgs,
@@ -77,11 +77,11 @@ func runNotify(cmd *cobra.Command, args []string) error {
 
 // notifyStampPath returns the cooldown stamp file path for an identity within a
 // specific CLI config scope. This keeps notify cooldown state local to the
-// active aw configuration instead of leaking across unrelated worktrees/tests
+// active murmel configuration instead of leaking across unrelated worktrees/tests
 // that happen to use the same identity handle.
 func notifyStampPath(identity, configPath string) string {
 	h := sha256.Sum256([]byte(identity + "\n" + configPath))
-	return filepath.Join(os.TempDir(), "aw-notify-"+hex.EncodeToString(h[:8]))
+	return filepath.Join(os.TempDir(), "murmel-notify-"+hex.EncodeToString(h[:8]))
 }
 
 // notifyCooldownActive returns true if the stamp file was modified within the cooldown period.
@@ -174,7 +174,7 @@ func formatNotifyOutput(result *chat.PendingResult, selfAlias string, selfDIDs .
 		sb.WriteString(padNotifyLine(fmt.Sprintf("║ 💬 Unread message from %s", from)))
 	}
 	sb.WriteString("╠══════════════════════════════════════════════════════════════╣\n")
-	sb.WriteString("║ YOU MUST RUN: aw chat pending                                ║\n")
+	sb.WriteString("║ YOU MUST RUN: murmel chat pending                                ║\n")
 	sb.WriteString("╚══════════════════════════════════════════════════════════════╝\n")
 	sb.WriteString("\n")
 	return sb.String()

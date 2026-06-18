@@ -40,7 +40,7 @@ type CheckUsernameResponse struct {
 // DIDAW is the stable id (did:aw:...) for that same keypair.
 //
 // InboundMode is the canonical wire value ("open" or "team_and_contacts")
-// chosen via `aw init --global --inbound-mode <...>` and translated
+// chosen via `murmel init --global --inbound-mode <...>` and translated
 // to underscored form by the CLI. Empty means "server default" —
 // matches the API-key bootstrap shape so the hosted onboarding path
 // honors the same flag.
@@ -53,7 +53,7 @@ type CliSignupRequest struct {
 }
 
 // CliSignupResponse carries the hosted onboarding reply: the signed team certificate
-// plus the identity metadata the CLI needs to write .aw/identity.yaml.
+// plus the identity metadata the CLI needs to write .murmel/identity.yaml.
 // Certificate is a base64-encoded team certificate JSON document.
 type CliSignupResponse struct {
 	UserID          string `json:"user_id"`

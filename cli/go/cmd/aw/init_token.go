@@ -18,7 +18,7 @@ import (
 
 // tokenInitOptions configures the token-only workspace writer.
 type tokenInitOptions struct {
-	// WorkingDir is the directory whose `.aw/` is initialized.
+	// WorkingDir is the directory whose `.murmel/` is initialized.
 	WorkingDir string
 	// AwebURL is the coordination server base URL recorded in the binding.
 	AwebURL string
@@ -30,7 +30,7 @@ type tokenInitOptions struct {
 	// HumanName / AgentType are optional descriptive workspace metadata.
 	HumanName string
 	AgentType string
-	// WriteContext ensures `.aw/context` exists when true.
+	// WriteContext ensures `.murmel/context` exists when true.
 	WriteContext bool
 }
 
@@ -46,15 +46,15 @@ type tokenInitOutput struct {
 
 // initTokenWorkspace writes a cert-less, token-authenticated workspace binding.
 //
-// It requires a usable bearer token (cached ~/.aw/token from `aw login`, or an
+// It requires a usable bearer token (cached ~/.murmel/token from `murmel login`, or an
 // injected --token/AW_TOKEN), then:
-//   - writes a cert-less `.aw/workspace.yaml` (aweb_url + one team membership
+//   - writes a cert-less `.murmel/workspace.yaml` (aweb_url + one team membership
 //     with no cert_path) via awconfig.SaveWorktreeWorkspaceTo,
-//   - creates a local self-custodial signing key + minimal `.aw/identity.yaml`
+//   - creates a local self-custodial signing key + minimal `.murmel/identity.yaml`
 //     (custody=self, DID derived from the key) so the E2EE messaging key path
 //     (setupOrRotateIdentityEncryptionKeyForDir) works — this key is for
 //     message encryption only and is NEVER sent for auth,
-//   - ensures `.aw/context` when requested.
+//   - ensures `.murmel/context` when requested.
 //
 // Auth is by bearer token; the team certificate cluster is not involved.
 func initTokenWorkspace(ctx context.Context, opts tokenInitOptions) (tokenInitOutput, error) {
@@ -79,7 +79,7 @@ func initTokenWorkspace(ctx context.Context, opts tokenInitOptions) (tokenInitOu
 	token, err := bearerTokenProvider(ctx)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return tokenInitOutput{}, usageError("no token available: run `aw login` or pass --token / set AW_TOKEN")
+			return tokenInitOutput{}, usageError("no token available: run `murmel login` or pass --token / set AW_TOKEN")
 		}
 		return tokenInitOutput{}, err
 	}
@@ -92,7 +92,7 @@ func initTokenWorkspace(ctx context.Context, opts tokenInitOptions) (tokenInitOu
 	// envelope signing). The signing key is keyed to the token identity (its
 	// JWT subject) and cached globally so re-onboarding the SAME human in a new
 	// workspace ("second device") reuses the same did:key. Without this, every
-	// `aw init` would mint a fresh key whose messages render [IDENTITY MISMATCH]
+	// `murmel init` would mint a fresh key whose messages render [IDENTITY MISMATCH]
 	// to recipients who already pinned the human's earlier published key.
 	tokenSubject, _ := awconfig.JWTSubjectUnverified(token)
 	did, err := ensureLocalSelfIdentity(workingDir, tokenSubject)
@@ -173,7 +173,7 @@ func initTokenWorkspace(ctx context.Context, opts tokenInitOptions) (tokenInitOu
 }
 
 // ensureLocalSelfIdentity guarantees a local self-custodial signing key and a
-// minimal `.aw/identity.yaml` exist for workingDir, returning the did:key. If a
+// minimal `.murmel/identity.yaml` exist for workingDir, returning the did:key. If a
 // valid identity is already present in the workspace it is reused; otherwise the
 // per-identity signing key cached globally for tokenSubject is reused (so the
 // SAME human re-onboarding in a fresh workspace keeps a stable did:key across

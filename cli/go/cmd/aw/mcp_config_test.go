@@ -21,20 +21,20 @@ func TestChannelMCPConfig(t *testing.T) {
 	if !ok {
 		t.Fatal("expected mcpServers key")
 	}
-	aweb, ok := servers["aweb"].(map[string]any)
+	srv, ok := servers["murmel"].(map[string]any)
 	if !ok {
-		t.Fatal("expected aweb server entry")
+		t.Fatal("expected murmel server entry")
 	}
 
-	if aweb["command"] != "npx" {
-		t.Fatalf("expected command=npx, got %v", aweb["command"])
+	if srv["command"] != "npx" {
+		t.Fatalf("expected command=npx, got %v", srv["command"])
 	}
-	args, ok := aweb["args"].([]any)
+	args, ok := srv["args"].([]any)
 	if !ok || len(args) != 1 || args[0] != "@awebai/claude-channel" {
-		t.Fatalf("expected args=[@awebai/claude-channel], got %v", aweb["args"])
+		t.Fatalf("expected args=[@awebai/claude-channel], got %v", srv["args"])
 	}
-	if aweb["cwd"] != "/tmp/test-project" {
-		t.Fatalf("expected cwd=/tmp/test-project, got %v", aweb["cwd"])
+	if srv["cwd"] != "/tmp/test-project" {
+		t.Fatalf("expected cwd=/tmp/test-project, got %v", srv["cwd"])
 	}
 }
 
@@ -46,11 +46,11 @@ func TestChannelMCPConfigNoHeaders(t *testing.T) {
 	json.Unmarshal(out, &parsed)
 
 	servers := parsed["mcpServers"].(map[string]any)
-	aweb := servers["aweb"].(map[string]any)
-	if _, ok := aweb["headers"]; ok {
+	srv := servers["murmel"].(map[string]any)
+	if _, ok := srv["headers"]; ok {
 		t.Fatal("channel config should not include headers")
 	}
-	if _, ok := aweb["url"]; ok {
+	if _, ok := srv["url"]; ok {
 		t.Fatal("channel config should not include url")
 	}
 }

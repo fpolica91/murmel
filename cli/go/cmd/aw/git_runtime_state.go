@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-const awebRuntimeExcludePattern = ".aw/"
+const awebRuntimeExcludePattern = ".murmel/"
 
 func ensureAwebRuntimeGitIgnored(workingDir string) error {
 	root, err := currentGitWorktreeRootFromDir(workingDir)
@@ -45,7 +45,7 @@ func ensureAwebRuntimeGitIgnored(workingDir string) error {
 func hasAwebRuntimeExclude(data []byte) bool {
 	for _, line := range strings.Split(string(data), "\n") {
 		trimmed := strings.TrimSpace(line)
-		if trimmed == awebRuntimeExcludePattern || trimmed == "/.aw/" || trimmed == ".aw" || trimmed == "/.aw" {
+		if trimmed == awebRuntimeExcludePattern || trimmed == "/.murmel/" || trimmed == ".murmel" || trimmed == "/.murmel" {
 			return true
 		}
 	}
@@ -69,17 +69,17 @@ func ensureAwebRuntimeUntrackedForAddWorktree(root string) error {
 	}
 	sb.WriteString("\n")
 	sb.WriteString("These files are local private per-worktree state. Tracking them makes new worktrees inherit the parent signing key, team certificates, and workspace binding.\n\n")
-	sb.WriteString("To fix this repo safely while keeping the local .aw files on disk:\n")
-	sb.WriteString("  printf '\\n.aw/\\n' >> .gitignore\n")
-	sb.WriteString("  git rm --cached -r .aw\n")
+	sb.WriteString("To fix this repo safely while keeping the local .murmel files on disk:\n")
+	sb.WriteString("  printf '\\n.murmel/\\n' >> .gitignore\n")
+	sb.WriteString("  git rm --cached -r .murmel\n")
 	sb.WriteString("  git add .gitignore\n")
 	sb.WriteString("  git commit -m \"Untrack aweb runtime state\"\n\n")
-	sb.WriteString("Then re-run `aw workspace add-worktree`.")
+	sb.WriteString("Then re-run `murmel workspace add-worktree`.")
 	return usageError("%s", sb.String())
 }
 
 func trackedAwebRuntimePaths(root string) ([]string, error) {
-	cmd := exec.Command("git", "-C", root, "ls-files", "-z", "--", ".aw")
+	cmd := exec.Command("git", "-C", root, "ls-files", "-z", "--", ".murmel")
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("list tracked aweb runtime files: %w", err)
@@ -90,7 +90,7 @@ func trackedAwebRuntimePaths(root string) ([]string, error) {
 		if path == "" {
 			continue
 		}
-		if path == ".aw" || strings.HasPrefix(path, ".aw/") {
+		if path == ".murmel" || strings.HasPrefix(path, ".murmel/") {
 			paths = append(paths, path)
 		}
 	}

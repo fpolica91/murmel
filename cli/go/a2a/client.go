@@ -141,7 +141,7 @@ func FetchCard(ctx context.Context, httpClient *http.Client, rawURL string) (Car
 func (c *Client) Call(ctx context.Context, rpcURL, method string, params any, credential Credential, out any) error {
 	requestID := strings.TrimSpace(c.RequestID)
 	if requestID == "" {
-		requestID = "aw-a2a-" + randomHexString(12)
+		requestID = "murmel-a2a-" + randomHexString(12)
 	}
 	reqBody, err := json.Marshal(RPCEnvelope{JSONRPC: "2.0", ID: requestID, Method: method, Params: params})
 	if err != nil {

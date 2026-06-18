@@ -39,7 +39,7 @@ func TestInitUserConfigWritesConfig(t *testing.T) {
 	if cfg.IdleWaitSeconds == nil || *cfg.IdleWaitSeconds != 45 {
 		t.Fatalf("expected idle_wait_seconds=45, got %#v", cfg.IdleWaitSeconds)
 	}
-	if !strings.Contains(output.String(), filepath.Join(dir, ".config", "aw", "run.json")) {
+	if !strings.Contains(output.String(), filepath.Join(dir, ".config", "murmel", "run.json")) {
 		t.Fatalf("expected output to mention config path, got %q", output.String())
 	}
 }

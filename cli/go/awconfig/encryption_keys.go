@@ -27,11 +27,11 @@ type EncryptionKeyRecord struct {
 }
 
 func DefaultWorktreeEncryptionStateRelativePath() string {
-	return filepath.Join(".aw", "encryption.yaml")
+	return filepath.Join(".murmel", "encryption.yaml")
 }
 
 func DefaultWorktreeEncryptionKeysRelativeDir() string {
-	return filepath.Join(".aw", "encryption-keys")
+	return filepath.Join(".murmel", "encryption-keys")
 }
 
 func WorktreeEncryptionStatePath(root string) string {

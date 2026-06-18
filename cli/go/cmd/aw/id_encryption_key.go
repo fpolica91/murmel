@@ -92,13 +92,13 @@ func runIDEncryptionKeyShow(cmd *cobra.Command, args []string) error {
 	state, err := awconfig.LoadEncryptionKeyStateFrom(statePath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return usageError("no local E2E encryption key state found; run `aw id encryption-key setup`")
+			return usageError("no local E2E encryption key state found; run `murmel id encryption-key setup`")
 		}
 		return err
 	}
 	record := state.ActiveRecord()
 	if record == nil {
-		return usageError("local E2E encryption key state has no active key; run `aw id encryption-key setup`")
+		return usageError("local E2E encryption key state has no active key; run `murmel id encryption-key setup`")
 	}
 	printOutput(idEncryptionKeyOutput{
 		Status:        "present",
@@ -130,7 +130,7 @@ func setupOrRotateIdentityEncryptionKeyForDir(ctx context.Context, workingDir st
 		return idEncryptionKeyOutput{}, usageError("E2E encryption keys are local self-custodial keys; this identity custody is %q", strings.TrimSpace(identity.Custody))
 	}
 	if got := awid.ComputeDIDKey(signingKey.Public().(ed25519.PublicKey)); got != strings.TrimSpace(identity.DID) {
-		return idEncryptionKeyOutput{}, usageError("current identity is invalid: .aw/identity.yaml did %q does not match .aw/signing.key %q", strings.TrimSpace(identity.DID), got)
+		return idEncryptionKeyOutput{}, usageError("current identity is invalid: .murmel/identity.yaml did %q does not match .murmel/signing.key %q", strings.TrimSpace(identity.DID), got)
 	}
 
 	statePath := awconfig.WorktreeEncryptionStatePath(identity.WorkingDir)
@@ -148,7 +148,7 @@ func setupOrRotateIdentityEncryptionKeyForDir(ctx context.Context, workingDir st
 		previousKeyID = active.KeyID
 	}
 	if rotate && strings.TrimSpace(previousKeyID) == "" {
-		return idEncryptionKeyOutput{}, usageError("no active E2E encryption key found; run `aw id encryption-key setup` first")
+		return idEncryptionKeyOutput{}, usageError("no active E2E encryption key found; run `murmel id encryption-key setup` first")
 	}
 
 	record := state.ActiveRecord()
@@ -230,7 +230,7 @@ func ensureLocalIdentityEncryptionKeyForDir(workingDir string) error {
 		return nil
 	}
 	if got := awid.ComputeDIDKey(signingKey.Public().(ed25519.PublicKey)); got != strings.TrimSpace(identity.DID) {
-		return usageError("current identity is invalid: .aw/identity.yaml did %q does not match .aw/signing.key %q", strings.TrimSpace(identity.DID), got)
+		return usageError("current identity is invalid: .murmel/identity.yaml did %q does not match .murmel/signing.key %q", strings.TrimSpace(identity.DID), got)
 	}
 
 	statePath := awconfig.WorktreeEncryptionStatePath(identity.WorkingDir)
@@ -433,12 +433,12 @@ type encryptionRecordKeyMaterial struct {
 
 func validateEncryptionRecordPrivateKey(root string, record *awconfig.EncryptionKeyRecord) (*encryptionRecordKeyMaterial, error) {
 	if record == nil {
-		return nil, usageError("local E2E encryption key state has no active key; run `aw id encryption-key setup`")
+		return nil, usageError("local E2E encryption key state has no active key; run `murmel id encryption-key setup`")
 	}
 	privatePath := resolveWorktreeRelativePath(root, record.PrivateKeyPath)
 	priv, err := awid.LoadX25519PrivateKey(privatePath)
 	if err != nil {
-		return nil, usageError("local E2E encryption private key is missing or unreadable at %s; restore it from backup before publishing this key, or run `aw id encryption-key rotate` to publish a new key", privatePath)
+		return nil, usageError("local E2E encryption private key is missing or unreadable at %s; restore it from backup before publishing this key, or run `murmel id encryption-key rotate` to publish a new key", privatePath)
 	}
 	rawPub := priv.PublicKey().Bytes()
 	keyID, err := awid.ComputeEncryptionKeyID(rawPub)
@@ -457,16 +457,16 @@ func validateEncryptionRecordPrivateKey(root string, record *awconfig.Encryption
 
 func validateEncryptionRecordAssertion(identity *awconfig.ResolvedIdentity, record *awconfig.EncryptionKeyRecord, assertion *awid.EncryptionKeyAssertion, material *encryptionRecordKeyMaterial) error {
 	if identity == nil || record == nil || assertion == nil || material == nil {
-		return usageError("local E2E encryption key state is incomplete; restore from backup or run `aw id encryption-key rotate`")
+		return usageError("local E2E encryption key state is incomplete; restore from backup or run `murmel id encryption-key rotate`")
 	}
 	if err := awid.VerifyEncryptionKeyAssertion(assertion, strings.TrimSpace(identity.DID), strings.TrimSpace(identity.StableID), time.Now().UTC()); err != nil {
-		return usageError("local E2E encryption-key assertion is stale or mismatched; restore the matching assertion from backup or run `aw id encryption-key rotate`: %v", err)
+		return usageError("local E2E encryption-key assertion is stale or mismatched; restore the matching assertion from backup or run `murmel id encryption-key rotate`: %v", err)
 	}
 	if strings.TrimSpace(assertion.EncryptionKeyID) != strings.TrimSpace(record.KeyID) ||
 		strings.TrimSpace(assertion.EncryptionKeyID) != material.KeyID ||
 		strings.TrimSpace(assertion.EncryptionPublicKey) != strings.TrimSpace(record.PublicKey) ||
 		strings.TrimSpace(assertion.EncryptionPublicKey) != material.PublicKey {
-		return usageError("local E2E encryption-key assertion does not match the active private key; restore the matching assertion from backup or run `aw id encryption-key rotate` before publishing")
+		return usageError("local E2E encryption-key assertion does not match the active private key; restore the matching assertion from backup or run `murmel id encryption-key rotate` before publishing")
 	}
 	return nil
 }
@@ -557,5 +557,5 @@ func resolveWorktreeRelativePath(root, path string) string {
 }
 
 func encryptionKeyBackupWarning() string {
-	return "Back up .aw/encryption-keys with this workspace. Losing archived E2E encryption keys makes old encrypted messages unrecoverable; AC/aweb cannot recover them."
+	return "Back up .murmel/encryption-keys with this workspace. Losing archived E2E encryption keys makes old encrypted messages unrecoverable; AC/aweb cannot recover them."
 }

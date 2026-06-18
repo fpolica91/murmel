@@ -17,10 +17,10 @@ func TestFindWorktreeContextPathLocalOnly(t *testing.T) {
 	if err := os.MkdirAll(nested, 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	if err := os.MkdirAll(filepath.Join(root, ".aw"), 0o755); err != nil {
-		t.Fatalf("mkdir .aw: %v", err)
+	if err := os.MkdirAll(filepath.Join(root, ".murmel"), 0o755); err != nil {
+		t.Fatalf("mkdir .murmel: %v", err)
 	}
-	ctxPath := filepath.Join(root, ".aw", "context")
+	ctxPath := filepath.Join(root, ".murmel", "context")
 	if err := os.WriteFile(ctxPath, []byte("human_account: alice\n"), 0o600); err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -55,7 +55,7 @@ func TestSaveWorktreeContextToWrites0600(t *testing.T) {
 	t.Parallel()
 
 	tmp := t.TempDir()
-	path := filepath.Join(tmp, ".aw", "context")
+	path := filepath.Join(tmp, ".murmel", "context")
 
 	ctx := &WorktreeContext{
 		HumanAccount: "alice",
@@ -77,7 +77,7 @@ func TestSaveWorktreeContextToRoundTrip(t *testing.T) {
 	t.Parallel()
 
 	tmp := t.TempDir()
-	path := filepath.Join(tmp, ".aw", "context")
+	path := filepath.Join(tmp, ".murmel", "context")
 
 	ctx := &WorktreeContext{
 		HumanAccount: "human",
@@ -99,7 +99,7 @@ func TestSaveWorktreeContextToReplacesExisting(t *testing.T) {
 	t.Parallel()
 
 	tmp := t.TempDir()
-	path := filepath.Join(tmp, ".aw", "context")
+	path := filepath.Join(tmp, ".murmel", "context")
 
 	ctx1 := &WorktreeContext{HumanAccount: "alice"}
 	if err := SaveWorktreeContextTo(path, ctx1); err != nil {
@@ -124,7 +124,7 @@ func TestSaveWorktreeContextToSingleTrailingNewline(t *testing.T) {
 	t.Parallel()
 
 	tmp := t.TempDir()
-	path := filepath.Join(tmp, ".aw", "context")
+	path := filepath.Join(tmp, ".murmel", "context")
 
 	ctx := &WorktreeContext{HumanAccount: "alice"}
 	if err := SaveWorktreeContextTo(path, ctx); err != nil {
@@ -148,7 +148,7 @@ func TestSaveWorktreeContextToNoTempFileLeftBehind(t *testing.T) {
 	t.Parallel()
 
 	tmp := t.TempDir()
-	dir := filepath.Join(tmp, ".aw")
+	dir := filepath.Join(tmp, ".murmel")
 	path := filepath.Join(dir, "context")
 
 	ctx := &WorktreeContext{HumanAccount: "alice"}

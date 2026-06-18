@@ -43,7 +43,7 @@ func mustIdentityWebClient(t *testing.T, url string, alias string) *aweb.Client 
 func deliveredIDsTestPath(t *testing.T) string {
 	t.Helper()
 	tmp := t.TempDir()
-	path := filepath.Join(tmp, ".aw", chat.DeliveredIDsFileName)
+	path := filepath.Join(tmp, ".murmel", chat.DeliveredIDsFileName)
 	t.Setenv(chat.DeliveredIDsPathEnv, path)
 	return tmp
 }
@@ -131,7 +131,7 @@ func TestResolveMailWakeUsesFromAddressWhenAliasMissing(t *testing.T) {
 	if !strings.Contains(result.CycleContext, "from otherco/alice (mail)") {
 		t.Fatalf("expected wake context to use sender address, got %q", result.CycleContext)
 	}
-	if !strings.Contains(result.CycleContext, `aw mail reply msg-1 --body "..."`) {
+	if !strings.Contains(result.CycleContext, `murmel mail reply msg-1 --body "..."`) {
 		t.Fatalf("expected wake context to include mail reply hint, got %q", result.CycleContext)
 	}
 }

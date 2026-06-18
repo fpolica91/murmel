@@ -309,7 +309,7 @@ func (c *Client) prepareE2EEChatCreate(ctx context.Context, payload *ChatCreateS
 		return errors.New("E2E messaging requires a local self-custodial signing key")
 	}
 	if c.e2eeEncryptionKey == nil {
-		return errors.New("E2E messaging requires a local encryption key; upgrade aw and run `aw id encryption-key setup`, or pass --plaintext only for explicit server-readable messaging")
+		return errors.New("E2E messaging requires a local encryption key; upgrade murmel and run `murmel id encryption-key setup`, or pass --plaintext only for explicit server-readable messaging")
 	}
 	recipients, err := c.e2eeChatRecipients(ctx, payload.ToAliases, payload.ToDIDs, payload.ToAddresses)
 	if err != nil {
@@ -370,7 +370,7 @@ func (c *Client) prepareE2EEChatSend(ctx context.Context, sessionID string, payl
 		return errors.New("E2E messaging requires a local self-custodial signing key")
 	}
 	if c.e2eeEncryptionKey == nil {
-		return errors.New("E2E messaging requires a local encryption key; upgrade aw and run `aw id encryption-key setup`, or pass --plaintext only for explicit server-readable messaging")
+		return errors.New("E2E messaging requires a local encryption key; upgrade murmel and run `murmel id encryption-key setup`, or pass --plaintext only for explicit server-readable messaging")
 	}
 	recipients, err := c.e2eeChatRecipientsForSession(ctx, sessionID)
 	if err != nil {
@@ -564,7 +564,7 @@ func (c *Client) e2eeChatRecipients(ctx context.Context, aliases []string, dids 
 			return nil, err
 		}
 		if identity.EncryptionKey == nil {
-			return nil, errors.New("recipient has no published E2E encryption key; ask them to upgrade aw/Pi/channel and run `aw id encryption-key setup`, or explicitly send a server-readable upgrade note with --plaintext")
+			return nil, errors.New("recipient has no published E2E encryption key; ask them to upgrade murmel/Pi/channel and run `murmel id encryption-key setup`, or explicitly send a server-readable upgrade note with --plaintext")
 		}
 		recipients = append(recipients, E2EERecipientKey{
 			Address:        strings.TrimSpace(identity.Address),
@@ -586,7 +586,7 @@ func (c *Client) e2eeChatRecipients(ctx context.Context, aliases []string, dids 
 				recipients = append(recipients, recipient)
 				continue
 			}
-			return nil, errors.New("recipient has no published E2E encryption key; ask them to upgrade aw/Pi/channel and run `aw id encryption-key setup`, or explicitly send a server-readable upgrade note with --plaintext")
+			return nil, errors.New("recipient has no published E2E encryption key; ask them to upgrade murmel/Pi/channel and run `murmel id encryption-key setup`, or explicitly send a server-readable upgrade note with --plaintext")
 		}
 		recipients = append(recipients, E2EERecipientKey{
 			Address:        strings.TrimSpace(identity.Address),

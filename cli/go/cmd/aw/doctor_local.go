@@ -117,7 +117,7 @@ func (r *doctorRunner) runLocalChecks() {
 				doctorStatusInfo,
 				state.workspacePath,
 				"No local workspace binding was found.",
-				"Run `aw init` when you are ready to connect this directory.",
+				"Run `murmel init` when you are ready to connect this directory.",
 				map[string]any{"state": "missing"},
 			))
 			return
@@ -135,7 +135,7 @@ func (r *doctorRunner) runLocalChecks() {
 			doctorStatusFail,
 			state.workspacePath,
 			"Local workspace binding could not be parsed.",
-			"Repair or recreate .aw/workspace.yaml before relying on local coordination state.",
+			"Repair or recreate .murmel/workspace.yaml before relying on local coordination state.",
 			map[string]any{"error": err.Error()},
 		))
 		r.addWorkspaceDependentBlockedChecks(state.workspacePath, doctorCheckWorkspaceParse)
@@ -186,7 +186,7 @@ func (r *doctorRunner) runWorkspaceChecks(state *doctorLocalState) {
 			doctorStatusFail,
 			&doctorTarget{Type: "workspace", ID: strings.TrimSpace(state.workspacePath), Display: abbreviateUserHome(state.workspacePath)},
 			"Workspace aweb_url is not a valid local URL value.",
-			"Update .aw/workspace.yaml with a valid http(s) aweb_url.",
+			"Update .murmel/workspace.yaml with a valid http(s) aweb_url.",
 			map[string]any{"error": err.Error()},
 		))
 	} else {
@@ -209,7 +209,7 @@ func (r *doctorRunner) runWorkspaceChecks(state *doctorLocalState) {
 		activeTeam = strings.TrimSpace(state.teamState.ActiveTeam)
 	}
 	if activeTeam == "" {
-		check := localPathCheck(doctorCheckTeamsActiveTeam, doctorStatusFail, awconfig.TeamStatePath(state.workingDir), "teams.yaml active_team is missing.", "Recreate or repair .aw/teams.yaml.", nil)
+		check := localPathCheck(doctorCheckTeamsActiveTeam, doctorStatusFail, awconfig.TeamStatePath(state.workingDir), "teams.yaml active_team is missing.", "Recreate or repair .murmel/teams.yaml.", nil)
 		check.Fix = safeDoctorFixInfo(doctorCheckTeamsActiveTeam)
 		r.add(check)
 	} else {
@@ -217,7 +217,7 @@ func (r *doctorRunner) runWorkspaceChecks(state *doctorLocalState) {
 	}
 
 	if state.membership == nil {
-		check := localCheck(doctorCheckWorkspaceMembership, doctorStatusFail, &doctorTarget{Type: "team", ID: activeTeam}, "teams.yaml active_team is not present in workspace memberships.", "Run `aw id team switch <team>` or reinitialize the workspace binding.", nil)
+		check := localCheck(doctorCheckWorkspaceMembership, doctorStatusFail, &doctorTarget{Type: "team", ID: activeTeam}, "teams.yaml active_team is not present in workspace memberships.", "Run `murmel id team switch <team>` or reinitialize the workspace binding.", nil)
 		if activeTeam != "" {
 			check.Fix = safeDoctorFixInfo(doctorCheckWorkspaceMembership)
 		}
@@ -414,9 +414,9 @@ func (r *doctorRunner) runSigningKeyFileChecks(state *doctorLocalState) {
 	if _, err := os.Stat(state.signingKeyPath); err != nil {
 		var check doctorCheck
 		if errors.Is(err, os.ErrNotExist) {
-			check = localPathCheck(doctorCheckSigningKeyExists, doctorStatusFail, state.signingKeyPath, "Signing key file is missing.", "Restore .aw/signing.key or reconnect this worktree.", map[string]any{"state": "missing"})
+			check = localPathCheck(doctorCheckSigningKeyExists, doctorStatusFail, state.signingKeyPath, "Signing key file is missing.", "Restore .murmel/signing.key or reconnect this worktree.", map[string]any{"state": "missing"})
 		} else {
-			check = localPathCheck(doctorCheckSigningKeyExists, doctorStatusFail, state.signingKeyPath, "Signing key file could not be inspected.", "Check file permissions for .aw/signing.key.", map[string]any{"error": err.Error()})
+			check = localPathCheck(doctorCheckSigningKeyExists, doctorStatusFail, state.signingKeyPath, "Signing key file could not be inspected.", "Check file permissions for .murmel/signing.key.", map[string]any{"error": err.Error()})
 		}
 		if state.cert != nil && strings.TrimSpace(state.cert.Lifetime) == awid.LifetimePersistent {
 			check.Handoff = globalIdentityReplacementReviewHandoff(doctorAuthorityStatusNotDetected, nil)
@@ -481,12 +481,12 @@ func (r *doctorRunner) runIdentityFileOnlyChecks(state *doctorLocalState) {
 		if errors.Is(err, os.ErrNotExist) {
 			return
 		}
-		r.add(localPathCheck(doctorCheckIdentityParse, doctorStatusFail, state.identityPath, "Identity file could not be inspected.", "Check file permissions for .aw/identity.yaml.", map[string]any{"error": err.Error()}))
+		r.add(localPathCheck(doctorCheckIdentityParse, doctorStatusFail, state.identityPath, "Identity file could not be inspected.", "Check file permissions for .murmel/identity.yaml.", map[string]any{"error": err.Error()}))
 		return
 	}
 	identity, err := awconfig.LoadWorktreeIdentityFrom(state.identityPath)
 	if err != nil {
-		r.add(localPathCheck(doctorCheckIdentityParse, doctorStatusFail, state.identityPath, "Identity file could not be parsed.", "Repair .aw/identity.yaml before relying on local identity state.", map[string]any{"error": err.Error()}))
+		r.add(localPathCheck(doctorCheckIdentityParse, doctorStatusFail, state.identityPath, "Identity file could not be parsed.", "Repair .murmel/identity.yaml before relying on local identity state.", map[string]any{"error": err.Error()}))
 		return
 	}
 	state.identity = identity
@@ -513,7 +513,7 @@ func (r *doctorRunner) runIdentityChecks(state *doctorLocalState) {
 		if errors.Is(err, os.ErrNotExist) {
 			identityExists = false
 		} else {
-			r.add(localPathCheck(doctorCheckIdentityParse, doctorStatusFail, state.identityPath, "Identity file could not be inspected.", "Check file permissions for .aw/identity.yaml.", map[string]any{"error": err.Error()}))
+			r.add(localPathCheck(doctorCheckIdentityParse, doctorStatusFail, state.identityPath, "Identity file could not be inspected.", "Check file permissions for .murmel/identity.yaml.", map[string]any{"error": err.Error()}))
 			r.addIdentityDependentBlockedChecks(doctorCheckIdentityParse)
 			return
 		}
@@ -536,7 +536,7 @@ func (r *doctorRunner) runIdentityChecks(state *doctorLocalState) {
 			doctorStatusFail,
 			state.identityPath,
 			"Global workspace requires identity.yaml, but it is missing.",
-			"Restore .aw/identity.yaml or reconnect this global identity.",
+			"Restore .murmel/identity.yaml or reconnect this global identity.",
 			map[string]any{"state": "missing", "identity_scope": awid.IdentityModeGlobal, "legacy_lifetime": lifetime},
 		)
 		check.Handoff = globalIdentityLifecycleReviewHandoff()
@@ -573,7 +573,7 @@ func (r *doctorRunner) runIdentityChecks(state *doctorLocalState) {
 			doctorStatusFail,
 			state.identityPath,
 			"Identity file could not be parsed.",
-			"Repair .aw/identity.yaml before relying on local identity state.",
+			"Repair .murmel/identity.yaml before relying on local identity state.",
 			map[string]any{"error": err.Error()},
 		)
 		if lifetime == awid.LifetimePersistent {
@@ -927,7 +927,7 @@ func resolveWorkspaceCertificatePath(workingDir, certPath string) string {
 	if filepath.IsAbs(certPath) {
 		return filepath.Clean(certPath)
 	}
-	return filepath.Join(workingDir, ".aw", certPath)
+	return filepath.Join(workingDir, ".murmel", certPath)
 }
 
 func sanitizeLocalURLForOutput(raw string) (string, error) {

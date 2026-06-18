@@ -114,7 +114,7 @@ func TestExtractBinary(t *testing.T) {
 	tw := tar.NewWriter(gw)
 
 	hdr := &tar.Header{
-		Name: "aw",
+		Name: "murmel",
 		Mode: 0755,
 		Size: int64(len(binaryContent)),
 	}
@@ -138,11 +138,11 @@ func TestExtractBinary(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := extractBinary(archivePath, "aw", destDir); err != nil {
+	if err := extractBinary(archivePath, "murmel", destDir); err != nil {
 		t.Fatalf("extractBinary failed: %v", err)
 	}
 
-	extracted, err := os.ReadFile(filepath.Join(destDir, "aw"))
+	extracted, err := os.ReadFile(filepath.Join(destDir, "murmel"))
 	if err != nil {
 		t.Fatalf("reading extracted binary: %v", err)
 	}
@@ -191,7 +191,7 @@ func TestExtractBinary_PathTraversal(t *testing.T) {
 			// Optionally write legitimate binary
 			if tt.includeLegit {
 				legitHdr := &tar.Header{
-					Name: "aw",
+					Name: "murmel",
 					Mode: 0755,
 					Size: int64(len(legitimateContent)),
 				}
@@ -217,7 +217,7 @@ func TestExtractBinary_PathTraversal(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			err := extractBinary(archivePath, "aw", destDir)
+			err := extractBinary(archivePath, "murmel", destDir)
 			if tt.wantErr {
 				if err == nil {
 					t.Error("expected error for traversal-only archive")
@@ -229,7 +229,7 @@ func TestExtractBinary_PathTraversal(t *testing.T) {
 			}
 
 			// Verify only the legitimate binary was extracted
-			extracted, err := os.ReadFile(filepath.Join(destDir, "aw"))
+			extracted, err := os.ReadFile(filepath.Join(destDir, "murmel"))
 			if err != nil {
 				t.Fatalf("reading extracted binary: %v", err)
 			}
@@ -403,7 +403,7 @@ func TestPersistentPreRunSkipsOnJSONFlag(t *testing.T) {
 	resetUpdateCheckTestState(t, "1.0.0", server.URL, &buf, true)
 	jsonFlag = true
 
-	maybeCheckLatestVersion(testCommandPath("aw", "mail", "inbox"))
+	maybeCheckLatestVersion(testCommandPath("murmel", "mail", "inbox"))
 
 	if calls != 0 {
 		t.Fatalf("release calls=%d, want 0", calls)
@@ -420,7 +420,7 @@ func TestPersistentPreRunSkipsOnNonTTYStdout(t *testing.T) {
 	var buf bytes.Buffer
 	resetUpdateCheckTestState(t, "1.0.0", server.URL, &buf, false)
 
-	maybeCheckLatestVersion(testCommandPath("aw", "mail", "inbox"))
+	maybeCheckLatestVersion(testCommandPath("murmel", "mail", "inbox"))
 
 	if calls != 0 {
 		t.Fatalf("release calls=%d, want 0", calls)
@@ -438,7 +438,7 @@ func TestPersistentPreRunSkipsOnEnvVar(t *testing.T) {
 	resetUpdateCheckTestState(t, "1.0.0", server.URL, &buf, true)
 	t.Setenv("AW_NO_UPDATE_CHECK", "1")
 
-	maybeCheckLatestVersion(testCommandPath("aw", "mail", "inbox"))
+	maybeCheckLatestVersion(testCommandPath("murmel", "mail", "inbox"))
 
 	if calls != 0 {
 		t.Fatalf("release calls=%d, want 0", calls)
@@ -450,10 +450,10 @@ func TestPersistentPreRunSkipsOnEnvVar(t *testing.T) {
 
 func TestPersistentPreRunSkipsOnSkipListCommand(t *testing.T) {
 	for _, path := range [][]string{
-		{"aw", "heartbeat"},
-		{"aw", "run"},
-		{"aw", "events"},
-		{"aw", "lock", "renew"},
+		{"murmel", "heartbeat"},
+		{"murmel", "run"},
+		{"murmel", "events"},
+		{"murmel", "lock", "renew"},
 	} {
 		t.Run(strings.Join(path[1:], "_"), func(t *testing.T) {
 			calls := 0
@@ -481,7 +481,7 @@ func TestPersistentPreRunFiresOnAlwaysListCommand(t *testing.T) {
 	var buf bytes.Buffer
 	resetUpdateCheckTestState(t, "1.0.0", server.URL, &buf, true)
 
-	maybeCheckLatestVersion(testCommandPath("aw", "mail", "inbox"))
+	maybeCheckLatestVersion(testCommandPath("murmel", "mail", "inbox"))
 
 	if calls != 1 {
 		t.Fatalf("release calls=%d, want 1", calls)
@@ -535,7 +535,7 @@ func TestUpdateCacheBestEffortWriteFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	updateCheckCachePath = func() string {
-		return filepath.Join(blocker, "aw", "update-check.json")
+		return filepath.Join(blocker, "murmel", "update-check.json")
 	}
 
 	checkLatestVersionWithCache(&buf, "1.0.0", server.URL)
@@ -563,7 +563,7 @@ func resetUpdateCheckTestState(t *testing.T, testVersion, apiBase string, output
 	updateCheckOutput = output
 	updateCheckNow = func() time.Time { return time.Date(2026, 5, 6, 10, 0, 0, 0, time.UTC) }
 	updateCheckStdoutIsTTY = func() bool { return stdoutTTY }
-	cachePath := filepath.Join(t.TempDir(), "aw", "update-check.json")
+	cachePath := filepath.Join(t.TempDir(), "murmel", "update-check.json")
 	updateCheckCachePath = func() string { return cachePath }
 	t.Setenv("AW_NO_UPDATE_CHECK", "")
 	t.Cleanup(func() {
@@ -597,7 +597,7 @@ func updateCheckTestServer(t *testing.T, tagName string, calls *int) *httptest.S
 
 func testCommandPath(parts ...string) *cobra.Command {
 	if len(parts) == 0 {
-		return &cobra.Command{Use: "aw"}
+		return &cobra.Command{Use: "murmel"}
 	}
 	root := &cobra.Command{Use: parts[0]}
 	current := root

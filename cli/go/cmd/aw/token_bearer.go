@@ -16,7 +16,7 @@ import (
 
 // mintJWTFromSession exchanges a Better Auth session token for a short-lived
 // JWKS-verifiable JWT at tokenURL (GET with the session as a Bearer credential,
-// enabled by Better Auth's bearer plugin). It is shared by `aw login` (initial
+// enabled by Better Auth's bearer plugin). It is shared by `murmel login` (initial
 // exchange) and the SimpleAuth refresher (re-mint on expiry), so both stay
 // symmetric. The session is preserved as the refresh credential.
 func mintJWTFromSession(ctx context.Context, tokenURL, sessionToken string) (*awconfig.CachedToken, error) {
@@ -81,7 +81,7 @@ func (sessionRefresher) Refresh(ctx context.Context, refreshToken string) (*awco
 
 // injectedBearerToken returns an explicitly supplied bearer JWT, preferring
 // the --token flag, then the AW_TOKEN environment variable. An injected token
-// is for non-interactive use (CI/scripts): it bypasses the ~/.aw/token cache
+// is for non-interactive use (CI/scripts): it bypasses the ~/.murmel/token cache
 // and is never refreshed — the caller owns its lifetime. Returns "" when
 // neither source is set.
 func injectedBearerToken() string {
@@ -101,7 +101,7 @@ func hasInjectedBearerToken() bool {
 // explicit --token/AW_TOKEN override wins and is returned verbatim (no cache,
 // no refresh). Otherwise it loads and auto-refreshes the cached token, or
 // returns an error wrapping os.ErrNotExist when no token is cached (the user
-// has not run `aw login`). Installed on the coordination client via
+// has not run `murmel login`). Installed on the coordination client via
 // SetBearerProvider so every command auto-attaches the token when no team
 // certificate is present.
 func bearerTokenProvider(ctx context.Context) (string, error) {
@@ -131,7 +131,7 @@ func bearerClientIfAvailable(baseURL, teamID string) (*aweb.Client, error) {
 }
 
 // resolveWorkspacelessBearerClient builds a bearer client for a user who ran
-// `aw login` but has no `.aw/` workspace at all. The base URL comes from
+// `murmel login` but has no `.murmel/` workspace at all. The base URL comes from
 // AWEB_URL (resolveAuthenticatedBaseURL); the team from --team if given,
 // otherwise the server's sole-membership fallback applies. Returns an error
 // when no token is cached or no base URL is configured, so the caller surfaces

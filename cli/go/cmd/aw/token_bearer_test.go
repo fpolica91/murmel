@@ -5,7 +5,7 @@ import "testing"
 // TestInjectedBearerTokenPrecedence verifies the override precedence used for
 // non-interactive auth: the --token flag wins over AW_TOKEN, AW_TOKEN is used
 // when the flag is empty, and both being empty yields no injected token (so the
-// cached ~/.aw/token path applies).
+// cached ~/.murmel/token path applies).
 func TestInjectedBearerTokenPrecedence(t *testing.T) {
 	saved := tokenFlag
 	t.Cleanup(func() { tokenFlag = saved })

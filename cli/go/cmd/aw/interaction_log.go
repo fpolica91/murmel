@@ -49,7 +49,7 @@ func interactionLogRoot(startDir string) string {
 
 func interactionLogPath(startDir string) string {
 	root := interactionLogRoot(startDir)
-	return filepath.Join(root, ".aw", interactionLogFileName)
+	return filepath.Join(root, ".murmel", interactionLogFileName)
 }
 
 func appendInteractionLogForDir(startDir string, entry *InteractionEntry) {

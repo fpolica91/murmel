@@ -24,7 +24,7 @@ func TestLoadUserConfigReadsFile(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("HOME", dir)
 	t.Setenv("AW_CONFIG_PATH", "")
-	path := filepath.Join(dir, ".config", "aw", "run.json")
+	path := filepath.Join(dir, ".config", "murmel", "run.json")
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatalf("mkdir failed: %v", err)
 	}
@@ -61,14 +61,14 @@ func TestLoadUserConfigLocalOverridesGlobal(t *testing.T) {
 	t.Setenv("HOME", dir)
 	t.Setenv("AW_CONFIG_PATH", "")
 	workspaceRoot := filepath.Join(dir, "workspace")
-	if err := os.MkdirAll(filepath.Join(workspaceRoot, ".aw"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(workspaceRoot, ".murmel"), 0o755); err != nil {
 		t.Fatalf("mkdir workspace failed: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(workspaceRoot, ".aw", "context"), []byte("default_account: rose\n"), 0o600); err != nil {
-		t.Fatalf("write .aw/context failed: %v", err)
+	if err := os.WriteFile(filepath.Join(workspaceRoot, ".murmel", "context"), []byte("default_account: rose\n"), 0o600); err != nil {
+		t.Fatalf("write .murmel/context failed: %v", err)
 	}
 
-	globalPath := filepath.Join(dir, ".config", "aw", "run.json")
+	globalPath := filepath.Join(dir, ".config", "murmel", "run.json")
 	if err := os.MkdirAll(filepath.Dir(globalPath), 0o755); err != nil {
 		t.Fatalf("mkdir global config failed: %v", err)
 	}
@@ -76,7 +76,7 @@ func TestLoadUserConfigLocalOverridesGlobal(t *testing.T) {
 		t.Fatalf("write global config failed: %v", err)
 	}
 
-	localPath := filepath.Join(workspaceRoot, ".aw", "run.json")
+	localPath := filepath.Join(workspaceRoot, ".murmel", "run.json")
 	if err := os.WriteFile(localPath, []byte(`{"base_prompt":"local base","comms_prompt_suffix":"local comms","idle_wait_seconds":9,"services":[{"name":"frontend","command":"make run-frontend","description":"Frontend UI"}]}`), 0o600); err != nil {
 		t.Fatalf("write local config failed: %v", err)
 	}

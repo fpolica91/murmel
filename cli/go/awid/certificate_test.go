@@ -141,7 +141,7 @@ func TestSaveAndLoadTeamCertificate(t *testing.T) {
 	}
 
 	dir := t.TempDir()
-	path := filepath.Join(dir, ".aw", "team-cert.pem")
+	path := filepath.Join(dir, ".murmel", "team-cert.pem")
 
 	if err := SaveTeamCertificate(path, cert); err != nil {
 		t.Fatal(err)

@@ -9,8 +9,8 @@ import (
 
 func TestAppendInteractionLogForDirDedupesByMessageID(t *testing.T) {
 	tmp := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(tmp, ".aw"), 0o755); err != nil {
-		t.Fatalf("mkdir .aw: %v", err)
+	if err := os.MkdirAll(filepath.Join(tmp, ".murmel"), 0o755); err != nil {
+		t.Fatalf("mkdir .murmel: %v", err)
 	}
 
 	entry := &InteractionEntry{

@@ -141,7 +141,7 @@ func writeDefaultTeamStateForTest(t *testing.T, workingDir string) string {
 
 func writeContextForTest(t *testing.T, workingDir string, ctx awconfig.WorktreeContext) string {
 	t.Helper()
-	path := filepath.Join(workingDir, ".aw", "context")
+	path := filepath.Join(workingDir, ".murmel", "context")
 	if err := awconfig.SaveWorktreeContextTo(path, &ctx); err != nil {
 		t.Fatalf("write worktree context: %v", err)
 	}
@@ -389,7 +389,7 @@ func writeKnownAgentPinForTest(t *testing.T, workingDir, address, registryURL st
 		Server:   registryURL,
 	}
 	pins.Addresses[address] = stableID
-	if err := pins.Save(filepath.Join(workingDir, ".config", "aw", "known_agents.yaml")); err != nil {
+	if err := pins.Save(filepath.Join(workingDir, ".config", "murmel", "known_agents.yaml")); err != nil {
 		t.Fatalf("write known_agents: %v", err)
 	}
 	return did, stableID

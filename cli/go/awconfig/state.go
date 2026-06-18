@@ -10,7 +10,7 @@ func DefaultUserStateDir() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".config", "aw"), nil
+	return filepath.Join(home, ".config", "murmel"), nil
 }
 
 func DefaultAWIDStateDir() (string, error) {

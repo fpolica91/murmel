@@ -150,7 +150,7 @@ func registryAddressDeliveryOrigin(address *awid.RegistryAddress) string {
 }
 
 // formatIDEncryptionKey renders the human-readable output for the
-// `aw id encryption-key` command.
+// `murmel id encryption-key` command.
 func formatIDEncryptionKey(v any) string {
 	out := v.(idEncryptionKeyOutput)
 	var sb strings.Builder

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# aw (aweb CLI) installation script
+# murmel (Murmel CLI) installation script
 # Usage: curl -fsSL https://raw.githubusercontent.com/awebai/aw/main/install.sh | bash
 #
 # Security note: For maximum security, download and inspect the script first:
@@ -16,7 +16,7 @@
 set -e
 
 REPO="awebai/aw"
-BINARY="aw"
+BINARY="murmel"
 
 # Track where we installed for PATH warning messages
 LAST_INSTALL_PATH=""
@@ -182,7 +182,7 @@ verify_checksum() {
     log_success "Checksum verified"
 }
 
-# Returns a list of full paths to 'aw' found in PATH (earlier entries first)
+# Returns a list of full paths to 'murmel' found in PATH (earlier entries first)
 get_aw_paths_in_path() {
     local IFS=':'
     local -a entries
@@ -191,13 +191,13 @@ get_aw_paths_in_path() {
     local p
     for p in "${entries[@]}"; do
         [ -z "$p" ] && continue
-        if [ -x "$p/aw" ]; then
+        if [ -x "$p/murmel" ]; then
             # Resolve symlink if possible
             local resolved
             if command -v readlink >/dev/null 2>&1; then
-                resolved=$(readlink -f "$p/aw" 2>/dev/null || printf '%s' "$p/aw")
+                resolved=$(readlink -f "$p/murmel" 2>/dev/null || printf '%s' "$p/murmel")
             else
-                resolved="$p/aw"
+                resolved="$p/murmel"
             fi
             # avoid duplicates
             local skip=0
@@ -217,7 +217,7 @@ get_aw_paths_in_path() {
     done
 }
 
-warn_if_multiple_aw() {
+warn_if_multiple_murmel() {
     # Bash 3.2-compatible approach (no mapfile, no process substitution)
     local paths_output
     paths_output=$(get_aw_paths_in_path)
@@ -230,8 +230,8 @@ warn_if_multiple_aw() {
         return 0
     fi
 
-    log_warning "Multiple 'aw' executables found on your PATH. An older copy may be executed instead of the one we installed."
-    echo "Found the following 'aw' executables (entries earlier in PATH take precedence):"
+    log_warning "Multiple 'murmel' executables found on your PATH. An older copy may be executed instead of the one we installed."
+    echo "Found the following 'murmel' executables (entries earlier in PATH take precedence):"
     local i=1
     local p
     for p in "${aw_paths[@]}"; do
@@ -250,36 +250,36 @@ warn_if_multiple_aw() {
         # Compare first PATH entry vs installed path
         local first="${aw_paths[0]}"
         if [ "$first" != "$LAST_INSTALL_PATH" ]; then
-            log_warning "The 'aw' executable that appears first in your PATH is different from the one we installed."
-            echo "To make the newly installed 'aw' the one you get when running 'aw', either:"
+            log_warning "The 'murmel' executable that appears first in your PATH is different from the one we installed."
+            echo "To make the newly installed 'murmel' the one you get when running 'murmel', either:"
             echo "  - Remove or rename the older $first from your PATH, or"
             echo "  - Reorder your PATH so that $(dirname "$LAST_INSTALL_PATH") appears before $(dirname "$first")"
-            echo "After updating PATH, restart your shell and run 'aw version' to confirm."
+            echo "After updating PATH, restart your shell and run 'murmel version' to confirm."
         else
-            echo "The installed 'aw' is first in your PATH."
+            echo "The installed 'murmel' is first in your PATH."
         fi
     else
-        log_warning "We couldn't determine where we installed 'aw' during this run."
+        log_warning "We couldn't determine where we installed 'murmel' during this run."
     fi
 }
 
 # Verify installation
 verify_installation() {
-    # If multiple 'aw' binaries exist on PATH, warn the user before verification
-    warn_if_multiple_aw || true
+    # If multiple 'murmel' binaries exist on PATH, warn the user before verification
+    warn_if_multiple_murmel || true
 
-    if command -v aw >/dev/null 2>&1; then
-        log_success "aw is installed and ready!"
+    if command -v murmel >/dev/null 2>&1; then
+        log_success "murmel is installed and ready!"
         echo ""
-        aw version 2>/dev/null || echo "aw (development build)"
+        murmel version 2>/dev/null || echo "murmel (development build)"
         echo ""
         echo "Get started:"
-        echo "  aw run claude      # Guided onboarding + coordination runtime"
-        echo "  aw --help          # See all commands"
+        echo "  murmel run claude      # Guided onboarding + coordination runtime"
+        echo "  murmel --help          # See all commands"
         echo ""
         return 0
     else
-        log_error "aw was installed but is not in PATH"
+        log_error "murmel was installed but is not in PATH"
         return 1
     fi
 }
@@ -295,10 +295,10 @@ install_from_release() {
 
     # Construct download URL
     local ext="tar.gz"
-    local binary="aw"
+    local binary="murmel"
     if [[ "$platform" == windows_* ]]; then
         ext="zip"
-        binary="aw.exe"
+        binary="murmel.exe"
     fi
 
     local archive_name="${binary}_${VERSION}_${platform}.${ext}"
@@ -398,7 +398,7 @@ install_from_release() {
     resign_for_macos "$install_dir/$binary"
 
     LAST_INSTALL_PATH="$install_dir/$binary"
-    log_success "aw installed to $install_dir/$binary"
+    log_success "murmel installed to $install_dir/$binary"
 
     # Check if install_dir is in PATH
     if [[ ":$PATH:" != *":$install_dir:"* ]]; then
@@ -445,10 +445,10 @@ check_go() {
 
 # Install using go install (fallback)
 install_with_go() {
-    log_info "Installing aw using 'go install'..."
+    log_info "Installing murmel using 'go install'..."
 
     if go install github.com/$REPO/cmd/aw@latest; then
-        log_success "aw installed successfully via go install"
+        log_success "murmel installed successfully via go install"
 
         # Record where we expect the binary to have been installed
         local gobin bin_dir
@@ -481,7 +481,7 @@ install_with_go() {
 
 # Build from source (last resort)
 build_from_source() {
-    log_info "Building aw from source..."
+    log_info "Building murmel from source..."
 
     local tmp_dir
     tmp_dir=$(mktemp -d)
@@ -511,10 +511,10 @@ build_from_source() {
             fi
 
             # Re-sign for macOS to avoid Gatekeeper delays
-            resign_for_macos "$install_dir/aw"
+            resign_for_macos "$install_dir/murmel"
 
-            log_success "aw installed to $install_dir/aw"
-            LAST_INSTALL_PATH="$install_dir/aw"
+            log_success "murmel installed to $install_dir/murmel"
+            LAST_INSTALL_PATH="$install_dir/murmel"
 
             # Check if install_dir is in PATH
             if [[ ":$PATH:" != *":$install_dir:"* ]]; then
@@ -574,7 +574,7 @@ main() {
     if ! check_go; then
         log_warning "Go is not installed"
         echo ""
-        echo "aw requires Go 1.21 or later to build from source. You can:"
+        echo "murmel requires Go 1.21 or later to build from source. You can:"
         echo "  1. Install Go from https://go.dev/dl/"
         echo "  2. Use your package manager:"
         echo "     - macOS: brew install go"
@@ -595,7 +595,7 @@ main() {
     echo ""
     echo "Manual installation:"
     echo "  1. Download from https://github.com/$REPO/releases/latest"
-    echo "  2. Extract and move 'aw' to your PATH"
+    echo "  2. Extract and move 'murmel' to your PATH"
     echo ""
     echo "Or install from source:"
     echo "  1. Install Go from https://go.dev/dl/"

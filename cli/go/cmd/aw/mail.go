@@ -543,7 +543,7 @@ var mailReplyCmd = &cobra.Command{
 	Short: "Reply to an existing mail conversation",
 	Args: func(cmd *cobra.Command, args []string) error {
 		if len(args) != 1 {
-			return usageError("usage: aw mail reply <message-id>")
+			return usageError("usage: murmel mail reply <message-id>")
 		}
 		if strings.TrimSpace(args[0]) == "" {
 			return usageError("message-id is required")
@@ -728,7 +728,7 @@ func configureClientE2EE(ctx context.Context, c *aweb.Client, sel *awconfig.Sele
 			if !required {
 				return nil
 			}
-			return usageError("E2E messaging requires a local encryption key; upgrade aw and run `aw id encryption-key setup`, or pass --plaintext only for explicit server-readable messaging")
+			return usageError("E2E messaging requires a local encryption key; upgrade murmel and run `murmel id encryption-key setup`, or pass --plaintext only for explicit server-readable messaging")
 		}
 		return err
 	}
@@ -737,7 +737,7 @@ func configureClientE2EE(ctx context.Context, c *aweb.Client, sel *awconfig.Sele
 		if !required {
 			return nil
 		}
-		return usageError("E2E messaging requires an active local encryption key; upgrade aw and run `aw id encryption-key setup`, or pass --plaintext only for explicit server-readable messaging")
+		return usageError("E2E messaging requires an active local encryption key; upgrade murmel and run `murmel id encryption-key setup`, or pass --plaintext only for explicit server-readable messaging")
 	}
 	material, err := validateEncryptionRecordPrivateKey(sel.WorkingDir, record)
 	if err != nil {
@@ -768,7 +768,7 @@ func configureClientE2EE(ctx context.Context, c *aweb.Client, sel *awconfig.Sele
 // wireBearerE2EESigningKey gives a bearer (SimpleAuth/JWT) client the local
 // self-custodial signing key + did:key it needs to sign and address E2EE
 // envelopes, WITHOUT touching transport auth. Token humans authenticate by
-// bearer token; their `.aw/signing.key` (custody=self, written by `aw init
+// bearer token; their `.murmel/signing.key` (custody=self, written by `murmel init
 // --token`) is the identity published to the server (custody=self) and is the
 // envelope signer + recipient DID — but it must never become the transport
 // signing key, or the auth selector would sign requests as a DIDKey the server
@@ -811,7 +811,7 @@ func ensureE2EEKeyReadyForSend(ctx context.Context, workingDir string) error {
 		return err
 	}
 	if len(out.Published) == 0 {
-		return usageError("E2E messaging requires a published encryption key; run `aw id encryption-key setup` after joining a service, or pass --plaintext only for explicit server-readable messaging")
+		return usageError("E2E messaging requires a published encryption key; run `murmel id encryption-key setup` after joining a service, or pass --plaintext only for explicit server-readable messaging")
 	}
 	return nil
 }

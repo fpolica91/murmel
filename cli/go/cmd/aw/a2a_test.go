@@ -23,7 +23,7 @@ func TestA2ACardReportsUnsignedInteropWithoutAWIDClaim(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 
 	card := testA2ACard("")
@@ -39,7 +39,7 @@ func TestA2ACardReportsUnsignedInteropWithoutAWIDClaim(t *testing.T) {
 	run.Env = testCommandEnv(tmp)
 	out, err := run.CombinedOutput()
 	if err != nil {
-		t.Fatalf("aw a2a card failed: %v\n%s", err, string(out))
+		t.Fatalf("murmel a2a card failed: %v\n%s", err, string(out))
 	}
 	var got a2aCardOutput
 	if err := json.Unmarshal(extractJSON(t, out), &got); err != nil {
@@ -58,7 +58,7 @@ func TestA2ACardDoesNotClaimSignatureVerificationWithoutAWID(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 
 	card := testA2ACard("")
@@ -75,7 +75,7 @@ func TestA2ACardDoesNotClaimSignatureVerificationWithoutAWID(t *testing.T) {
 	run.Env = testCommandEnv(tmp)
 	out, err := run.CombinedOutput()
 	if err != nil {
-		t.Fatalf("aw a2a card failed: %v\n%s", err, string(out))
+		t.Fatalf("murmel a2a card failed: %v\n%s", err, string(out))
 	}
 	var got a2aCardOutput
 	if err := json.Unmarshal(extractJSON(t, out), &got); err != nil {
@@ -94,7 +94,7 @@ func TestA2ACardVerifiesAWIDPublicationDigest(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 
 	var cardURL string
@@ -138,7 +138,7 @@ func TestA2ACardVerifiesAWIDPublicationDigest(t *testing.T) {
 	run.Env = testCommandEnv(tmp)
 	out, err := run.CombinedOutput()
 	if err != nil {
-		t.Fatalf("aw a2a card --address failed: %v\n%s", err, string(out))
+		t.Fatalf("murmel a2a card --address failed: %v\n%s", err, string(out))
 	}
 	var got a2aCardOutput
 	if err := json.Unmarshal(extractJSON(t, out), &got); err != nil {
@@ -154,7 +154,7 @@ func TestA2ACardReportsDelegatedAWIDPublication(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 
 	var cardURL string
@@ -200,7 +200,7 @@ func TestA2ACardReportsDelegatedAWIDPublication(t *testing.T) {
 	run.Env = testCommandEnv(tmp)
 	out, err := run.CombinedOutput()
 	if err != nil {
-		t.Fatalf("aw a2a card delegated failed: %v\n%s", err, string(out))
+		t.Fatalf("murmel a2a card delegated failed: %v\n%s", err, string(out))
 	}
 	var got a2aCardOutput
 	if err := json.Unmarshal(extractJSON(t, out), &got); err != nil {
@@ -216,7 +216,7 @@ func TestA2ACardRejectsAWIDDigestMismatch(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 
 	cardURL := ""
@@ -270,7 +270,7 @@ func TestA2ACardReportsRevokedPublicationWithoutCallingItVerified(t *testing.T) 
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 
 	card := testA2ACard("")
@@ -313,7 +313,7 @@ func TestA2ACardRejectsInvalidCardAndDoesNotFetchJWKULink(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 
 	server := newLocalHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -351,13 +351,13 @@ func TestA2APublishPostsDelegationThenPublicationAndVerifies(t *testing.T) {
 	did := awid.ComputeDIDKey(pub)
 	stableID := awid.ComputeStableID(pub)
 	address := "acme.com/research"
-	if err := os.MkdirAll(filepath.Join(tmp, ".aw"), 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Join(tmp, ".murmel"), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	if err := awid.SaveSigningKey(awconfig.WorktreeSigningKeyPath(tmp), priv); err != nil {
 		t.Fatal(err)
 	}
-	if err := awconfig.SaveWorktreeIdentityTo(filepath.Join(tmp, ".aw", "identity.yaml"), &awconfig.WorktreeIdentity{
+	if err := awconfig.SaveWorktreeIdentityTo(filepath.Join(tmp, ".murmel", "identity.yaml"), &awconfig.WorktreeIdentity{
 		DID:       did,
 		StableID:  stableID,
 		Address:   address,
@@ -507,7 +507,7 @@ func TestA2ASendNoWaitUsesCredentialFileAndReturnImmediately(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 
 	var sawReturnImmediately bool
@@ -560,7 +560,7 @@ func TestA2ASendNoWaitUsesCredentialFileAndReturnImmediately(t *testing.T) {
 	run.Env = testCommandEnv(tmp)
 	out, err := run.CombinedOutput()
 	if err != nil {
-		t.Fatalf("aw a2a send failed: %v\n%s", err, string(out))
+		t.Fatalf("murmel a2a send failed: %v\n%s", err, string(out))
 	}
 	if !sawReturnImmediately {
 		t.Fatal("send did not set configuration.returnImmediately for default no-wait mode")
@@ -620,7 +620,7 @@ func TestA2ASendWaitReturnsFailedTaskAsExitOne(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 
 	server := newLocalHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -665,7 +665,7 @@ func TestA2AStatusAndCancelUseTaskTokenCredential(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 
 	server := newLocalHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -707,7 +707,7 @@ func TestA2AStatusAndCancelUseTaskTokenCredential(t *testing.T) {
 	status.Env = testCommandEnv(tmp)
 	out, err := status.CombinedOutput()
 	if err != nil {
-		t.Fatalf("aw a2a status failed: %v\n%s", err, string(out))
+		t.Fatalf("murmel a2a status failed: %v\n%s", err, string(out))
 	}
 
 	cancelCmd := exec.CommandContext(ctx, bin, "--json", "a2a", "cancel", server.URL+"/a2a/agents/r_support/agent-card.json", "task-1")
@@ -715,7 +715,7 @@ func TestA2AStatusAndCancelUseTaskTokenCredential(t *testing.T) {
 	cancelCmd.Env = testCommandEnv(tmp)
 	out, err = cancelCmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("aw a2a cancel failed: %v\n%s", err, string(out))
+		t.Fatalf("murmel a2a cancel failed: %v\n%s", err, string(out))
 	}
 }
 
@@ -724,7 +724,7 @@ func TestA2ASendInputRequiredExitCode(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 
 	server := newLocalHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -791,8 +791,8 @@ func testA2ACard(rpcURL string) a2a.Card {
 
 func writeA2ACredentialsForTest(t *testing.T, dir, hostURL, apiKey, callerID, taskToken string) {
 	t.Helper()
-	if err := os.MkdirAll(filepath.Join(dir, ".aw"), 0o700); err != nil {
-		t.Fatalf("mkdir .aw: %v", err)
+	if err := os.MkdirAll(filepath.Join(dir, ".murmel"), 0o700); err != nil {
+		t.Fatalf("mkdir .murmel: %v", err)
 	}
 	host := strings.TrimPrefix(hostURL, "http://")
 	host = strings.TrimPrefix(host, "https://")
@@ -806,7 +806,7 @@ func writeA2ACredentialsForTest(t *testing.T, dir, hostURL, apiKey, callerID, ta
 	if taskToken != "" {
 		data += "    task_token: " + taskToken + "\n"
 	}
-	if err := os.WriteFile(filepath.Join(dir, ".aw", "a2a-credentials.yaml"), []byte(data), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, ".murmel", "a2a-credentials.yaml"), []byte(data), 0o600); err != nil {
 		t.Fatalf("write credentials: %v", err)
 	}
 }
@@ -816,9 +816,9 @@ func TestA2ASendPersistsTaskTokenForLaterStatus(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
-	if err := os.MkdirAll(filepath.Join(tmp, ".aw"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(tmp, ".murmel"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -871,10 +871,10 @@ func TestA2ASendPersistsTaskTokenForLaterStatus(t *testing.T) {
 	send.Env = testCommandEnv(tmp)
 	out, err := send.CombinedOutput()
 	if err != nil {
-		t.Fatalf("aw a2a send failed: %v\n%s", err, string(out))
+		t.Fatalf("murmel a2a send failed: %v\n%s", err, string(out))
 	}
 
-	credPath := filepath.Join(tmp, ".aw", "a2a-credentials.yaml")
+	credPath := filepath.Join(tmp, ".murmel", "a2a-credentials.yaml")
 	credData, err := os.ReadFile(credPath)
 	if err != nil {
 		t.Fatalf("send must persist the task token to %s: %v", credPath, err)
@@ -895,7 +895,7 @@ func TestA2ASendPersistsTaskTokenForLaterStatus(t *testing.T) {
 	status.Env = testCommandEnv(tmp)
 	out, err = status.CombinedOutput()
 	if err != nil {
-		t.Fatalf("aw a2a status failed: %v\n%s", err, string(out))
+		t.Fatalf("murmel a2a status failed: %v\n%s", err, string(out))
 	}
 	if statusSawToken != "issued-task-token" {
 		t.Fatalf("status sent X-A2A-Task-Token=%q want issued-task-token", statusSawToken)

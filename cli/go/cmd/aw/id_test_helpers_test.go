@@ -61,7 +61,7 @@ func idCreateCommandEnv(home string) []string {
 }
 
 // writeStandaloneSelfCustodyIdentity seeds a self-custodial global identity
-// (signing key + .aw/identity.yaml) for tests. It previously lived in the
+// (signing key + .murmel/identity.yaml) for tests. It previously lived in the
 // removed id_commands_test.go and is still used by claim_human_test.go.
 func writeStandaloneSelfCustodyIdentity(t *testing.T, workingDir, address, did, stableID, registryURL string, signingKey ed25519.PrivateKey) {
 	t.Helper()
@@ -70,7 +70,7 @@ func writeStandaloneSelfCustodyIdentity(t *testing.T, workingDir, address, did, 
 	if err := awid.SaveKeypairAt(signingKeyPath, awid.PublicKeyPath(signingKeyPath), pub, signingKey); err != nil {
 		t.Fatal(err)
 	}
-	if err := awconfig.SaveWorktreeIdentityTo(filepath.Join(workingDir, ".aw", "identity.yaml"), &awconfig.WorktreeIdentity{
+	if err := awconfig.SaveWorktreeIdentityTo(filepath.Join(workingDir, ".murmel", "identity.yaml"), &awconfig.WorktreeIdentity{
 		DID:            did,
 		StableID:       stableID,
 		Address:        address,

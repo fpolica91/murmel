@@ -145,7 +145,7 @@ func jsonResponse(w http.ResponseWriter, v any) {
 func deliveredIDsTestPath(t *testing.T) string {
 	t.Helper()
 	tmp := t.TempDir()
-	path := filepath.Join(tmp, ".aw", DeliveredIDsFileName)
+	path := filepath.Join(tmp, ".murmel", DeliveredIDsFileName)
 	prev, hadPrev := os.LookupEnv(DeliveredIDsPathEnv)
 	if err := os.Setenv(DeliveredIDsPathEnv, path); err != nil {
 		t.Fatal(err)

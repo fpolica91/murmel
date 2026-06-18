@@ -25,7 +25,7 @@ func TestAwInstructionsShowDisplaysActiveInstructions(t *testing.T) {
 				"version":                     4,
 				"updated_at":                  "2026-03-10T10:00:00Z",
 				"document": map[string]any{
-					"body_md": "## Shared Rules\n\nUse `aw`.\n",
+					"body_md": "## Shared Rules\n\nUse `murmel`.\n",
 					"format":  "markdown",
 				},
 			})
@@ -40,7 +40,7 @@ func TestAwInstructionsShowDisplaysActiveInstructions(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 
 	writeTestConfig(t, tmp, server.URL)
@@ -57,7 +57,7 @@ func TestAwInstructionsShowDisplaysActiveInstructions(t *testing.T) {
 		"Team Instructions v4 (active)",
 		"ID: instructions-1",
 		"## Shared Rules",
-		"Use `aw`.",
+		"Use `murmel`.",
 	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("instructions show output missing %q:\n%s", want, text)
@@ -105,7 +105,7 @@ func TestAwInstructionsShowByIDMarksActiveVersion(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 
 	writeTestConfig(t, tmp, server.URL)
@@ -180,7 +180,7 @@ func TestAwInstructionsSetCreatesAndActivatesNewVersion(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 
 	writeTestConfig(t, tmp, server.URL)
@@ -188,7 +188,7 @@ func TestAwInstructionsSetCreatesAndActivatesNewVersion(t *testing.T) {
 	run := exec.CommandContext(ctx, bin, "instructions", "set", "--body-file", "-")
 	run.Env = testCommandEnv(tmp)
 	run.Dir = tmp
-	run.Stdin = strings.NewReader("## Shared Rules\n\nUse `aw`.\n")
+	run.Stdin = strings.NewReader("## Shared Rules\n\nUse `murmel`.\n")
 	out, err := run.CombinedOutput()
 	if err != nil {
 		t.Fatalf("run failed: %v\n%s", err, string(out))
@@ -204,7 +204,7 @@ func TestAwInstructionsSetCreatesAndActivatesNewVersion(t *testing.T) {
 	if createBody["base_team_instructions_id"] != "instructions-1" {
 		t.Fatalf("base_team_instructions_id=%v", createBody["base_team_instructions_id"])
 	}
-	if document["body_md"] != "## Shared Rules\n\nUse `aw`." {
+	if document["body_md"] != "## Shared Rules\n\nUse `murmel`." {
 		t.Fatalf("body_md=%q", document["body_md"])
 	}
 	if document["format"] != "markdown" {
@@ -256,7 +256,7 @@ func TestAwInstructionsHistoryListsVersions(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 
 	writeTestConfig(t, tmp, server.URL)

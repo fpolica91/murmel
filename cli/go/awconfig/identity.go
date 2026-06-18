@@ -37,11 +37,11 @@ type WorktreeIdentity struct {
 }
 
 func DefaultWorktreeIdentityRelativePath() string {
-	return filepath.Join(".aw", "identity.yaml")
+	return filepath.Join(".murmel", "identity.yaml")
 }
 
 func DefaultWorktreeSigningKeyRelativePath() string {
-	return filepath.Join(".aw", "signing.key")
+	return filepath.Join(".murmel", "signing.key")
 }
 
 func WorktreeSigningKeyPath(root string) string {

@@ -10,8 +10,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// `aw logout` removes the cached SimpleAuth token (~/.aw/token) written by
-// `aw login`. It is idempotent: logging out when no token is cached is a
+// `murmel logout` removes the cached SimpleAuth token (~/.murmel/token) written by
+// `murmel login`. It is idempotent: logging out when no token is cached is a
 // success, not an error, so scripts can call it unconditionally.
 //
 // Logout is additive and only affects the bearer-token cache; it never
@@ -24,7 +24,7 @@ import (
 var logoutCmd = &cobra.Command{
 	Use:   "logout",
 	Short: "Remove the cached aweb access token",
-	Long: `Remove the access token cached by aw login (~/.aw/token).
+	Long: `Remove the access token cached by murmel login (~/.murmel/token).
 
 logout is idempotent: it succeeds even if you were not logged in. It does
 not affect team-certificate authentication.`,

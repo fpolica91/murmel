@@ -21,7 +21,7 @@ func InitUserConfig(in io.Reader, out io.Writer, existing UserConfig) error {
 	}
 	current = applySuggestedInitDefaults(existing, current)
 
-	fmt.Fprintln(out, "Configuring aw run. Press Enter to keep the current value. Enter '-' to clear a string field.")
+	fmt.Fprintln(out, "Configuring murmel run. Press Enter to keep the current value. Enter '-' to clear a string field.")
 
 	basePrompt, err := promptConfigString(reader, out, "base_prompt", current.BasePrompt)
 	if err != nil {

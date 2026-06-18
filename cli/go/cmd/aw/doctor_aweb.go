@@ -191,9 +191,9 @@ func (r *doctorRunner) addServerConfiguredChecks(state *doctorAwebState, include
 	target := localPathTarget(state.workspacePath)
 	if state.workspaceErr != nil {
 		if errors.Is(state.workspaceErr, os.ErrNotExist) {
-			r.add(awebCheck(doctorCheckServerAwebURLConfigured, doctorStatusInfo, target, "No workspace aweb_url is configured because workspace.yaml is missing.", "Run `aw init` when you are ready to connect this directory.", map[string]any{"reason": "no_workspace_context"}))
+			r.add(awebCheck(doctorCheckServerAwebURLConfigured, doctorStatusInfo, target, "No workspace aweb_url is configured because workspace.yaml is missing.", "Run `murmel init` when you are ready to connect this directory.", map[string]any{"reason": "no_workspace_context"}))
 			if includeRuntime {
-				r.add(awebCheck(doctorCheckServerAwebURLRuntime, doctorStatusInfo, target, "Aweb runtime URL classification is not available without workspace context.", "Run `aw init` when you are ready to connect this directory.", map[string]any{"reason": "no_workspace_context"}))
+				r.add(awebCheck(doctorCheckServerAwebURLRuntime, doctorStatusInfo, target, "Aweb runtime URL classification is not available without workspace context.", "Run `murmel init` when you are ready to connect this directory.", map[string]any{"reason": "no_workspace_context"}))
 			}
 			return
 		}
@@ -204,9 +204,9 @@ func (r *doctorRunner) addServerConfiguredChecks(state *doctorAwebState, include
 		return
 	}
 	if state.urlErr != nil {
-		r.add(awebCheck(doctorCheckServerAwebURLConfigured, doctorStatusFail, target, "Workspace aweb_url is invalid.", "Repair .aw/workspace.yaml with a valid aweb API URL.", map[string]any{"error": state.urlErr.Error()}))
+		r.add(awebCheck(doctorCheckServerAwebURLConfigured, doctorStatusFail, target, "Workspace aweb_url is invalid.", "Repair .murmel/workspace.yaml with a valid aweb API URL.", map[string]any{"error": state.urlErr.Error()}))
 		if includeRuntime {
-			r.add(awebCheck(doctorCheckServerAwebURLRuntime, doctorStatusBlocked, target, "Aweb runtime URL classification requires a valid aweb_url.", "Repair .aw/workspace.yaml first.", map[string]any{"prerequisite": doctorCheckServerAwebURLConfigured}))
+			r.add(awebCheck(doctorCheckServerAwebURLRuntime, doctorStatusBlocked, target, "Aweb runtime URL classification requires a valid aweb_url.", "Repair .murmel/workspace.yaml first.", map[string]any{"prerequisite": doctorCheckServerAwebURLConfigured}))
 		}
 		return
 	}
@@ -219,7 +219,7 @@ func (r *doctorRunner) addServerConfiguredChecks(state *doctorAwebState, include
 func localRuntimePathCheck(baseURL string) doctorCheck {
 	parsed, err := url.Parse(strings.TrimSpace(baseURL))
 	if err != nil || parsed.Host == "" {
-		return awebCheck(doctorCheckServerAwebURLRuntime, doctorStatusBlocked, nil, "Aweb runtime URL classification requires a valid URL.", "Repair .aw/workspace.yaml first.", map[string]any{"prerequisite": doctorCheckServerAwebURLConfigured})
+		return awebCheck(doctorCheckServerAwebURLRuntime, doctorStatusBlocked, nil, "Aweb runtime URL classification requires a valid URL.", "Repair .murmel/workspace.yaml first.", map[string]any{"prerequisite": doctorCheckServerAwebURLConfigured})
 	}
 	path := strings.TrimRight(parsed.Path, "/")
 	switch {
@@ -265,7 +265,7 @@ func (r *doctorRunner) addOnlineServerProbeChecks(state *doctorAwebState) bool {
 		return true
 	}
 	if probe.RecommendedOK {
-		r.add(awebCheck(doctorCheckServerAwebURLRuntime, doctorStatusWarn, nil, "Configured aweb_url does not appear to be the API runtime, but /api does.", "Update .aw/workspace.yaml to the recommended runtime URL; doctor will not rewrite it automatically.", map[string]any{"reason": "api_runtime_at_recommended_path", "configured_aweb_url": state.baseURL, "recommended_aweb_url": probe.RecommendedURL}))
+		r.add(awebCheck(doctorCheckServerAwebURLRuntime, doctorStatusWarn, nil, "Configured aweb_url does not appear to be the API runtime, but /api does.", "Update .murmel/workspace.yaml to the recommended runtime URL; doctor will not rewrite it automatically.", map[string]any{"reason": "api_runtime_at_recommended_path", "configured_aweb_url": state.baseURL, "recommended_aweb_url": probe.RecommendedURL}))
 		r.add(awebCheck(doctorCheckServerReachable, doctorStatusUnknown, nil, "Configured aweb API runtime was not reachable at its current path.", "Use the recommended /api runtime URL and retry doctor --online.", map[string]any{"reason": "configured_runtime_unreachable", "configured_status_code": probe.ConfiguredStatus, "recommended_status_code": probe.RecommendedStatus}))
 		r.add(awebCheck(doctorCheckServerVersion, doctorStatusBlocked, nil, "Version header check requires the configured aweb runtime to be reachable.", "Resolve server.aweb_url.runtime_path first.", map[string]any{"prerequisite": doctorCheckServerAwebURLRuntime}))
 		return false
@@ -554,13 +554,13 @@ func (r *doctorRunner) addSkippedAwebChecks(ids []string) {
 		reason = "offline_mode"
 	}
 	for _, id := range ids {
-		r.add(awebCheck(id, doctorStatusUnknown, nil, "Online aweb check was skipped.", "Run `aw doctor --online` to contact the aweb server.", map[string]any{"skipped": true, "reason": reason}))
+		r.add(awebCheck(id, doctorStatusUnknown, nil, "Online aweb check was skipped.", "Run `murmel doctor --online` to contact the aweb server.", map[string]any{"skipped": true, "reason": reason}))
 	}
 }
 
 func (r *doctorRunner) addNoContextAwebChecks(ids []string, reason string) {
 	for _, id := range ids {
-		r.add(awebCheck(id, doctorStatusInfo, nil, "Aweb server check is not available without workspace context.", "Run `aw init` when you are ready to connect this directory.", map[string]any{"reason": reason}))
+		r.add(awebCheck(id, doctorStatusInfo, nil, "Aweb server check is not available without workspace context.", "Run `murmel init` when you are ready to connect this directory.", map[string]any{"reason": reason}))
 	}
 }
 

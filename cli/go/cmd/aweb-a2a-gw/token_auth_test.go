@@ -36,18 +36,18 @@ func fakeJWT(t *testing.T, subject string) string {
 
 // writeTokenOnlyGatewayWorkspace writes a cert-less (token-only) workspace
 // binding: a workspace.yaml + teams.yaml membership with NO cert_path and NO
-// .aw/team-certs/, plus a local self-custodial signing key. This mirrors what
-// the pivoted `aw init` produces for a token-only workspace.
+// .murmel/team-certs/, plus a local self-custodial signing key. This mirrors what
+// the pivoted `murmel init` produces for a token-only workspace.
 func writeTokenOnlyGatewayWorkspace(t *testing.T, dir, awebURL, teamID string) {
 	t.Helper()
 	_, memberPriv, err := awid.GenerateKeypair()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.MkdirAll(filepath.Join(dir, ".aw"), 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, ".murmel"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := awid.SaveSigningKey(filepath.Join(dir, ".aw", "signing.key"), memberPriv); err != nil {
+	if err := awid.SaveSigningKey(filepath.Join(dir, ".murmel", "signing.key"), memberPriv); err != nil {
 		t.Fatal(err)
 	}
 	workspace := &awconfig.WorktreeWorkspace{
@@ -58,7 +58,7 @@ func writeTokenOnlyGatewayWorkspace(t *testing.T, dir, awebURL, teamID string) {
 			// CertPath intentionally empty: token-only binding.
 		}},
 	}
-	if err := awconfig.SaveWorktreeWorkspaceTo(filepath.Join(dir, ".aw", "workspace.yaml"), workspace); err != nil {
+	if err := awconfig.SaveWorktreeWorkspaceTo(filepath.Join(dir, ".murmel", "workspace.yaml"), workspace); err != nil {
 		t.Fatal(err)
 	}
 	if err := awconfig.SaveTeamState(dir, &awconfig.TeamState{
@@ -133,7 +133,7 @@ func TestTokenWorkspaceMailClientUsesBearerAuth(t *testing.T) {
 func TestTokenWorkspaceMailClientRequiresToken(t *testing.T) {
 	tmp := t.TempDir()
 	teamID := "default:local"
-	// Ensure no AW_TOKEN and no cached ~/.aw/token leaks in: point HOME at an
+	// Ensure no AW_TOKEN and no cached ~/.murmel/token leaks in: point HOME at an
 	// empty dir and clear AW_TOKEN.
 	t.Setenv("AW_TOKEN", "")
 	home := t.TempDir()

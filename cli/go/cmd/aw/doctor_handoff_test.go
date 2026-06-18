@@ -123,7 +123,7 @@ func TestAwDoctorHandoffCallerRepairCommandRequiresPresentAuthority(t *testing.T
 	}
 
 	present := globalIdentityRegistryRepairReviewHandoff(doctorAuthorityStatusPresent, []string{"local signing key matches identity did"})
-	if present.ExplicitCommand != "aw id register" {
+	if present.ExplicitCommand != "murmel id register" {
 		t.Fatalf("present caller authority command=%q", present.ExplicitCommand)
 	}
 }

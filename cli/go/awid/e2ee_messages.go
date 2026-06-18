@@ -170,7 +170,7 @@ func (c *Client) DecryptE2EEEnvelope(envelope *E2EEMessageEnvelope) (*E2EEInnerP
 		return nil, fmt.Errorf("missing client")
 	}
 	if c.e2eePrivateKey == nil {
-		return nil, fmt.Errorf("encrypted message requires local encryption private key; restore .aw/encryption-keys or run `aw id encryption-key setup` for future messages")
+		return nil, fmt.Errorf("encrypted message requires local encryption private key; restore .murmel/encryption-keys or run `murmel id encryption-key setup` for future messages")
 	}
 	stableID := c.stableID
 	encryptionKeyID := ""
@@ -510,7 +510,7 @@ func E2EERecipientFromEnvelopeSender(envelope *E2EEMessageEnvelope, now time.Tim
 	}
 	assertion := envelope.SenderEncryptionKey
 	if assertion == nil {
-		return E2EERecipientKey{}, fmt.Errorf("encrypted conversation does not include the sender E2E key assertion; ask the sender to upgrade aw/Pi/channel, or explicitly send a server-readable upgrade note with --plaintext")
+		return E2EERecipientKey{}, fmt.Errorf("encrypted conversation does not include the sender E2E key assertion; ask the sender to upgrade murmel/Pi/channel, or explicitly send a server-readable upgrade note with --plaintext")
 	}
 	from := envelope.From
 	if strings.TrimSpace(from.DID) == "" {

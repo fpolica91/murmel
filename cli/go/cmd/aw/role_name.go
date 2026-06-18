@@ -50,7 +50,7 @@ func runRoleNameSet(cmd *cobra.Command, args []string) error {
 	workspace, workspacePath, err := awconfig.LoadWorktreeWorkspaceFromDir(wd)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return usageError("current worktree is missing .aw/workspace.yaml; run `aw init` first")
+			return usageError("current worktree is missing .murmel/workspace.yaml; run `murmel init` first")
 		}
 		return err
 	}

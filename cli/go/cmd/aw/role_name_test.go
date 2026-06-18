@@ -83,7 +83,7 @@ func runRoleNameSetPatchTest(t *testing.T, patchResponse map[string]any) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	repo := filepath.Join(tmp, "repo")
 	if err := os.MkdirAll(repo, 0o755); err != nil {
 		t.Fatal(err)
@@ -105,7 +105,7 @@ func runRoleNameSetPatchTest(t *testing.T, patchResponse map[string]any) {
 		t.Fatalf("unexpected output:\n%s", string(out))
 	}
 
-	state, err := awconfig.LoadWorktreeWorkspaceFrom(filepath.Join(repo, ".aw", "workspace.yaml"))
+	state, err := awconfig.LoadWorktreeWorkspaceFrom(filepath.Join(repo, ".murmel", "workspace.yaml"))
 	if err != nil {
 		t.Fatalf("load workspace state: %v", err)
 	}

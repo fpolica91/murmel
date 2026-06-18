@@ -8,8 +8,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// `aw epic` / `aw story` — organize the work hierarchy from the terminal,
-// complementing `aw issue` and the UI.
+// `murmel epic` / `murmel story` — organize the work hierarchy from the terminal,
+// complementing `murmel issue` and the UI.
 
 var epicCmd = &cobra.Command{Use: "epic", Short: "Manage epics"}
 var storyCmd = &cobra.Command{Use: "story", Short: "Manage stories"}

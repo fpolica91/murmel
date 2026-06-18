@@ -54,7 +54,7 @@ func TestFormatChatPendingOmitsOpenHintForGroupSession(t *testing.T) {
 	}
 
 	out := formatChatPending(result)
-	if strings.Contains(out, `aw chat open carol`) {
+	if strings.Contains(out, `murmel chat open carol`) {
 		t.Fatalf("group pending output should not suggest ambiguous open hint:\n%s", out)
 	}
 }
@@ -74,7 +74,7 @@ func TestFormatChatPendingKeepsOpenHintForDirectSession(t *testing.T) {
 	}
 
 	out := formatChatPending(result)
-	if !strings.Contains(out, `aw chat open otherco/carol`) {
+	if !strings.Contains(out, `murmel chat open otherco/carol`) {
 		t.Fatalf("direct pending output should keep open hint:\n%s", out)
 	}
 }
@@ -334,7 +334,7 @@ func TestFormatChatPendingUsesAddressOpenHintWhenAliasSliceIsEmpty(t *testing.T)
 	}
 
 	out := formatChatPending(result)
-	if !strings.Contains(out, `aw chat open otherco/carol`) {
+	if !strings.Contains(out, `murmel chat open otherco/carol`) {
 		t.Fatalf("pending output should use concrete address open hint even when alias slice is empty:\n%s", out)
 	}
 }
@@ -359,7 +359,7 @@ func TestFormatChatPendingFallsBackToStableID(t *testing.T) {
 	if !strings.Contains(out, "CHAT WAITING: did:aw:carol") {
 		t.Fatalf("pending output should preserve stable identity fallback:\n%s", out)
 	}
-	if !strings.Contains(out, `aw chat open did:aw:carol`) {
+	if !strings.Contains(out, `murmel chat open did:aw:carol`) {
 		t.Fatalf("pending output should use participant stable identity in direct-session open hint:\n%s", out)
 	}
 }

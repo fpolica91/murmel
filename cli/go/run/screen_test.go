@@ -175,14 +175,14 @@ func TestStyleScreenLineStylesProviderStderrLabel(t *testing.T) {
 }
 
 func TestScreenControllerSetInputLineKeepsLeadingSpace(t *testing.T) {
-	screen := &ScreenController{promptLabel: "aw:repo:rose> "}
+	screen := &ScreenController{promptLabel: "murmel:repo:rose> "}
 
-	screen.SetInputLine("aw:repo:rose>  leading")
+	screen.SetInputLine("murmel:repo:rose>  leading")
 
 	if !screen.pending {
 		t.Fatal("expected leading-space input to count as pending")
 	}
-	if screen.inputLine != "aw:repo:rose>  leading" {
+	if screen.inputLine != "murmel:repo:rose>  leading" {
 		t.Fatalf("expected input line to preserve leading space, got %q", screen.inputLine)
 	}
 }
@@ -195,15 +195,15 @@ func TestIdentityPromptLabelReturnsShortPrompt(t *testing.T) {
 }
 
 func TestComposeStatusLineShowsIdentityAlone(t *testing.T) {
-	got := ComposeStatusLine("claude@aweb:aw:rose", "")
-	if got != "claude@aweb:aw:rose" {
+	got := ComposeStatusLine("claude@aweb:murmel:rose", "")
+	if got != "claude@aweb:murmel:rose" {
 		t.Fatalf("expected identity alone, got %q", got)
 	}
 }
 
 func TestComposeStatusLineAppendsTransientState(t *testing.T) {
-	got := ComposeStatusLine("claude@aweb:aw:rose", "next run in 12s")
-	if got != "claude@aweb:aw:rose · next run in 12s" {
+	got := ComposeStatusLine("claude@aweb:murmel:rose", "next run in 12s")
+	if got != "claude@aweb:murmel:rose · next run in 12s" {
 		t.Fatalf("expected composed status, got %q", got)
 	}
 }
@@ -223,11 +223,11 @@ func TestStatusIdentityFormatsProviderAndIdentity(t *testing.T) {
 		alias    string
 		want     string
 	}{
-		{"claude", "aweb", "aw", "rose", "claude@aweb:aw:rose"},
+		{"claude", "aweb", "murmel", "rose", "claude@aweb:murmel:rose"},
 		{"codex", "aweb", "", "rose", "codex@aweb:rose"},
 		{"claude", "", "", "rose", "claude@rose"},
-		{"claude", "aweb", "aw", "", "claude@aweb:aw"},
-		{"", "aweb", "aw", "rose", "aweb:aw:rose"},
+		{"claude", "aweb", "murmel", "", "claude@aweb:murmel"},
+		{"", "aweb", "murmel", "rose", "aweb:murmel:rose"},
 		{"", "", "", "", ""},
 	}
 	for _, tc := range cases {
@@ -331,7 +331,7 @@ func TestWrapScreenLineKeepsIndentedCommBodyLinesAligned(t *testing.T) {
 }
 
 func TestWrapScreenLineTruncatesTopLevelToolLines(t *testing.T) {
-	source := `· aw mail inbox --unread-only --format json 2>/dev/null | python3 -c "print(1)"`
+	source := `· murmel mail inbox --unread-only --format json 2>/dev/null | python3 -c "print(1)"`
 	lines := wrapScreenLine(screenOutputLine{kind: DisplayKindTool, text: source}, 34)
 	if len(lines) != 1 {
 		t.Fatalf("expected single-line tool output, got %#v", lines)
@@ -346,7 +346,7 @@ func TestWrapScreenLineTruncatesTopLevelToolLines(t *testing.T) {
 
 func TestAppendWrappedStyledScreenLineKeepsTopLevelToolLinesSingleLine(t *testing.T) {
 	styles := newScreenStyles()
-	source := screenOutputLine{kind: DisplayKindTool, text: `· aw mail inbox --unread-only --format json 2>/dev/null | python3 -c "print(1)"`}
+	source := screenOutputLine{kind: DisplayKindTool, text: `· murmel mail inbox --unread-only --format json 2>/dev/null | python3 -c "print(1)"`}
 	lines := appendWrappedStyledScreenLine(nil, source, 34, styles)
 	if len(lines) != 1 {
 		t.Fatalf("expected single styled tool line, got %#v", lines)

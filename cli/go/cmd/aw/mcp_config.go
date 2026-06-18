@@ -18,7 +18,7 @@ var mcpConfigCmd = &cobra.Command{
 	Short: "Output MCP server configuration for the current identity",
 	Long: `Prints the JSON to drop into your host's MCP config (e.g. .mcp.json).
 
-By default it emits the token-only bridge ('aw mcp-serve'), which proxies to the
+By default it emits the token-only bridge ('murmel mcp-serve'), which proxies to the
 aweb /mcp/ endpoint with an auto-refreshed Better Auth JWT — no team certificate
 required. Use --channel for the legacy certificate-based @awebai/claude-channel.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -42,17 +42,17 @@ required. Use --channel for the legacy certificate-based @awebai/claude-channel.
 }
 
 // bridgeMCPConfig emits the token-only stdio bridge config: it runs this same
-// `aw` binary as `aw mcp-serve`, which proxies to /mcp/ with an auto-refreshing
+// `murmel` binary as `murmel mcp-serve`, which proxies to /mcp/ with an auto-refreshing
 // token. Using the resolved executable path avoids relying on PATH in the host's
 // launch environment.
 func bridgeMCPConfig() map[string]any {
-	command := "aw"
+	command := "murmel"
 	if exe, err := os.Executable(); err == nil && strings.TrimSpace(exe) != "" {
 		command = exe
 	}
 	return map[string]any{
 		"mcpServers": map[string]any{
-			"aweb": map[string]any{
+			"murmel": map[string]any{
 				"command": command,
 				"args":    []string{"mcp-serve"},
 			},
@@ -63,7 +63,7 @@ func bridgeMCPConfig() map[string]any {
 func channelMCPConfig(cwd string) map[string]any {
 	return map[string]any{
 		"mcpServers": map[string]any{
-			"aweb": map[string]any{
+			"murmel": map[string]any{
 				"command": "npx",
 				"args":    []string{"@awebai/claude-channel"},
 				"cwd":     cwd,

@@ -90,7 +90,7 @@ func buildDoctorSupportBundle(opts doctorRunOptions) (doctorOutput, []doctorKnow
 	knownSecrets := collectDoctorKnownSecrets(workingDir)
 	out.SupportBundle = &doctorSupportBundleInfo{
 		Schema:      doctorSupportBundleSchema,
-		GeneratedBy: "aw doctor support-bundle",
+		GeneratedBy: "murmel doctor support-bundle",
 		SafeToShare: true,
 		Platform: doctorSupportBundlePlatform{
 			OS:   runtime.GOOS,

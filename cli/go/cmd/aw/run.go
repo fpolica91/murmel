@@ -63,19 +63,19 @@ var runCmd = &cobra.Command{
 	Short: "Start an AI coding agent here, onboarding this directory if needed",
 	Long: `Start the requested AI coding agent in this directory.
 
-In a TTY, if this directory is not initialized yet, aw run can guide you
+In a TTY, if this directory is not initialized yet, murmel run can guide you
 through supported onboarding before starting the provider. The explicit
-bootstrap path is aw init, backed by guided onboarding, hosted signup,
-or a team certificate already present in .aw/.
+bootstrap path is murmel init, backed by guided onboarding, hosted signup,
+or a team certificate already present in .murmel/.
 
 Current implementation includes:
   - repeated provider invocations (currently Claude and Codex)
   - provider session continuity when --continue is requested
   - /stop, /wait, /autofeed on|off, /quit, and prompt override controls
-  - aw event-stream wakeups for mail, chat, and optional work events
-  - optional background services declared in aw run config
+  - murmel event-stream wakeups for mail, chat, and optional work events
+  - optional background services declared in murmel run config
 
-This aw-first command intentionally excludes bead-specific dispatch.`,
+This murmel-first command intentionally excludes bead-specific dispatch.`,
 	Args: cobra.ArbitraryArgs,
 	RunE: runRun,
 }
@@ -143,7 +143,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 	}
 	allowInteractiveEmptyPrompt := screen != nil
 	if strings.TrimSpace(settings.BasePrompt) == "" && initialPrompt == "" && !allowInteractiveEmptyPrompt {
-		return usageError("missing prompt (pass --prompt, --base-prompt, or configure base_prompt with `aw run --init`)")
+		return usageError("missing prompt (pass --prompt, --base-prompt, or configure base_prompt with `murmel run --init`)")
 	}
 
 	provider, err := runNewProvider(providerName)
@@ -327,7 +327,7 @@ func resolveRunInvocation(cmd *cobra.Command, args []string, interactive bool, p
 	}
 	if providerName == "" {
 		if !interactive {
-			return "", "", nil, usageError("missing provider (use `aw run <provider>`)")
+			return "", "", nil, usageError("missing provider (use `murmel run <provider>`)")
 		}
 		selected, err := promptIndexedChoice("Provider", []string{"claude", "codex"}, 0, promptInput, cmd.ErrOrStderr())
 		if err != nil {
@@ -380,7 +380,7 @@ func printRunExitCommands(out io.Writer, providerName string, workingDir string,
 		return
 	}
 
-	awCommand := []string{"aw", "run"}
+	awCommand := []string{"murmel", "run"}
 	if dir := strings.TrimSpace(workingDir); dir != "" {
 		awCommand = append(awCommand, "--dir", dir)
 	}
@@ -390,7 +390,7 @@ func printRunExitCommands(out io.Writer, providerName string, workingDir string,
 	awCommand = append(awCommand, "--continue")
 
 	fmt.Fprintf(out, "\nSession %s\n", sessionID)
-	fmt.Fprintf(out, "Continue with aw:\n  %s\n\n", formatShellCommand(awCommand))
+	fmt.Fprintf(out, "Continue with murmel:\n  %s\n\n", formatShellCommand(awCommand))
 	fmt.Fprintf(out, "Run %s directly:\n  %s\n", provider.Name(), formatShellCommand(providerCommand))
 }
 
@@ -442,7 +442,7 @@ func resolveRunClientForDir(cmd *cobra.Command, workingDir string, interactive b
 		return nil, nil, err
 	}
 	if state == runWorkspaceStateMissing {
-		return nil, nil, usageError("current directory is not initialized for aw; run `aw login` (or pass --token) then `aw init --aweb-url <url> --team <team_id>`")
+		return nil, nil, usageError("current directory is not initialized for murmel; run `murmel login` (or pass --token) then `murmel init --aweb-url <url> --team <team_id>`")
 	}
 
 	client, sel, err := runResolveClientForDir(workingDir)

@@ -217,7 +217,7 @@ func (s *doctorIdentityState) loadEncryptionState() {
 
 func (r *doctorRunner) addIdentityLocalChecks(state *doctorIdentityState) {
 	if state.identityErr != nil {
-		r.add(localPathCheck(doctorCheckIdentityLocalContext, doctorStatusFail, state.identityPath, "Local identity context could not be parsed.", "Repair .aw/identity.yaml before relying on identity diagnostics.", map[string]any{"error": state.identityErr.Error()}))
+		r.add(localPathCheck(doctorCheckIdentityLocalContext, doctorStatusFail, state.identityPath, "Local identity context could not be parsed.", "Repair .murmel/identity.yaml before relying on identity diagnostics.", map[string]any{"error": state.identityErr.Error()}))
 		r.add(blockedLocalCheck(doctorCheckIdentityLocalScope, "Identity scope requires parsed identity context.", doctorCheckIdentityLocalContext, localPathTarget(state.identityPath)))
 		r.add(blockedLocalCheck(doctorCheckIdentityLocalDIDKeyFormat, "Identity did:key requires parsed identity context.", doctorCheckIdentityLocalContext, localPathTarget(state.identityPath)))
 		r.add(blockedLocalCheck(doctorCheckIdentityLocalSigningKey, "Signing key comparison requires parsed identity context.", doctorCheckIdentityLocalContext, localPathTarget(state.signingKeyPath)))
@@ -241,17 +241,17 @@ func (r *doctorRunner) addIdentityLocalChecks(state *doctorIdentityState) {
 
 	if !state.identityExists {
 		if strings.TrimSpace(state.lifetime) == awid.LifetimePersistent {
-			r.add(localPathCheck(doctorCheckIdentityLocalContext, doctorStatusFail, state.identityPath, "Global identity.yaml is missing.", "Restore .aw/identity.yaml before using global identity or awid registry diagnostics.", map[string]any{"state": "missing", "expected_identity_scope": awid.IdentityModeGlobal, "legacy_lifetime": awid.LifetimePersistent, "source": "team_certificate"}))
+			r.add(localPathCheck(doctorCheckIdentityLocalContext, doctorStatusFail, state.identityPath, "Global identity.yaml is missing.", "Restore .murmel/identity.yaml before using global identity or awid registry diagnostics.", map[string]any{"state": "missing", "expected_identity_scope": awid.IdentityModeGlobal, "legacy_lifetime": awid.LifetimePersistent, "source": "team_certificate"}))
 			r.add(localCheck(doctorCheckIdentityLocalScope, doctorStatusOK, identityTarget(state), "Active team certificate expects global identity.", "", map[string]any{"identity_scope": awid.IdentityModeGlobal, "legacy_lifetime": awid.LifetimePersistent, "source": "team_certificate"}))
 			r.addIdentityDIDFormatCheck(state)
 			r.addIdentitySigningKeyCheck(state)
 			r.addIdentityEncryptionKeyLocalChecks(state)
-			r.add(localPathCheck(doctorCheckIdentityLocalStableID, doctorStatusBlocked, state.identityPath, "Stable ID expectation requires global identity.yaml.", "Restore .aw/identity.yaml before using awid registry diagnostics.", map[string]any{"prerequisite": doctorCheckIdentityLocalContext}))
-			r.add(localPathCheck(doctorCheckIdentityLocalAddress, doctorStatusBlocked, state.identityPath, "Address expectation requires global identity.yaml.", "Restore .aw/identity.yaml before using awid address diagnostics.", map[string]any{"prerequisite": doctorCheckIdentityLocalContext}))
-			r.add(localPathCheck(doctorCheckIdentityLocalRegistrySource, doctorStatusBlocked, state.identityPath, "Registry URL source requires global identity.yaml or AWID_REGISTRY_URL.", "Restore .aw/identity.yaml or set AWID_REGISTRY_URL.", map[string]any{"prerequisite": doctorCheckIdentityLocalContext}))
+			r.add(localPathCheck(doctorCheckIdentityLocalStableID, doctorStatusBlocked, state.identityPath, "Stable ID expectation requires global identity.yaml.", "Restore .murmel/identity.yaml before using awid registry diagnostics.", map[string]any{"prerequisite": doctorCheckIdentityLocalContext}))
+			r.add(localPathCheck(doctorCheckIdentityLocalAddress, doctorStatusBlocked, state.identityPath, "Address expectation requires global identity.yaml.", "Restore .murmel/identity.yaml before using awid address diagnostics.", map[string]any{"prerequisite": doctorCheckIdentityLocalContext}))
+			r.add(localPathCheck(doctorCheckIdentityLocalRegistrySource, doctorStatusBlocked, state.identityPath, "Registry URL source requires global identity.yaml or AWID_REGISTRY_URL.", "Restore .murmel/identity.yaml or set AWID_REGISTRY_URL.", map[string]any{"prerequisite": doctorCheckIdentityLocalContext}))
 			return
 		}
-		r.add(localPathCheck(doctorCheckIdentityLocalContext, doctorStatusInfo, state.identityPath, "No identity.yaml was found.", "Run `aw init` or `aw id create` when a global identity is expected.", map[string]any{"state": "missing"}))
+		r.add(localPathCheck(doctorCheckIdentityLocalContext, doctorStatusInfo, state.identityPath, "No identity.yaml was found.", "Run `murmel init` or `murmel id create` when a global identity is expected.", map[string]any{"state": "missing"}))
 		r.add(localPathCheck(doctorCheckIdentityLocalScope, doctorStatusInfo, state.identityPath, "Identity class is unavailable because no identity context was found.", "", map[string]any{"reason": "no_identity_context"}))
 		r.add(localPathCheck(doctorCheckIdentityLocalDIDKeyFormat, doctorStatusInfo, state.identityPath, "Identity did:key is unavailable because no identity context was found.", "", map[string]any{"reason": "no_identity_context"}))
 		r.add(localPathCheck(doctorCheckIdentityLocalSigningKey, doctorStatusInfo, state.signingKeyPath, "Signing key comparison is unavailable because no identity context was found.", "", map[string]any{"reason": "no_identity_context"}))
@@ -299,14 +299,14 @@ func (r *doctorRunner) addIdentityEncryptionKeyLocalChecks(state *doctorIdentity
 		if errors.Is(state.encryptionStateErr, os.ErrNotExist) {
 			message = "Local E2E encryption key state is missing."
 		}
-		r.add(localPathCheck(doctorCheckIdentityEncryptionState, doctorStatusFail, state.encryptionStatePath, message, "Run `aw id encryption-key setup` and back up .aw/encryption-keys.", map[string]any{"error": safeLocalKeyError(state.encryptionStateErr)}))
+		r.add(localPathCheck(doctorCheckIdentityEncryptionState, doctorStatusFail, state.encryptionStatePath, message, "Run `murmel id encryption-key setup` and back up .murmel/encryption-keys.", map[string]any{"error": safeLocalKeyError(state.encryptionStateErr)}))
 		r.add(blockedLocalCheck(doctorCheckIdentityEncryptionPrivate, "E2E encryption private-key diagnostics require encryption state.", doctorCheckIdentityEncryptionState, localPathTarget(state.encryptionStatePath)))
 		r.add(blockedLocalCheck(doctorCheckIdentityEncryptionAssertion, "E2E encryption assertion diagnostics require encryption state.", doctorCheckIdentityEncryptionState, localPathTarget(state.encryptionStatePath)))
 		return
 	}
 	record := state.encryptionState.ActiveRecord()
 	if record == nil {
-		r.add(localPathCheck(doctorCheckIdentityEncryptionState, doctorStatusFail, state.encryptionStatePath, "Local E2E encryption key state has no active key.", "Run `aw id encryption-key setup`.", nil))
+		r.add(localPathCheck(doctorCheckIdentityEncryptionState, doctorStatusFail, state.encryptionStatePath, "Local E2E encryption key state has no active key.", "Run `murmel id encryption-key setup`.", nil))
 		r.add(blockedLocalCheck(doctorCheckIdentityEncryptionPrivate, "E2E encryption private-key diagnostics require an active key.", doctorCheckIdentityEncryptionState, localPathTarget(state.encryptionStatePath)))
 		r.add(blockedLocalCheck(doctorCheckIdentityEncryptionAssertion, "E2E encryption assertion diagnostics require an active key.", doctorCheckIdentityEncryptionState, localPathTarget(state.encryptionStatePath)))
 		return
@@ -337,11 +337,11 @@ func (r *doctorRunner) addIdentityEncryptionKeyLocalChecks(state *doctorIdentity
 
 	assertion, err := loadEncryptionAssertion(state.workingDir, record.AssertionPath)
 	if err != nil {
-		r.add(localPathCheck(doctorCheckIdentityEncryptionAssertion, doctorStatusFail, resolveWorktreeRelativePath(state.workingDir, record.AssertionPath), "Local E2E encryption-key assertion could not be loaded.", "Run `aw id encryption-key setup` to recreate and publish the identity-signed assertion.", map[string]any{"error": err.Error()}))
+		r.add(localPathCheck(doctorCheckIdentityEncryptionAssertion, doctorStatusFail, resolveWorktreeRelativePath(state.workingDir, record.AssertionPath), "Local E2E encryption-key assertion could not be loaded.", "Run `murmel id encryption-key setup` to recreate and publish the identity-signed assertion.", map[string]any{"error": err.Error()}))
 		return
 	}
 	if err := awid.VerifyEncryptionKeyAssertion(assertion, strings.TrimSpace(state.did), strings.TrimSpace(state.stableID), time.Now().UTC()); err != nil {
-		r.add(localPathCheck(doctorCheckIdentityEncryptionAssertion, doctorStatusFail, resolveWorktreeRelativePath(state.workingDir, record.AssertionPath), "Local E2E encryption-key assertion is stale or mismatched.", "Run `aw id encryption-key setup` or `aw id encryption-key rotate`; do not fall back to plaintext.", map[string]any{"error": err.Error()}))
+		r.add(localPathCheck(doctorCheckIdentityEncryptionAssertion, doctorStatusFail, resolveWorktreeRelativePath(state.workingDir, record.AssertionPath), "Local E2E encryption-key assertion is stale or mismatched.", "Run `murmel id encryption-key setup` or `murmel id encryption-key rotate`; do not fall back to plaintext.", map[string]any{"error": err.Error()}))
 		return
 	}
 	r.add(localPathCheck(doctorCheckIdentityEncryptionAssertion, doctorStatusOK, resolveWorktreeRelativePath(state.workingDir, record.AssertionPath), "Local E2E encryption-key assertion verifies under the identity signing key.", "", map[string]any{"encryption_key_id": assertion.EncryptionKeyID}))
@@ -370,7 +370,7 @@ func (r *doctorRunner) addIdentitySigningKeyCheck(state *doctorIdentityState) {
 		if errors.Is(state.signingKeyErr, os.ErrNotExist) {
 			message = "Local signing key is missing."
 		}
-		check := localPathCheck(doctorCheckIdentityLocalSigningKey, status, state.signingKeyPath, message, "Restore .aw/signing.key or reconnect this identity.", map[string]any{"error": safeLocalKeyError(state.signingKeyErr)})
+		check := localPathCheck(doctorCheckIdentityLocalSigningKey, status, state.signingKeyPath, message, "Restore .murmel/signing.key or reconnect this identity.", map[string]any{"error": safeLocalKeyError(state.signingKeyErr)})
 		if strings.TrimSpace(state.lifetime) == awid.LifetimePersistent {
 			check.Handoff = globalIdentityReplacementReviewHandoff(doctorAuthorityStatusNotDetected, nil)
 		}
@@ -452,7 +452,7 @@ func (r *doctorRunner) addRegistryChecks(state *doctorIdentityState) {
 			reason = "offline_mode"
 		}
 		for _, id := range awidCheckIDs {
-			r.add(awidCheck(id, doctorStatusUnknown, "Online awid check was skipped.", "Run `aw doctor registry --online` to contact awid.", map[string]any{"skipped": true, "reason": reason}))
+			r.add(awidCheck(id, doctorStatusUnknown, "Online awid check was skipped.", "Run `murmel doctor registry --online` to contact awid.", map[string]any{"skipped": true, "reason": reason}))
 		}
 		return
 	}
@@ -495,7 +495,7 @@ func (r *doctorRunner) addAWIDEncryptionKeyCheck(state *doctorIdentityState, res
 		return
 	}
 	if resolution.EncryptionKey == nil {
-		r.add(awidCheck(doctorCheckAWIDEncryptionKey, doctorStatusFail, "awid has no published E2E encryption key assertion for this identity.", "Run `aw id encryption-key setup` before expecting to receive E2E messages.", map[string]any{"did_aw": state.stableID}))
+		r.add(awidCheck(doctorCheckAWIDEncryptionKey, doctorStatusFail, "awid has no published E2E encryption key assertion for this identity.", "Run `murmel id encryption-key setup` before expecting to receive E2E messages.", map[string]any{"did_aw": state.stableID}))
 		return
 	}
 	if err := awid.VerifyEncryptionKeyAssertion(resolution.EncryptionKey, strings.TrimSpace(state.did), strings.TrimSpace(state.stableID), time.Now().UTC()); err != nil {
@@ -509,7 +509,7 @@ func (r *doctorRunner) addAWIDEncryptionKeyCheck(state *doctorIdentityState, res
 		}
 	}
 	if localKeyID != "" && strings.TrimSpace(resolution.EncryptionKey.EncryptionKeyID) != localKeyID {
-		r.add(awidCheck(doctorCheckAWIDEncryptionKey, doctorStatusFail, "awid published E2E encryption key does not match the local active private key.", "Run `aw id encryption-key setup` from the identity home device or restore the matching private key.", map[string]any{"local_encryption_key_id": localKeyID, "published_encryption_key_id": strings.TrimSpace(resolution.EncryptionKey.EncryptionKeyID)}))
+		r.add(awidCheck(doctorCheckAWIDEncryptionKey, doctorStatusFail, "awid published E2E encryption key does not match the local active private key.", "Run `murmel id encryption-key setup` from the identity home device or restore the matching private key.", map[string]any{"local_encryption_key_id": localKeyID, "published_encryption_key_id": strings.TrimSpace(resolution.EncryptionKey.EncryptionKeyID)}))
 		return
 	}
 	r.add(awidCheck(doctorCheckAWIDEncryptionKey, doctorStatusOK, "awid published E2E encryption key matches the local identity.", "", map[string]any{"encryption_key_id": strings.TrimSpace(resolution.EncryptionKey.EncryptionKeyID)}))

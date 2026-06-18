@@ -17,7 +17,7 @@ type StoredTeamCertificate struct {
 }
 
 func TeamCertificatesDir(worktreeDir string) string {
-	return filepath.Join(filepath.Clean(worktreeDir), ".aw", "team-certs")
+	return filepath.Join(filepath.Clean(worktreeDir), ".murmel", "team-certs")
 }
 
 func EncodeTeamIDForCertificatePath(teamID string) string {
@@ -32,7 +32,7 @@ func TeamCertificateRelativePath(teamID string) string {
 }
 
 func TeamCertificatePath(worktreeDir, teamID string) string {
-	return filepath.Join(filepath.Clean(worktreeDir), ".aw", filepath.FromSlash(TeamCertificateRelativePath(teamID)))
+	return filepath.Join(filepath.Clean(worktreeDir), ".murmel", filepath.FromSlash(TeamCertificateRelativePath(teamID)))
 }
 
 func SaveTeamCertificateForTeam(worktreeDir, teamID string, cert *awid.TeamCertificate) (string, error) {

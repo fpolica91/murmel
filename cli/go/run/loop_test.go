@@ -1041,7 +1041,7 @@ func TestLoopShowsStartupStatusBeforeFirstPromptWhileEventBusRuns(t *testing.T) 
 	loop := NewLoop(ClaudeProvider{}, &bytes.Buffer{})
 	loop.Control = ui
 	loop.EventBus = bus
-	loop.StatusIdentity = "claude@aweb:aw:rose"
+	loop.StatusIdentity = "claude@aweb:murmel:rose"
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
@@ -1051,7 +1051,7 @@ func TestLoopShowsStartupStatusBeforeFirstPromptWhileEventBusRuns(t *testing.T) 
 
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
-		if ui.sawStatusContaining("claude@aweb:aw:rose · waiting for prompt") {
+		if ui.sawStatusContaining("claude@aweb:murmel:rose · waiting for prompt") {
 			cancel()
 			err := <-done
 			if !errors.Is(err, context.Canceled) {
@@ -1071,7 +1071,7 @@ func TestLoopShowsFreshStartGreetingWithoutContinue(t *testing.T) {
 	ui := newRecordingUI()
 	loop := NewLoop(ClaudeProvider{}, &bytes.Buffer{})
 	loop.Control = ui
-	loop.StatusIdentity = "claude@aweb:aw:rose"
+	loop.StatusIdentity = "claude@aweb:murmel:rose"
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)

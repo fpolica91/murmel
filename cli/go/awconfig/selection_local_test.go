@@ -11,7 +11,7 @@ import (
 
 func saveWorkspaceAndTeamStateForSelectionTest(t *testing.T, root string, activeTeam string, workspace *WorktreeWorkspace) {
 	t.Helper()
-	if err := SaveWorktreeWorkspaceTo(filepath.Join(root, ".aw", "workspace.yaml"), workspace); err != nil {
+	if err := SaveWorktreeWorkspaceTo(filepath.Join(root, ".murmel", "workspace.yaml"), workspace); err != nil {
 		t.Fatal(err)
 	}
 	teamState := &TeamState{ActiveTeam: activeTeam}
@@ -32,7 +32,7 @@ func TestResolveWorkspaceWithMissingTeamsYAMLDoesNotFallbackToIdentity(t *testin
 	t.Parallel()
 
 	tmp := t.TempDir()
-	if err := SaveWorktreeWorkspaceTo(filepath.Join(tmp, ".aw", "workspace.yaml"), &WorktreeWorkspace{
+	if err := SaveWorktreeWorkspaceTo(filepath.Join(tmp, ".murmel", "workspace.yaml"), &WorktreeWorkspace{
 		AwebURL: "https://app.aweb.ai",
 		Memberships: []WorktreeMembership{{
 			TeamID:      "backend:acme.com",
@@ -43,7 +43,7 @@ func TestResolveWorkspaceWithMissingTeamsYAMLDoesNotFallbackToIdentity(t *testin
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if err := SaveWorktreeIdentityTo(filepath.Join(tmp, ".aw", "identity.yaml"), &WorktreeIdentity{
+	if err := SaveWorktreeIdentityTo(filepath.Join(tmp, ".murmel", "identity.yaml"), &WorktreeIdentity{
 		DID:       "did:key:z6MkAlice",
 		StableID:  "did:aw:alice",
 		Address:   "acme.com/alice",
@@ -77,7 +77,7 @@ func TestResolveFallsBackToIdentityAddressWhenActiveCertMissing(t *testing.T) {
 			JoinedAt:    "2026-04-09T00:00:00Z",
 		}},
 	})
-	if err := SaveWorktreeIdentityTo(filepath.Join(tmp, ".aw", "identity.yaml"), &WorktreeIdentity{
+	if err := SaveWorktreeIdentityTo(filepath.Join(tmp, ".murmel", "identity.yaml"), &WorktreeIdentity{
 		DID:       "did:key:z6MkBYOD",
 		StableID:  "did:aw:byod-support",
 		Address:   "acme.com/support",
@@ -125,7 +125,7 @@ func TestResolveSurfacesActiveCertParseError(t *testing.T) {
 			JoinedAt:    "2026-04-09T00:00:00Z",
 		}},
 	})
-	if err := SaveWorktreeIdentityTo(filepath.Join(tmp, ".aw", "identity.yaml"), &WorktreeIdentity{
+	if err := SaveWorktreeIdentityTo(filepath.Join(tmp, ".murmel", "identity.yaml"), &WorktreeIdentity{
 		DID:       "did:key:z6MkBYOD",
 		StableID:  "did:aw:byod-support",
 		Address:   "acme.com/support",
@@ -175,7 +175,7 @@ func TestResolvePrefersActiveCertMemberAddressOverIdentityAddress(t *testing.T) 
 			JoinedAt:    "2026-04-21T00:00:00Z",
 		}},
 	})
-	if err := SaveWorktreeIdentityTo(filepath.Join(tmp, ".aw", "identity.yaml"), &WorktreeIdentity{
+	if err := SaveWorktreeIdentityTo(filepath.Join(tmp, ".murmel", "identity.yaml"), &WorktreeIdentity{
 		DID:       "did:key:z6MkAmy",
 		StableID:  "did:aw:amy",
 		Address:   "juan.aweb.ai/amy",
@@ -226,7 +226,7 @@ func TestResolveUsesEphemeralActiveCertIdentityOverPersistentIdentityFile(t *tes
 			JoinedAt:    "2026-04-21T00:00:00Z",
 		}},
 	})
-	if err := SaveWorktreeIdentityTo(filepath.Join(tmp, ".aw", "identity.yaml"), &WorktreeIdentity{
+	if err := SaveWorktreeIdentityTo(filepath.Join(tmp, ".murmel", "identity.yaml"), &WorktreeIdentity{
 		DID:       "did:key:z6MkAlicePersistent",
 		StableID:  "did:aw:alice",
 		Address:   "test.local/alice",

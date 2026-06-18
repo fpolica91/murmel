@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -24,10 +25,11 @@ const (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "aw",
-	Short: "aweb CLI",
-	Long:  "aweb CLI\n\nSet AW_NO_UPDATE_CHECK=1 to disable automatic update checks.",
+	Use:   "murmel",
+	Short: "Murmel CLI",
+	Long:  "Murmel CLI\n\nSet AW_NO_UPDATE_CHECK=1 to disable automatic update checks.",
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		migrateLegacyConfigDirs()
 		if !debugFlag && os.Getenv("AW_DEBUG") == "1" {
 			debugFlag = true
 		}
@@ -38,6 +40,45 @@ var rootCmd = &cobra.Command{
 	SilenceErrors: true,
 }
 
+// migrateLegacyConfigDirs renames the pre-rebrand `.aw` config locations to
+// their `.murmel` equivalents so an existing install keeps its login + workspace
+// after the aw->murmel rename. Best-effort + idempotent: it only renames when
+// the new path is absent and the old one exists; any error is ignored.
+func migrateLegacyConfigDirs() {
+	migrate := func(oldPath, newPath string) {
+		if oldPath == "" || newPath == "" {
+			return
+		}
+		if _, err := os.Stat(newPath); err == nil {
+			return // new location already present
+		}
+		if _, err := os.Stat(oldPath); err != nil {
+			return // nothing to migrate
+		}
+		_ = os.Rename(oldPath, newPath)
+	}
+	if home, err := os.UserHomeDir(); err == nil {
+		migrate(filepath.Join(home, ".aw"), filepath.Join(home, ".murmel"))
+		migrate(filepath.Join(home, ".config", "aw"), filepath.Join(home, ".config", "murmel"))
+	}
+	// Migrate the nearest legacy .aw workspace at or above the current directory.
+	if wd, err := os.Getwd(); err == nil {
+		dir := wd
+		for {
+			old := filepath.Join(dir, ".aw")
+			if _, err := os.Stat(filepath.Join(old, "workspace.yaml")); err == nil {
+				migrate(old, filepath.Join(dir, ".murmel"))
+				break
+			}
+			parent := filepath.Dir(dir)
+			if parent == dir {
+				break
+			}
+			dir = parent
+		}
+	}
+}
+
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print version information",
@@ -45,7 +86,7 @@ var versionCmd = &cobra.Command{
 		// No-op: version command doesn't require command initialization side-effects.
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("aw %s\n", version)
+		fmt.Printf("murmel %s\n", version)
 		if commit != "none" {
 			fmt.Printf("  commit: %s\n", commit)
 		}
@@ -99,7 +140,7 @@ func init() {
 	rootCmd.SetCompletionCommandGroupID(groupUtility)
 
 	rootCmd.PersistentFlags().StringVar(&serverFlag, "server-name", "", "Override the server host or name for this command")
-	rootCmd.PersistentFlags().StringVar(&tokenFlag, "token", "", "Bearer JWT to authenticate with (overrides AW_TOKEN and the cached ~/.aw/token; for non-interactive use)")
+	rootCmd.PersistentFlags().StringVar(&tokenFlag, "token", "", "Bearer JWT to authenticate with (overrides AW_TOKEN and the cached ~/.murmel/token; for non-interactive use)")
 	rootCmd.PersistentFlags().BoolVar(&debugFlag, "debug", false, "Log background errors to stderr")
 	rootCmd.PersistentFlags().BoolVar(&jsonFlag, "json", false, "Output as JSON")
 	bindTeamSelector(mailCmd)
@@ -163,6 +204,6 @@ func checkVersionFromHeader() {
 	}
 	latest = strings.TrimPrefix(latest, "v")
 	if compareVersions(current, latest) < 0 {
-		fmt.Fprintf(os.Stderr, "Upgrade available: v%s → v%s (run `aw upgrade`)\n", current, latest)
+		fmt.Fprintf(os.Stderr, "Upgrade available: v%s → v%s (run `murmel upgrade`)\n", current, latest)
 	}
 }

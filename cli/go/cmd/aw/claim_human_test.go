@@ -68,7 +68,7 @@ func TestClaimHumanCommandSendsSignedOnboardingRequest(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 	writeStandaloneSelfCustodyIdentity(t, tmp, "alice.aweb.ai/alice-laptop", didKey, stableID, "https://api.awid.ai", priv)
 
@@ -156,13 +156,13 @@ func TestClaimHumanCommandFallsBackWithoutIdentityFile(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
-	if err := awid.SaveSigningKey(filepath.Join(tmp, ".aw", "signing.key"), priv); err != nil {
+	if err := awid.SaveSigningKey(filepath.Join(tmp, ".murmel", "signing.key"), priv); err != nil {
 		t.Fatalf("save signing key: %v", err)
 	}
 	writeWorkspaceBindingForTest(t, tmp, workspaceBinding(server.URL, "default:alice.aweb.ai", "alice-laptop", "workspace-1"))
-	if _, err := os.Stat(filepath.Join(tmp, ".aw", "identity.yaml")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(tmp, ".murmel", "identity.yaml")); !os.IsNotExist(err) {
 		t.Fatalf("identity.yaml should be absent, err=%v", err)
 	}
 
@@ -237,7 +237,7 @@ func TestClaimHumanCommandPrintsAlreadyAttachedWithoutEmailClaim(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 	writeStandaloneSelfCustodyIdentity(t, tmp, "alice.aweb.ai/alice-laptop", didKey, stableID, "https://api.awid.ai", priv)
 
@@ -297,7 +297,7 @@ func TestClaimHumanCommandUsesExplicitUsernameForBYODIdentity(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 	writeStandaloneSelfCustodyIdentity(t, tmp, "acme.com/alice-laptop", didKey, stableID, "https://api.awid.ai", priv)
 
@@ -353,7 +353,7 @@ func TestClaimHumanCommandAllowsUsernameOverride(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 	writeStandaloneSelfCustodyIdentity(t, tmp, "acme.com/alice-laptop", didKey, stableID, "https://api.awid.ai", priv)
 
@@ -377,7 +377,7 @@ func TestClaimHumanCommandRequiresIdentity(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 
 	run := exec.CommandContext(ctx, bin, "claim-human", "--email", "alice@example.com", "--mock-url", "http://127.0.0.1:1")
@@ -387,7 +387,7 @@ func TestClaimHumanCommandRequiresIdentity(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected claim-human to fail without identity:\n%s", string(out))
 	}
-	if !strings.Contains(string(out), "No identity found. Run aw init first to create an agent, then claim-human to attach an email.") {
+	if !strings.Contains(string(out), "No identity found. Run murmel init first to create an agent, then claim-human to attach an email.") {
 		t.Fatalf("output=%q", string(out))
 	}
 }
@@ -399,7 +399,7 @@ func TestClaimHumanCommandRequiresEmailFlag(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 
 	run := exec.CommandContext(ctx, bin, "claim-human", "--mock-url", "http://127.0.0.1:1")
@@ -433,7 +433,7 @@ func TestClaimHumanCommandMapsNotFound(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 	writeStandaloneSelfCustodyIdentity(t, tmp, "alice.aweb.ai/alice-laptop", didKey, stableID, "https://api.awid.ai", priv)
 
@@ -444,7 +444,7 @@ func TestClaimHumanCommandMapsNotFound(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected claim-human to fail on 404:\n%s", string(out))
 	}
-	if !strings.Contains(string(out), "Username not registered. Run aw init first.") {
+	if !strings.Contains(string(out), "Username not registered. Run murmel init first.") {
 		t.Fatalf("output=%q", string(out))
 	}
 }
@@ -468,7 +468,7 @@ func TestClaimHumanCommandMapsUnauthorized(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 	writeStandaloneSelfCustodyIdentity(t, tmp, "alice.aweb.ai/alice-laptop", didKey, stableID, "https://api.awid.ai", priv)
 
@@ -479,7 +479,7 @@ func TestClaimHumanCommandMapsUnauthorized(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected claim-human to fail on 401:\n%s", string(out))
 	}
-	if !strings.Contains(string(out), "Your signing key does not match the registered agent. Check .aw/signing.key is intact.") {
+	if !strings.Contains(string(out), "Your signing key does not match the registered agent. Check .murmel/signing.key is intact.") {
 		t.Fatalf("output=%q", string(out))
 	}
 }
@@ -503,7 +503,7 @@ func TestClaimHumanCommandMapsConflictVerbatim(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 	writeStandaloneSelfCustodyIdentity(t, tmp, "alice.aweb.ai/alice-laptop", didKey, stableID, "https://api.awid.ai", priv)
 

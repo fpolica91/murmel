@@ -34,7 +34,7 @@ func TestAwWorkReadyFiltersClaimsHeldByOthers(t *testing.T) {
 				"has_more": false,
 			})
 		case "/v1/issues":
-			// `aw work ready` filters todo issues to unassigned ones.
+			// `murmel work ready` filters todo issues to unassigned ones.
 			if got := r.URL.Query().Get("status"); got != "todo" {
 				t.Fatalf("status=%q", got)
 			}
@@ -56,7 +56,7 @@ func TestAwWorkReadyFiltersClaimsHeldByOthers(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 	writeWorkspaceBindingForTest(t, tmp, workspaceBinding(server.URL, "backend:demo", "alice", selfID))
 
@@ -116,7 +116,7 @@ func TestAwWorkActiveListsInProgressIssues(t *testing.T) {
 	defer cancel()
 
 	tmp := t.TempDir()
-	bin := filepath.Join(tmp, "aw")
+	bin := filepath.Join(tmp, "murmel")
 	buildAwBinary(t, ctx, bin)
 	writeWorkspaceBindingForTest(t, tmp, workspaceBinding(server.URL, "backend:demo", "self", "agent-self"))
 
