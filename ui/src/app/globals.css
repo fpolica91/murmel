@@ -71,9 +71,11 @@
   --lh-normal: 1.5;
   --lh-relaxed: 1.55;
 
-  --font-sans: var(--font-sans, ui-sans-serif), system-ui, sans-serif;
-  --font-display: var(--font-display, var(--font-sans));
-  --font-mono: var(--font-mono, ui-monospace), "SFMono-Regular", monospace;
+  /* next/font sets --ff-* on <html>; reference those (NOT same-named --font-*,
+     which would self-reference and collapse to the system fallback). */
+  --font-sans: var(--ff-sans, ui-sans-serif), system-ui, sans-serif;
+  --font-display: var(--ff-display, var(--font-sans));
+  --font-mono: var(--ff-mono, ui-monospace), "SFMono-Regular", monospace;
 }
 
 /* ---- LIGHT THEME -----------------------------------------------------
@@ -128,51 +130,11 @@
   --shadow-md: 0 8px 24px -8px rgba(16, 24, 40, 0.18);
 }
 
-/* First paint matches the OS when no explicit theme is stored. Mirrors the
-   light block above so an unset preference follows prefers-color-scheme. */
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme]) {
-    color-scheme: light;
-    --bg: #f6f7f9;
-    --bg-elev: #ffffff;
-    --bg-gradient-top: #ffffff;
-    --panel: #ffffff;
-    --panel-hover: #f0f2f5;
-    --border: #dfe2e8;
-    --border-strong: #c4c9d2;
-    --text: #1a1d23;
-    --muted: #5a616d;
-    --faint: #666c7a;
-    --accent: #2f5fd0;
-    --accent-weak: rgba(47, 95, 208, 0.1);
-    --focus-ring: rgba(47, 95, 208, 0.4);
-    --control: #ffffff;
-    --on-accent: #ffffff;
-    --surface-muted: #e4e7ec;
-    --bubble-mine: #dbe6ff;
-    --offline: #9aa1ad;
-
-    --good: #178235;
-    --good-text: #18803a;
-    --good-border: #a7e0b6;
-    --warn: #9a6e12;
-    --warn-text: #8a5d0c;
-    --danger: #d23b3f;
-    --danger-text: #b3282c;
-    --danger-border: #f0bcbe;
-    --danger-bg: #fdeced;
-
-    --agent: #6a3fe0;
-    --agent-border: #c3b2f5;
-    --agent-text: #5a32c4;
-    --human: var(--accent);
-    --human-border: #aac2f0;
-    --human-text: #2451bd;
-
-    --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.08);
-    --shadow-md: 0 8px 24px -8px rgba(16, 24, 40, 0.18);
-  }
-}
+/* Dark-first: the `:root` palette above is the default on first paint. Light is
+   opt-in only — it applies when the theme toggle sets `[data-theme="light"]`
+   (the full palette lives in the `:root[data-theme="light"]` block above). We
+   intentionally do NOT auto-switch to light on `prefers-color-scheme`, so the
+   dark brand is the default everywhere (incl. design-system renders). */
 
 * {
   box-sizing: border-box;
