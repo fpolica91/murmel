@@ -41,7 +41,7 @@ commits are selected. The train should move in this order:
      push an `awid-service-v...` tag when there is no diff for that artifact.
    - Release gate: key discovery can distinguish supported, missing assertion,
      stale assertion, unsigned assertion, and mismatched identity.
-3. **aweb server + `aw` CLI**
+3. **aweb server + `murmel` CLI**
    - Server accepts, verifies, routes, stores, returns, and emits events for v2
      encrypted envelopes as opaque ciphertext plus metadata.
    - CLI/client creates encryption keys, signs key assertions, encrypts,
@@ -62,7 +62,7 @@ commits are selected. The train should move in this order:
      verify `/health` flips to the expected version, then run the smoke probe.
    - Release gate: dashboard/API/support surfaces show metadata-only or a clear
      blocked/unavailable state for v2 plaintext.
-5. **Channel, Pi, `aw run`, skills, and package docs**
+5. **Channel, Pi, `murmel run`, skills, and package docs**
    - Channel events are metadata-only until local decryption succeeds.
    - Pi/skills/docs explain local decryption, key loss, no silent plaintext
      fallback, and server-readable hosted exceptions.
@@ -120,9 +120,9 @@ compatible versions for:
 
 - `awid` / registry service,
 - `aweb` server package,
-- `aw` CLI,
+- `murmel` CLI,
 - AC/dashboard backend/frontend,
-- channel/Pi/`aw run` packages,
+- channel/Pi/`murmel run` packages,
 - canonical skills / packaged skills,
 - any federated peer deployments included in the rollout.
 
@@ -223,7 +223,7 @@ or confirm them rather than assuming an indefinite background job.
 4. **Limited encrypted chat canary**
    - Enable one-to-one chat for the same internal team or allowlist after the
      mail canary is stable.
-   - Verify `aw chat pending`, `aw chat history`, channel/Pi/local-client
+   - Verify `murmel chat pending`, `murmel chat history`, channel/Pi/local-client
      display, sender sent-history, and unread/wait metadata all decrypt only
      locally and keep server responses metadata-only.
    - Verify small group chat with per-message content keys and per-recipient

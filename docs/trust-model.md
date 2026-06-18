@@ -50,8 +50,8 @@ team key rotation within the namespace.
 | **Private key location** | BYOD: `~/.awid/controllers/<domain>.key`. Managed: held by the operator (e.g., app.aweb.ai)                                                          |
 | **Public key location**  | awid `dns_namespaces.controller_did` + DNS TXT record (`_awid.<domain>`)                                                                             |
 | **Authorizes**           | Namespace operations, child namespace creation (parent delegation), team creation/deletion, team key rotation, address create/delete/reassign        |
-| **Created by**           | BYOD: `aw id create` on first identity for a domain. Managed: the operator on behalf of the user                                                     |
-| **Rotation**             | `aw id namespace rotate-controller` (requires DNS reverify)                                                                                          |
+| **Created by**           | BYOD: `murmel id create` on first identity for a domain. Managed: the operator on behalf of the user                                                     |
+| **Rotation**             | `murmel id namespace rotate-controller` (requires DNS reverify)                                                                                          |
 | **Recovery if lost**     | DNS reverify: DNS is the root of trust.  The `rotate-controller` command proves domain ownership via DNS TXT and re-establishes a new controller key |
 
 For BYOD namespaces, keep `~/.awid` safe and backed up. It contains the
@@ -84,7 +84,7 @@ The authority over team membership.  Issues and revokes team certificates.
 | **Private key location** | BYOD: `~/.awid/team-keys/<domain>/<team>.key`. Managed: held by the operator (encrypted)                                                                     |
 | **Public key location**  | awid `teams.team_did_key`                                                                                                                                    |
 | **Authorizes**           | Certificate issuance, certificate revocation, team visibility toggle                                                                                         |
-| **Created by**           | `aw id team create` generates the keypair and registers the public key at awid                                                                               |
+| **Created by**           | `murmel id team create` generates the keypair and registers the public key at awid                                                                               |
 | **Rotation**             | Namespace controller rotates via awid (`POST /v1/namespaces/{domain}/teams/{name}/rotate`).  Invalidates all existing certificates; members need re-issuance |
 | **Recovery if lost**     | Namespace controller re-issues: the namespace controller can rotate the team key to a new keypair, then re-issue certificates for all members                |
 
@@ -105,11 +105,11 @@ DID operations.
 | Aspect | Detail |
 |--------|--------|
 | **Algorithm** | Ed25519 |
-| **Private key location** | Self-custodial: `.aw/signing.key` in the workspace directory.  Custodial: operator's encrypted storage |
+| **Private key location** | Self-custodial: `.murmel/signing.key` in the workspace directory.  Custodial: operator's encrypted storage |
 | **Public key location** | awid `did_aw_mappings.current_did_key` (for global identities).  Also embedded in the team certificate as `member_did_key` |
 | **Authorizes** | Message signing, DID registration (identity-only `register_did`, no address), DID key rotation, identity-scoped auth (messaging routes), team-certificate auth (coordination routes, together with the team cert) |
-| **Created by** | Self-custodial: `aw init` for a local workspace or `aw init --global --name <name>` for a global identity.  Custodial: the operator's dashboard |
-| **Rotation** | Self-custodial: `aw id rotate-key` — requires the old key to sign.  Custodial: operator re-generates server-side |
+| **Created by** | Self-custodial: `murmel init` for a local workspace or `murmel init --global --name <name>` for a global identity.  Custodial: the operator's dashboard |
+| **Rotation** | Self-custodial: `murmel id rotate-key` — requires the old key to sign.  Custodial: operator re-generates server-side |
 | **Recovery if lost** | Self-custodial: **no CLI recovery path exists today** (see [Identity Key Loss](#identity-key-loss)).  Custodial: the operator's replace operation generates a new key, re-registers DID, reassigns address |
 
 #### Custody modes
@@ -117,7 +117,7 @@ DID operations.
 The identity signing key has two custody modes:
 
 - **Self-custodial**: the agent holds its own private key locally in
-  `.aw/signing.key`.  Created from the CLI.  The private key never leaves
+  `.murmel/signing.key`.  Created from the CLI.  The private key never leaves
   the local machine.
 - **Custodial**: an operator holds the encrypted private key on behalf
   of the agent.  Created from the operator's dashboard (e.g.,
@@ -164,8 +164,8 @@ boundary between awid authority and aweb local routing state, see
 ```
 ~/.awid/controllers/<domain>.key       # Namespace controller key
 ~/.awid/team-keys/<domain>/<team>.key  # Team controller key
-<repo>/.aw/signing.key                      # Identity signing key (per workspace)
-<repo>/.aw/team-certs/<team_id>.pem         # Team membership certificate (not a key)
+<repo>/.murmel/signing.key                      # Identity signing key (per workspace)
+<repo>/.murmel/team-certs/<team_id>.pem         # Team membership certificate (not a key)
 ```
 
 Back up `~/.awid` after creating a namespace or team controller. These keys
@@ -187,7 +187,7 @@ Each key type is recoverable by the authority one level above it:
 
 | Key lost                  | Recovered by                    | Mechanism                                                  | Status          |
 |---------------------------|---------------------------------|------------------------------------------------------------|-----------------|
-| Namespace controller      | DNS ownership                   | `aw id namespace rotate-controller` — DNS reverify         | **Implemented** |
+| Namespace controller      | DNS ownership                   | `murmel id namespace rotate-controller` — DNS reverify         | **Implemented** |
 | Team controller           | Namespace controller            | `POST /v1/namespaces/{domain}/teams/{name}/rotate` at awid | **Implemented** |
 | Identity (custodial)      | Operator (namespace controller) | Replace — new keypair, re-register DID, reassign address   | **Implemented** |
 | Identity (self-custodial) | ???                             | No mechanism exists                                        | **Gap**         |
@@ -219,10 +219,10 @@ it manages.
 
 **No recovery path exists today.**
 
-- `aw id rotate-key` requires the old key to sign the rotation — useless
+- `murmel id rotate-key` requires the old key to sign the rotation — useless
   if the key is lost.
 - The dashboard replace endpoint exists but requires a dashboard account
-  (the user must have run `aw claim-human` previously).
+  (the user must have run `murmel claim-human` previously).
 - There is no CLI command for archive or replace.
 - A CLI-only user who never claimed a dashboard account and loses their
   signing key has no way to recover the identity or reassign the address.

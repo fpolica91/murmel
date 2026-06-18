@@ -1,7 +1,7 @@
 # Superseded In-Repo Bootstrap Layout Contract
 
 This document is retained as historical design context for the earlier
-in-repo bootstrap work. The current `aw agents` lifecycle contract is
+in-repo bootstrap work. The current `murmel agents` lifecycle contract is
 [`agents-layout-lifecycle-contract.md`](agents-layout-lifecycle-contract.md),
 and that document is authoritative for current implementation and user-facing
 guidance.
@@ -14,7 +14,7 @@ The goal is to make the customer work repo the center of gravity:
 
 ```bash
 cd my-project
-aw agents bootstrap gh:awebai/aweb-team-coord-worktrees --username juan --identity-prefix juan
+murmel agents bootstrap gh:awebai/aweb-team-coord-worktrees --username juan --identity-prefix juan
 cd agents/home/coordinator
 codex
 ```
@@ -30,7 +30,7 @@ mutating the legacy path into a partially new shape.
 - **Agents directory**: the generated project-local directory selected by
   `--agents-dir`, defaulting to `agents`.
 - **Agent home**: a directory containing an agent's local runtime state, most
-  importantly `.aw/`, `AGENTS.md`, and `CLAUDE.md`.
+  importantly `.murmel/`, `AGENTS.md`, and `CLAUDE.md`.
 - **Template repo**: a reusable source blueprint containing `team.yaml`,
   shared docs, roles, and source home templates.
 - **Legacy mode**: the existing template-checkout / external-work bootstrap
@@ -40,7 +40,7 @@ mutating the legacy path into a partially new shape.
 
 ## Mode Selection
 
-`aw agents bootstrap` has two explicit layout modes.
+`murmel agents bootstrap` has two explicit layout modes.
 
 | Explicit `--agents-dir` | `--work-directory` | `--work-repo-url` | Behavior |
 | --- | --- | --- | --- |
@@ -78,17 +78,17 @@ my-project/
    ├─ roles/
    ├─ home/
    │  ├─ coordinator/
-   │  │  ├─ .aw/
+   │  │  ├─ .murmel/
    │  │  ├─ AGENTS.md
    │  │  ├─ CLAUDE.md
    │  │  └─ work -> ../../..
    │  ├─ dev/
-   │  │  ├─ .aw/
+   │  │  ├─ .murmel/
    │  │  ├─ AGENTS.md
    │  │  ├─ CLAUDE.md
    │  │  └─ work -> ../../worktrees/dev
    │  └─ review/
-   │     ├─ .aw/
+   │     ├─ .murmel/
    │     ├─ AGENTS.md
    │     ├─ CLAUDE.md
    │     └─ work -> ../../worktrees/review
@@ -98,7 +98,7 @@ my-project/
 ```
 
 All live agent homes created by in-repo bootstrap must be under
-`<agents-dir>/home/<agent>`. The bootstrap command must not create `.aw/` at
+`<agents-dir>/home/<agent>`. The bootstrap command must not create `.murmel/` at
 the customer repo root.
 
 Worktree checkouts are implementation detail under
@@ -137,7 +137,7 @@ To create a new bootstrap here:
   1. Pick a different name with --agents-dir <name>, or
   2. Remove or rename the existing directory if you no longer need it.
 
-aw agents bootstrap does not adopt, merge, or overwrite existing agents
+murmel agents bootstrap does not adopt, merge, or overwrite existing agents
 directories in v1. This prevents accidental data loss to existing agent
 identity state.
 ```
@@ -264,7 +264,7 @@ before all of:
 - worktree creation,
 - `.gitignore` updates,
 - lock file writes,
-- `.aw/` state mutation anywhere on disk.
+- `.murmel/` state mutation anywhere on disk.
 
 The implementation should structure this as a separate in-repo pre-flight
 phase that runs before template resolution performs network or filesystem
@@ -281,8 +281,8 @@ customer repo `.gitignore`.
 Canonical block:
 
 ```gitignore
-# Auto-written by aw agents (do not remove)
-/agents/home/*/.aw/
+# Auto-written by murmel agents (do not remove)
+/agents/home/*/.murmel/
 /agents/home/*/work
 /agents/worktrees/
 ```
@@ -290,8 +290,8 @@ Canonical block:
 When `--agents-dir` is not `agents`, the paths must use that directory:
 
 ```gitignore
-# Auto-written by aw agents (do not remove)
-/ai-team/home/*/.aw/
+# Auto-written by murmel agents (do not remove)
+/ai-team/home/*/.murmel/
 /ai-team/home/*/work
 /ai-team/worktrees/
 ```
@@ -315,9 +315,9 @@ worktree checkouts.
 
 ## Identity Resolution
 
-In-repo mode does not create an aw identity at the customer repo root. After
+In-repo mode does not create an murmel identity at the customer repo root. After
 bootstrap, commands run from the repo root should behave like any directory
-without `.aw/`: they fail with the normal "current directory is not
+without `.murmel/`: they fail with the normal "current directory is not
 initialized" / "no identity found" guidance.
 
 Humans and agents must start from an agent home:
@@ -333,13 +333,13 @@ project source, not an agent.
 ## Symlink and Worktree Behavior
 
 V1 in-repo bootstrap targets platforms that support directory symlinks in the
-same way the existing `aw` workspace helpers do, primarily macOS and Linux.
+same way the existing `murmel` workspace helpers do, primarily macOS and Linux.
 If symlink creation fails, bootstrap must return a clear error naming the
 path it could not link. Windows-specific fallback behavior is out of scope
 unless added by a later reviewed contract revision.
 
 If a user deletes or moves a generated worktree, the corresponding agent
-home's `work` symlink becomes dangling. The agent home and `.aw/` identity
+home's `work` symlink becomes dangling. The agent home and `.murmel/` identity
 remain valid, but commands that need the work checkout will fail when they
 enter `work`. Repair is a user action: restore the worktree, rerun a future
 repair command, or create a new agents directory. V1 bootstrap does not
@@ -392,9 +392,9 @@ Minimum release-blocking tests for this contract:
 6. Git-worktree agent home has `work` symlink to
    `<agents-dir>/worktrees/<agent>`.
 7. `.gitignore` block is written and does not ignore all of `<agents-dir>`.
-8. Running from customer repo root after bootstrap does not resolve as an aw
+8. Running from customer repo root after bootstrap does not resolve as an murmel
    identity.
-9. `aw whoami`, mail, and chat work from each generated home.
+9. `murmel whoami`, mail, and chat work from each generated home.
 10. Docker-backed e2e covers a full in-repo bootstrap from a customer git repo.
 11. Docker-backed e2e reruns bootstrap against the same `<agents-dir>` and
     proves fail-closed behavior with no new filesystem, git, identity,

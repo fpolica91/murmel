@@ -1,53 +1,53 @@
 ---
 name: aweb-coordination
-description: This skill should be used when working in an aweb-coordinated team — checking what teammates are doing, discovering and sharing tasks, claiming work, taking manual locks on contested resources, reading or setting shared team roles and instructions, deciding when to create separate worktrees/workspaces with explicit git + aw primitives, and deciding whether to record coordination in shared aweb state versus private notes.
-allowed-tools: "Bash(aw *)"
+description: This skill should be used when working in an aweb-coordinated team — checking what teammates are doing, discovering and sharing tasks, claiming work, taking manual locks on contested resources, reading or setting shared team roles and instructions, deciding when to create separate worktrees/workspaces with explicit git + murmel primitives, and deciding whether to record coordination in shared aweb state versus private notes.
+allowed-tools: "Bash(murmel *)"
 ---
 
 # aweb Coordination
 
-Use this skill when sharing work with a team of agents through aweb. Focus on the **decision policy**: when to inspect shared state, when to claim tasks, when to take a lock, how to read the team's operating rules, and how to create a fresh worktree. Command help is one `aw <verb> --help` away — this skill is here for the judgment calls help cannot supply.
+Use this skill when sharing work with a team of agents through aweb. Focus on the **decision policy**: when to inspect shared state, when to claim tasks, when to take a lock, how to read the team's operating rules, and how to create a fresh worktree. Command help is one `murmel <verb> --help` away — this skill is here for the judgment calls help cannot supply.
 
 For mail/chat response policy, load `aweb-messaging`. For identity, encryption keys, custody, addressability, or contacts, load `aweb-identity`. For team membership, switching the active team, and token onboarding, load `aweb-team-membership`.
 
 ## What aweb gives the team
 
-A short map of the primitives this skill assumes are available. Each has its own `aw` verb; their decision policy lives here, their command details live in `aw <verb> --help`.
+A short map of the primitives this skill assumes are available. Each has its own `murmel` verb; their decision policy lives here, their command details live in `murmel <verb> --help`.
 
-- **Tasks** (`aw task`) — the durable record of work items: create, list, show, update, comment, close.
-- **Work discovery** (`aw work`) — the dashboard-style view over those tasks combined with current claim state: `ready` (unclaimed), `active` (in-progress across the team), `blocked`.
-- **Mail** (`aw mail`) — async, signed, durable; the default for handoffs and review requests. Details in `aweb-messaging`.
-- **Chat** (`aw chat`) — sync, signed, waits on a response. Details in `aweb-messaging`.
-- **Locks** (`aw lock`) — explicit, manual coordination primitives for contested resources. Not automatic.
-- **Presence** — `aw workspace status` shows who is online; `aw heartbeat` sends an explicit presence beat.
-- **Roles** (`aw roles`, `aw role-name`) — a versioned bundle of role definitions plus the current workspace's role assignment.
-- **Instructions** (`aw instructions`) — a versioned shared team-instructions document every agent reads on wake-up.
-- **Worktrees/workspaces** — use normal `git worktree`/filesystem steps plus `aw init` (token-only) to make a separate workspace. `aw workspace add-worktree` remains a legacy convenience for existing users, not the product-center primitive.
+- **Tasks** (`murmel task`) — the durable record of work items: create, list, show, update, comment, close.
+- **Work discovery** (`murmel work`) — the dashboard-style view over those tasks combined with current claim state: `ready` (unclaimed), `active` (in-progress across the team), `blocked`.
+- **Mail** (`murmel mail`) — async, signed, durable; the default for handoffs and review requests. Details in `aweb-messaging`.
+- **Chat** (`murmel chat`) — sync, signed, waits on a response. Details in `aweb-messaging`.
+- **Locks** (`murmel lock`) — explicit, manual coordination primitives for contested resources. Not automatic.
+- **Presence** — `murmel workspace status` shows who is online; `murmel heartbeat` sends an explicit presence beat.
+- **Roles** (`murmel roles`, `murmel role-name`) — a versioned bundle of role definitions plus the current workspace's role assignment.
+- **Instructions** (`murmel instructions`) — a versioned shared team-instructions document every agent reads on wake-up.
+- **Worktrees/workspaces** — use normal `git worktree`/filesystem steps plus `murmel init` (token-only) to make a separate workspace. `murmel workspace add-worktree` remains a legacy convenience for existing users, not the product-center primitive.
 
 ## Start-of-session loop
 
 Run these before claiming new work. Order is deliberate.
 
 ```bash
-aw workspace status   # who is online, active team, identity, claims, locks
-aw mail inbox         # async handoffs, reviews, blockers — process first
-aw chat pending       # someone may be blocked waiting on you
-aw work ready         # only after the above; pick the smallest actionable item
+murmel workspace status   # who is online, active team, identity, claims, locks
+murmel mail inbox         # async handoffs, reviews, blockers — process first
+murmel chat pending       # someone may be blocked waiting on you
+murmel work ready         # only after the above; pick the smallest actionable item
 ```
 
-If `aw workspace status` reports the directory is not bound to a team (no `.aw/workspace.yaml`), stop and load `aweb-team-membership` to onboard with `aw init` before doing coordination work.
+If `murmel workspace status` reports the directory is not bound to a team (no `.murmel/workspace.yaml`), stop and load `aweb-team-membership` to onboard with `murmel init` before doing coordination work.
 
 ## Seeing what teammates are doing
 
 Before you claim work or send a message, get the team's current state. These are read-only and cheap:
 
-- `aw work active` — every task currently claimed across the team, who has it, and the status. The first place to look when wondering "is someone already on this?"
-- `aw work ready` — unclaimed tasks the team would benefit from picking up.
-- `aw work blocked` — tasks paused on a dependency or external answer.
-- `aw task list` — full task index with filters (status, assignee, label).
-- `aw task show <task-id>` — full task including comments, dependencies, and history.
-- `aw workspace status` — presence for the active team (who is online right now).
-- `aw mail inbox` and `aw chat history <alias>` — recent messages, including what teammates have been talking about.
+- `murmel work active` — every task currently claimed across the team, who has it, and the status. The first place to look when wondering "is someone already on this?"
+- `murmel work ready` — unclaimed tasks the team would benefit from picking up.
+- `murmel work blocked` — tasks paused on a dependency or external answer.
+- `murmel task list` — full task index with filters (status, assignee, label).
+- `murmel task show <task-id>` — full task including comments, dependencies, and history.
+- `murmel workspace status` — presence for the active team (who is online right now).
+- `murmel mail inbox` and `murmel chat history <alias>` — recent messages, including what teammates have been talking about.
 
 Some teammates may be members of more than one team. The commands above only show the active team's state. To check another team in passing, use `--team <team-id>` (covered in `aweb-team-membership`).
 
@@ -55,15 +55,15 @@ Some teammates may be members of more than one team. The commands above only sho
 
 Mail and chat are the contact surface. The policy lives in `aweb-messaging`, but in a coordination context the defaults are:
 
-- **Mail** (`aw mail send --to <alias> --body ...`) — durable handoffs, review requests, status updates, anything that doesn't need an answer in the next few seconds.
-- **Chat** (`aw chat send-and-wait <alias> "..."`) — when the teammate is online and you are blocked on their answer. Sets a wait state the harness surfaces to them.
+- **Mail** (`murmel mail send --to <alias> --body ...`) — durable handoffs, review requests, status updates, anything that doesn't need an answer in the next few seconds.
+- **Chat** (`murmel chat send-and-wait <alias> "..."`) — when the teammate is online and you are blocked on their answer. Sets a wait state the harness surfaces to them.
 - For cross-team addressing, use `<domain>/<alias>` or a saved contact. Same-team aliases only resolve within the active team; cross-team addressing is covered in `aweb-team-membership`.
 
 ## Shared state over private notes
 
 Whenever another agent might care, prefer aweb-visible state to private TODOs:
 
-- Tasks and `aw work`/`aw task` capture WHO is doing WHAT and WHEN.
+- Tasks and `murmel work`/`murmel task` capture WHO is doing WHAT and WHEN.
 - Mail captures durable handoffs and review evidence.
 - Locks capture exclusive holds on shared resources.
 - Roles and instructions capture team-wide operating rules.
@@ -75,13 +75,13 @@ Private notes go stale and strand context if another agent takes over. Reserve t
 A task is the durable record of a unit of work. Anyone in the team can see it; it doesn't depend on local notes.
 
 ```bash
-aw task create --title "<title>" --description "<details>"
-aw task list                         # filter with --status, --assignee, --labels
-aw task show <task-id>
-aw task update <task-id> --status in_progress
-aw task comment add <task-id> "validation results, blockers, decisions"
-aw task close <task-id> --reason "what landed and where validated"
-aw task dep add <task-id> <depends-on-id>     # express dependencies
+murmel task create --title "<title>" --description "<details>"
+murmel task list                         # filter with --status, --assignee, --labels
+murmel task show <task-id>
+murmel task update <task-id> --status in_progress
+murmel task comment add <task-id> "validation results, blockers, decisions"
+murmel task close <task-id> --reason "what landed and where validated"
+murmel task dep add <task-id> <depends-on-id>     # express dependencies
 ```
 
 When creating a task: keep the scope small enough that one agent can complete it. Put what's known into the body so a teammate can pick it up without asking. If something only one agent knows is needed to finish, name them in the body.
@@ -91,25 +91,25 @@ When creating a task: keep the scope small enough that one agent can complete it
 To take a ready task, mark it in-progress (this is the claim — the team sees you own it):
 
 ```bash
-aw task update <task-id> --status in_progress
+murmel task update <task-id> --status in_progress
 ```
 
-Before claiming, run `aw work active` to make sure nobody is already on the same scope. Keep the claim small: claim the smallest actionable task, not the broad epic. Coordinators may move work around without claiming every subtask.
+Before claiming, run `murmel work active` to make sure nobody is already on the same scope. Keep the claim small: claim the smallest actionable task, not the broad epic. Coordinators may move work around without claiming every subtask.
 
-When status changes, update the task. Valid status values are `open`, `in_progress`, and `closed` (use `aw task close <id>` to close). Closing with `--reason "..."` records why; comments capture validation evidence and decisions.
+When status changes, update the task. Valid status values are `open`, `in_progress`, and `closed` (use `murmel task close <id>` to close). Closing with `--reason "..."` records why; comments capture validation evidence and decisions.
 
-If you stop work on a claimed task without finishing — handoff, abandon, or block — move it back out of `in_progress` so the team sees it's available again: `aw task update <id> --status open` and leave a comment naming what was done so far and what's left. Mail the teammate who can unblock or continue.
+If you stop work on a claimed task without finishing — handoff, abandon, or block — move it back out of `in_progress` so the team sees it's available again: `murmel task update <id> --status open` and leave a comment naming what was done so far and what's left. Mail the teammate who can unblock or continue.
 
 ## Locks — manual, not automatic
 
 aweb's locks are **explicit and manual**: nothing is locked just because a task is in-progress. Acquire a lock yourself when you genuinely need exclusive access to a mutable shared resource:
 
 ```bash
-aw lock acquire --resource-key <key> --ttl-seconds <n>
-aw lock renew   --resource-key <key> --ttl-seconds <n>
-aw lock release --resource-key <key>
-aw lock list                                    # see what's currently held
-aw lock revoke  --prefix <prefix>               # emergency override, by prefix
+murmel lock acquire --resource-key <key> --ttl-seconds <n>
+murmel lock renew   --resource-key <key> --ttl-seconds <n>
+murmel lock release --resource-key <key>
+murmel lock list                                    # see what's currently held
+murmel lock revoke  --prefix <prefix>               # emergency override, by prefix
 ```
 
 Take a lock for: deployments, production DB maintenance, shared staging environments, long-running migrations, generated artifacts where concurrent writers corrupt output. Do NOT take a lock for ordinary file edits in your own worktree.
@@ -120,43 +120,43 @@ When acquiring: choose a clear resource key (`prod-deploy`, not `lock1`), pick a
 
 Two distinct shared documents live on the aweb server:
 
-- **Role bundle** (`aw roles`) — a versioned set of role definitions for the team. Each role has a name (`developer`, `reviewer`, `coordinator`) and a body of guidance specific to that role. The active bundle applies to the whole team.
-- **Team instructions** (`aw instructions`) — a single versioned shared document every agent reads on wake-up. Captures team-wide context, conventions, or policies — the things every member should know regardless of role.
+- **Role bundle** (`murmel roles`) — a versioned set of role definitions for the team. Each role has a name (`developer`, `reviewer`, `coordinator`) and a body of guidance specific to that role. The active bundle applies to the whole team.
+- **Team instructions** (`murmel instructions`) — a single versioned shared document every agent reads on wake-up. Captures team-wide context, conventions, or policies — the things every member should know regardless of role.
 
 Both are stored centrally on the aweb server and versioned (you can list history and roll back). Both apply per team, so a teammate in another team sees different roles and instructions.
 
-Neither lives in the repo by default. The authoritative copy is server-side; `aw {instructions,roles} set` is what publishes a new version. Teams may keep a source file in their repo for review, but only the published version applies.
+Neither lives in the repo by default. The authoritative copy is server-side; `murmel {instructions,roles} set` is what publishes a new version. Teams may keep a source file in their repo for review, but only the published version applies.
 
 **Reading them (always start here):**
 
 ```bash
-aw instructions show              # team-wide rules
-aw roles list                     # role names in the active bundle
-aw roles show <role-name>         # guidance for one role
-aw workspace status               # reports this workspace's assigned role among other things
+murmel instructions show              # team-wide rules
+murmel roles list                     # role names in the active bundle
+murmel roles show <role-name>         # guidance for one role
+murmel workspace status               # reports this workspace's assigned role among other things
 ```
 
 **Setting and updating them** (requires whatever permission the team's authority model demands — coordinator/owner, typically):
 
 ```bash
-aw instructions set --body-file <path>      # publish a new version of team instructions (markdown body)
-aw instructions activate <version-id>       # roll back/forward to a previous version
-aw instructions history                     # see what changed and when
+murmel instructions set --body-file <path>      # publish a new version of team instructions (markdown body)
+murmel instructions activate <version-id>       # roll back/forward to a previous version
+murmel instructions history                     # see what changed and when
 
-aw roles add <role-name> --title <title> --playbook-file <path>  # add/update one role from Markdown
-aw roles set --bundle-file <path>                                # publish a full JSON role bundle
-aw roles activate <version-id>                                   # roll to a previous bundle
-aw roles history
-aw role-name set <role-name>                                     # assign a role to THIS workspace
+murmel roles add <role-name> --title <title> --playbook-file <path>  # add/update one role from Markdown
+murmel roles set --bundle-file <path>                                # publish a full JSON role bundle
+murmel roles activate <version-id>                                   # roll to a previous bundle
+murmel roles history
+murmel role-name set <role-name>                                     # assign a role to THIS workspace
 ```
 
-Team instructions and individual role playbooks are markdown. For resource packs or novice application, prefer `aw roles add ... --playbook-file <path>` one role at a time. For reviewed bulk updates, a role bundle is JSON (one entry per role, each with name + guidance) and can be published with `aw roles set --bundle-file`. If a fresh team has empty bundles, that's fine — coordinate with the team owner before publishing the first version.
+Team instructions and individual role playbooks are markdown. For resource packs or novice application, prefer `murmel roles add ... --playbook-file <path>` one role at a time. For reviewed bulk updates, a role bundle is JSON (one entry per role, each with name + guidance) and can be published with `murmel roles set --bundle-file`. If a fresh team has empty bundles, that's fine — coordinate with the team owner before publishing the first version.
 
 A role name clarifies responsibility but does not bypass judgment. If a role assignment is wrong for the work being requested, mail the coordinator instead of silently acting outside scope.
 
 ## Applying resource packs safely
 
-A resource pack is a set of reusable resources, not a setup command. Apply it only after the target team/workspace exists and `aw workspace status` succeeds.
+A resource pack is a set of reusable resources, not a setup command. Apply it only after the target team/workspace exists and `murmel workspace status` succeeds.
 
 Novice-friendly order:
 
@@ -165,19 +165,19 @@ Novice-friendly order:
 ls <pack-dir>
 
 # 2. Publish team-wide instructions from Markdown.
-aw instructions set --body-file <pack-dir>/resources/instructions.md
+murmel instructions set --body-file <pack-dir>/resources/instructions.md
 
 # 3. Add roles one by one from Markdown playbooks.
-aw roles add coordinator --title "Coordinator" --playbook-file <pack-dir>/resources/roles/coordinator.md
-aw roles add developer --title "Developer" --playbook-file <pack-dir>/resources/roles/developer.md
+murmel roles add coordinator --title "Coordinator" --playbook-file <pack-dir>/resources/roles/coordinator.md
+murmel roles add developer --title "Developer" --playbook-file <pack-dir>/resources/roles/developer.md
 
 # 4. Verify what the team now sees.
-aw instructions show
-aw roles list
-aw roles show --all-roles
+murmel instructions show
+murmel roles list
+murmel roles show --all-roles
 ```
 
-If a role already exists, stop and ask whether to update it; do not pass `--replace` silently. Use `aw roles set --bundle-file` only for a reviewed full-bundle replacement, not as the default novice path. Apply harness adapters (Claude/Codex/Pi/Cursor files) only after the human chooses that harness. Create git worktrees explicitly with git, not as a hidden side effect of applying the pack.
+If a role already exists, stop and ask whether to update it; do not pass `--replace` silently. Use `murmel roles set --bundle-file` only for a reviewed full-bundle replacement, not as the default novice path. Apply harness adapters (Claude/Codex/Pi/Cursor files) only after the human chooses that harness. Create git worktrees explicitly with git, not as a hidden side effect of applying the pack.
 
 ## Worktrees for parallel local work
 
@@ -187,13 +187,13 @@ When the human (or another agent) needs a second working copy of the same repo �
 git worktree add ../repo-feature -b feature-branch
 cd ../repo-feature
 # then bind this directory to the team (token-only onboarding):
-aw login                                      # or export AW_TOKEN=<jwt>
-aw init --aweb-url <server-url> --team <team-id>
+murmel login                                      # or export AW_TOKEN=<jwt>
+murmel init --aweb-url <server-url> --team <team-id>
 ```
 
-`aw init` authenticates with a bearer token (a Better Auth JWT cached at `~/.aw/token` by `aw login`, or `AW_TOKEN`/`--token` for non-interactive use). It writes a cert-less `.aw/workspace.yaml`. Load `aweb-team-membership` for the full token-onboarding details.
+`murmel init` authenticates with a bearer token (a Better Auth JWT cached at `~/.murmel/token` by `murmel login`, or `AW_TOKEN`/`--token` for non-interactive use). It writes a cert-less `.murmel/workspace.yaml`. Load `aweb-team-membership` for the full token-onboarding details.
 
-`aw workspace add-worktree` remains available as a legacy convenience for existing users. Do not make it the default product path in new guidance unless it has been reduced to a transparent wrapper with no identity/team/template magic.
+`murmel workspace add-worktree` remains available as a legacy convenience for existing users. Do not make it the default product path in new guidance unless it has been reduced to a transparent wrapper with no identity/team/template magic.
 
 Use worktrees when work is happening in parallel against the same codebase. Use separate initialized directories when the work isn't tied to one repo.
 
@@ -201,10 +201,10 @@ Use worktrees when work is happening in parallel against the same codebase. Use 
 
 Before stopping work:
 
-1. Update task status; close finished tasks (`aw task close <id> --reason "..."`).
+1. Update task status; close finished tasks (`murmel task close <id> --reason "..."`).
 2. Send any handoff or review-request mail.
-3. Release locks you still hold (`aw lock release --resource-key <key>`).
-4. Answer or close any waiting chat with the appropriate `aw chat send-and-leave <alias> "..."` so teammates aren't left in a wait state.
+3. Release locks you still hold (`murmel lock release --resource-key <key>`).
+4. Answer or close any waiting chat with the appropriate `murmel chat send-and-leave <alias> "..."` so teammates aren't left in a wait state.
 
 ## References
 

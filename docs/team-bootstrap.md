@@ -1,18 +1,18 @@
 ---
 title: "Legacy repo-local agents bootstrap"
 kicker: "Legacy compatibility"
-description: "Compatibility guide for existing `aw agents bootstrap` layouts and recovery of the project-local agents/ convention. New teams should use explicit primitives and resource packs."
+description: "Compatibility guide for existing `murmel agents bootstrap` layouts and recovery of the project-local agents/ convention. New teams should use explicit primitives and resource packs."
 weight: 25
 ---
 
-> **Legacy compatibility:** `aw agents bootstrap` is preserved for existing
+> **Legacy compatibility:** `murmel agents bootstrap` is preserved for existing
 > bootstrap-era `agents/` layouts. New teams should prefer explicit primitives
-> (`aw init`, `aw team invite`, `aw team join`, `aw workspace connect`,
-> `aw check`) plus resource packs. See
+> (`murmel init`, `murmel team invite`, `murmel team join`, `murmel workspace connect`,
+> `murmel check`) plus resource packs. See
 > [`cli-setup-surface-sot.md`](cli-setup-surface-sot.md) and
 > [`resource-pack-template-contract.md`](resource-pack-template-contract.md).
 
-`aw agents bootstrap` is the old project-repo path from "I want a team of
+`murmel agents bootstrap` is the old project-repo path from "I want a team of
 AI agents working around this codebase" to a working aweb team. It
 takes a **team template** and produces:
 
@@ -21,7 +21,7 @@ takes a **team template** and produces:
 - optional generated git worktrees for worktree-bound agents,
 - role playbooks and shared instructions installed on the coordination
   server,
-- local `.aw/` identity and certificate state under each generated
+- local `.murmel/` identity and certificate state under each generated
   runtime workspace.
 
 The normative lifecycle contract is
@@ -33,7 +33,7 @@ Run from the root of the project git repo where agents will work:
 
 ```bash
 cd /path/to/project-repo
-aw agents bootstrap https://github.com/awebai/aweb-team-coord-worktrees.git \
+murmel agents bootstrap https://github.com/awebai/aweb-team-coord-worktrees.git \
   --username <username> \
   --identity-prefix <human-slug>
 ```
@@ -52,7 +52,7 @@ agents/
 ├─ roles/
 ├─ home/
 │  ├─ coordinator/
-│  │  ├─ .aw/
+│  │  ├─ .murmel/
 │  │  ├─ AGENTS.md
 │  │  └─ work -> ../../..
 │  ├─ developer/
@@ -63,12 +63,12 @@ agents/
 │     └─ work -> ../../worktrees/reviewer
 └─ worktrees/
    ├─ developer/
-   │  └─ .aw/
+   │  └─ .murmel/
    └─ reviewer/
-      └─ .aw/
+      └─ .murmel/
 ```
 
-The repo root itself is not an aw workspace. Start Codex, Claude Code,
+The repo root itself is not an murmel workspace. Start Codex, Claude Code,
 Pi, or another agent runtime from the generated runtime workspace:
 
 ```bash
@@ -90,12 +90,12 @@ Bootstrap assembles five separate things:
 3. **Work binding**: repo-root agents use their blueprint home as the
    runtime workspace. Worktree-bound agents keep instructions under
    `agents/home/<responsibility>/`, but their runtime workspace and
-   `.aw/` state live in `agents/worktrees/<name>/`.
+   `.murmel/` state live in `agents/worktrees/<name>/`.
 4. **Team source**: hosted new team, hosted API key, invite token,
    current workspace forwarding, or BYOT.
 5. **Generated workspaces**: repo-root workspaces under
    `agents/home/<responsibility>/`; worktree-bound workspaces under
-   `agents/worktrees/<name>/`, each with its own ignored `.aw/` state.
+   `agents/worktrees/<name>/`, each with its own ignored `.murmel/` state.
 
 The first generated plan is the **anchor**. Bootstrap connects it
 first, installs roles and shared instructions through that workspace's
@@ -110,7 +110,7 @@ mode.
 The committed `agents/` layout is a shared blueprint, not shared
 identity state. It should contain `team.yaml`, `docs/`, `roles/`, and
 the agent home instructions. It must not contain final aliases, DIDs,
-global addresses, certificates, signing keys, or per-human `.aw/`
+global addresses, certificates, signing keys, or per-human `.murmel/`
 state.
 
 When a second human clones the same repo, they should not run bootstrap
@@ -119,7 +119,7 @@ workspace state from the committed blueprint:
 
 ```bash
 cd /path/to/project-repo
-aw agents provision --invite-token <team-invite> --identity-prefix maria
+murmel agents provision --invite-token <team-invite> --identity-prefix maria
 ```
 
 The canonical multi-human templates use local aliases such as
@@ -133,7 +133,7 @@ the identity prefix, for example `example.com/juan-coordinator`.
 
 ## Re-Run Safety
 
-`aw agents bootstrap` does not adopt, merge, or overwrite an existing
+`murmel agents bootstrap` does not adopt, merge, or overwrite an existing
 agents directory in v1. If `agents/` already exists, it fails before
 fetching templates, writing files, creating identities, running git
 commands, or making network calls.
@@ -142,7 +142,7 @@ If your repo already uses `agents/` for something else, choose a
 different convention directory:
 
 ```bash
-aw agents bootstrap https://github.com/awebai/aweb-team-coord-worktrees.git \
+murmel agents bootstrap https://github.com/awebai/aweb-team-coord-worktrees.git \
   --username <username> \
   --identity-prefix <human-slug> \
   --agents-dir aweb-agents
@@ -151,8 +151,8 @@ aw agents bootstrap https://github.com/awebai/aweb-team-coord-worktrees.git \
 Bootstrap writes scoped `.gitignore` entries:
 
 ```gitignore
-# Auto-written by aw agents (do not remove)
-/agents/home/*/.aw/
+# Auto-written by murmel agents (do not remove)
+/agents/home/*/.murmel/
 /agents/home/*/work
 /agents/worktrees/
 ```
@@ -162,7 +162,7 @@ files are meant to be inspectable and committable. Each agent home's
 `work` symlink is generated local state and is ignored so another
 human's provision run can regenerate it for their checkout.
 
-If you created an `agents/` layout with an older aw that committed
+If you created an `agents/` layout with an older murmel that committed
 `agents/home/*/work` symlinks, remove those tracked symlinks from git
 after upgrading:
 
@@ -172,7 +172,7 @@ git add .gitignore agents
 git commit -m "agents: ignore generated work symlinks"
 ```
 
-Do not delete `.aw/` state unless you intentionally abandon that local
+Do not delete `.murmel/` state unless you intentionally abandon that local
 identity.
 
 ## Template Anatomy
@@ -241,15 +241,15 @@ bootstrap/provision time.
 `work` is optional. When omitted, bootstrap uses `repo_root`.
 Supported values in v1:
 
-- `repo_root`: the generated home is the aw runtime workspace; its
+- `repo_root`: the generated home is the murmel runtime workspace; its
   `work` symlink points at the project repo root.
 - `git_worktree`: bootstrap creates `agents/worktrees/<worktree-name>`
-  and uses that worktree as the aw runtime workspace; the generated
+  and uses that worktree as the murmel runtime workspace; the generated
   blueprint home's `work` symlink points there.
 
 ## Team Sources
 
-`aw agents bootstrap` provisions workspaces from exactly one team
+`murmel agents bootstrap` provisions workspaces from exactly one team
 source. Explicit sources conflict; use only one of:
 
 - `AWEB_API_KEY`
@@ -258,10 +258,10 @@ source. Explicit sources conflict; use only one of:
 - `--namespace`/`--team`
 
 If no explicit source is set and the caller's current directory is
-already an aw workspace, bootstrap forwards that current active team by
+already an murmel workspace, bootstrap forwards that current active team by
 creating a one-use invite for the first generated workspace.
 
-If no explicit source is set, the caller is not in an aw workspace, and
+If no explicit source is set, the caller is not in an murmel workspace, and
 the command is running interactively, bootstrap uses hosted onboarding.
 
 If no source can be resolved, bootstrap stops before provisioning;
@@ -270,7 +270,7 @@ choose a source explicitly.
 ### Hosted New Team
 
 ```bash
-aw agents bootstrap https://github.com/awebai/aweb-team-coord-worktrees.git \
+murmel agents bootstrap https://github.com/awebai/aweb-team-coord-worktrees.git \
   --username juan \
   --identity-prefix juan
 ```
@@ -278,7 +278,7 @@ aw agents bootstrap https://github.com/awebai/aweb-team-coord-worktrees.git \
 ### BYOT
 
 ```bash
-aw agents bootstrap https://github.com/awebai/aweb-team-coord-worktrees.git \
+murmel agents bootstrap https://github.com/awebai/aweb-team-coord-worktrees.git \
   --namespace mycompany.com \
   --team dev-review \
   --identity-prefix juan \
@@ -292,21 +292,21 @@ server, `--registry` to override the AWID registry.
 
 ```bash
 AWEB_API_KEY=aw_sk_... \
-  aw agents bootstrap https://github.com/awebai/aweb-team-coord-worktrees.git \
+  murmel agents bootstrap https://github.com/awebai/aweb-team-coord-worktrees.git \
   --identity-prefix juan
 ```
 
 ### Existing Team Via Invite Token
 
 ```bash
-aw agents bootstrap /path/to/template \
+murmel agents bootstrap /path/to/template \
   --invite-token <token> \
   --identity-prefix maria
 ```
 
 ### Current Workspace Forwarding
 
-Run from an initialized `.aw` workspace and do not set an explicit team
+Run from an initialized `.murmel` workspace and do not set an explicit team
 source. Bootstrap creates a one-use invite from the current active team
 and accepts it into the first generated workspace.
 
@@ -315,11 +315,11 @@ and accepts it into the first generated workspace.
 Use plan before mutating a shared repo or joining a BYOT team:
 
 ```bash
-aw agents plan --identity-prefix juan
-aw agents plan --namespace example.com --team circle --identity-prefix juan
+murmel agents plan --identity-prefix juan
+murmel agents plan --namespace example.com --team circle --identity-prefix juan
 ```
 
-For BYOT planning with `--namespace`/`--team`, aw contacts the AWID
+For BYOT planning with `--namespace`/`--team`, murmel contacts the AWID
 registry to fail closed on existing team aliases and namespace
 addresses.
 
@@ -327,10 +327,10 @@ After the layout exists in a shared repo, additional humans provision
 their own local identities from the committed blueprint:
 
 ```bash
-aw agents provision --invite-token <token> --identity-prefix maria
+murmel agents provision --invite-token <token> --identity-prefix maria
 ```
 
-`aw agents provision` rejects `--username` in v1 because `--username`
+`murmel agents provision` rejects `--username` in v1 because `--username`
 creates a new hosted team. Use an invite or API key to join an existing
 team.
 
@@ -339,19 +339,19 @@ team.
 Add a repo-root local responsibility:
 
 ```bash
-aw agents add support --role support --identity-scope local
+murmel agents add support --role support --identity-scope local
 ```
 
 Create a local worktree-bound agent without changing the shared layout:
 
 ```bash
-aw agents add-worktree developer
+murmel agents add-worktree developer
 ```
 
 Add a global BYOT responsibility:
 
 ```bash
-aw agents add support \
+murmel agents add support \
   --global \
   --namespace example.com \
   --team circle \
@@ -363,13 +363,13 @@ local state cleanup, certificate revocation, and global address deletion
 are different actions:
 
 ```bash
-aw agents remove support --remove-layout
-aw agents remove support --deprovision-local
-aw agents remove support --delete-global-address
+murmel agents remove support --remove-layout
+murmel agents remove support --deprovision-local
+murmel agents remove support --delete-global-address
 ```
 
 `--remove-layout` is a shared blueprint change only. It does not revoke
-other humans' certificates or delete their local `.aw/` state.
+other humans' certificates or delete their local `.murmel/` state.
 
 `--deprovision-local` uses the local team controller key when this is a
 self-custodial team. For hosted-managed cert-only agents, it can instead use
@@ -430,8 +430,8 @@ setup should use project-local `agents/`.
 | `--registry <url>` | AWID registry URL override. |
 | `--template-cache-dir <dir>` | Clone remote templates here instead of using a temporary checkout. |
 
-Run `aw agents bootstrap --help`, `aw agents provision --help`,
-`aw agents add --help`, and `aw agents remove --help` for the full
+Run `murmel agents bootstrap --help`, `murmel agents provision --help`,
+`murmel agents add --help`, and `murmel agents remove --help` for the full
 surface.
 
 ## After Bootstrap
@@ -439,11 +439,11 @@ surface.
 From inside any generated home:
 
 ```bash
-aw whoami
-aw workspace status
-aw work ready
-aw mail send --to <alias> --body "..."
-aw chat send-and-wait <alias> "..."
+murmel whoami
+murmel workspace status
+murmel work ready
+murmel mail send --to <alias> --body "..."
+murmel chat send-and-wait <alias> "..."
 ```
 
 If you use a wake-up path (Pi extension / Claude Code channel plugin),
@@ -455,10 +455,10 @@ If bootstrap fails:
 
 - Capture the first error.
 - Do not retry over an existing `agents/` directory.
-- Inspect/back up any `.aw/` identity state before deleting generated
+- Inspect/back up any `.murmel/` identity state before deleting generated
   directories.
-- Prefer explicit `aw agents provision`, `aw agents add`, or
-  `aw agents remove` recovery commands over hand-editing state.
+- Prefer explicit `murmel agents provision`, `murmel agents add`, or
+  `murmel agents remove` recovery commands over hand-editing state.
 
 If a second human hits an alias or address conflict, they should rerun
 plan/provision with a different `--identity-prefix` or a naming pattern

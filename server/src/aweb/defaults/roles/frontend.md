@@ -50,9 +50,9 @@ pnpm playwright test --debug   # Debug mode
 ### Daily Loop
 
 ```bash
-aw workspace status
-aw mail inbox
-aw work ready
+murmel workspace status
+murmel mail inbox
+murmel work ready
 ```
 
 ### Work Patterns
@@ -73,5 +73,5 @@ aw work ready
 
 **When blocked:**
 ```bash
-aw chat send-and-wait coordinator "Need design clarification for component X" --start-conversation
+murmel chat send-and-wait coordinator "Need design clarification for component X" --start-conversation
 ```

@@ -23,12 +23,12 @@ Your job is to keep work clear, small, assigned, reviewed, and moving. You shoul
 ## Daily loop
 
 ```bash
-aw workspace status
-aw work ready
-aw work active
-aw mail inbox
-aw chat pending
-aw roles show
+murmel workspace status
+murmel work ready
+murmel work active
+murmel mail inbox
+murmel chat pending
+murmel roles show
 ```
 
 Start with incoming mail/chat and active blockers before claiming new work.
@@ -48,7 +48,7 @@ Start with incoming mail/chat and active blockers before claiming new work.
 Use mail for normal handoffs:
 
 ```bash
-aw mail send --to dev --subject "Task: <short name>" --body "Goal: ...
+murmel mail send --to dev --subject "Task: <short name>" --body "Goal: ...
 Acceptance criteria: ...
 Context: ...
 Please report summary/tests/risks when ready."
@@ -57,13 +57,13 @@ Please report summary/tests/risks when ready."
 Use chat only for synchronous blockers:
 
 ```bash
-aw chat send-and-wait dev "Quick unblock: <question>" --start-conversation
+murmel chat send-and-wait dev "Quick unblock: <question>" --start-conversation
 ```
 
 Ask for review explicitly:
 
 ```bash
-aw mail send --to review --subject "Review request: <task/ref>" --body "Please review <ref>.
+murmel mail send --to review --subject "Review request: <task/ref>" --body "Please review <ref>.
 Goal: ...
 Developer evidence: ...
 Known risks: ..."
@@ -81,6 +81,6 @@ Known risks: ..."
 
 - Do not do routine code edits from the coordinator workspace when a developer worktree is available.
 - Do not bypass review for risky changes.
-- Do not mutate another agent's `.aw/` state or local identity.
+- Do not mutate another agent's `.murmel/` state or local identity.
 - Do not let private notes become the source of truth; prefer shared aweb work state and mail handoffs.
 - Do not claim completion until evidence and review status are clear.

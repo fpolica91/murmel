@@ -1,7 +1,7 @@
 # OSS Support Tools
 
-This page documents the OSS `aw` support surface: lifecycle semantics,
-`aw doctor`, registry reads, and redacted support bundles. Hosted dashboard
+This page documents the OSS `murmel` support surface: lifecycle semantics,
+`murmel doctor`, registry reads, and redacted support bundles. Hosted dashboard
 actions are intentionally described only as boundaries here. Cloud support
 APIs and operator runbooks live in the cloud support documentation.
 
@@ -28,20 +28,20 @@ identity lifecycle requires explicit authority and a reviewed lifecycle flow.
 Missing local files alone are never enough evidence for archive, replacement,
 address reassignment, or task/presence cleanup.
 
-## `aw doctor`
+## `murmel doctor`
 
-`aw doctor` diagnoses local files, identity registry state, workspace/server
+`murmel doctor` diagnoses local files, identity registry state, workspace/server
 connectivity, team membership, coordination, and safe messaging prerequisites.
 
 Common forms:
 
 ```bash
-aw doctor
-aw doctor --json
-aw doctor --online
-aw doctor local
-aw doctor registry --online
-aw doctor support-bundle --output support-bundle.json --json
+murmel doctor
+murmel doctor --json
+murmel doctor --online
+murmel doctor local
+murmel doctor registry --online
+murmel doctor support-bundle --output support-bundle.json --json
 ```
 
 Mode behavior:
@@ -68,9 +68,9 @@ JSON output follows `doctor.v1` today and uses the same status vocabulary as
 check IDs, statuses, sources, targets, details, fixes, and handoffs as stable
 machine-readable fields.
 
-## `aw doctor --fix`
+## `murmel doctor --fix`
 
-`aw doctor --fix` is intentionally bounded.
+`murmel doctor --fix` is intentionally bounded.
 
 Allowed local fixes in OSS are conservative caller-authorized repairs:
 
@@ -82,15 +82,15 @@ Allowed local fixes in OSS are conservative caller-authorized repairs:
 Dry-run first:
 
 ```bash
-aw doctor --fix --dry-run
-aw doctor --fix --dry-run local.workspace.active_team
+murmel doctor --fix --dry-run
+murmel doctor --fix --dry-run local.workspace.active_team
 ```
 
 Apply only root doctor fixes:
 
 ```bash
-aw doctor --fix
-aw doctor --fix local.workspace.active_team
+murmel doctor --fix
+murmel doctor --fix local.workspace.active_team
 ```
 
 The fix framework refuses high-impact or sensitive mutations, including:
@@ -113,15 +113,15 @@ instance answered.
 Read commands:
 
 ```bash
-aw id resolve <did_aw> --json
-aw id addresses <did_aw> --json
-aw id namespace <domain> --json
-aw id namespace addresses <domain> --authority anonymous --json
-aw id namespace addresses <domain> --authority did --json
-aw id namespace addresses <domain> --authority namespace-controller --json
-aw id namespace resolve <domain>/<name> --authority anonymous --json
-aw id namespace resolve <domain>/<name> --authority did --json
-aw id namespace resolve <domain>/<name> --authority namespace-controller --json
+murmel id resolve <did_aw> --json
+murmel id addresses <did_aw> --json
+murmel id namespace <domain> --json
+murmel id namespace addresses <domain> --authority anonymous --json
+murmel id namespace addresses <domain> --authority did --json
+murmel id namespace addresses <domain> --authority namespace-controller --json
+murmel id namespace resolve <domain>/<name> --authority anonymous --json
+murmel id namespace resolve <domain>/<name> --authority did --json
+murmel id namespace resolve <domain>/<name> --authority namespace-controller --json
 ```
 
 Registry JSON reads use the shared `support-contract-v1` envelope with
@@ -130,7 +130,7 @@ Registry JSON reads use the shared `support-contract-v1` envelope with
 Authority modes:
 
 - `anonymous`: public registry view. `ownership_proof` is `false`.
-- `did`: signs with the local `.aw/signing.key`, emits
+- `did`: signs with the local `.murmel/signing.key`, emits
   `authority_mode: "did-key"`, and proves only control of that DID key.
 - `namespace-controller`: signs with the local namespace controller key and is
   the only current registry read mode that reports `ownership_proof: true`.
@@ -155,7 +155,7 @@ evidence that a caller owns or may mutate a namespace or address.
 Blob-backed team certificates can be fetched by the certificate subject with:
 
 ```bash
-aw id team fetch-cert --namespace <domain> --team <team> --cert-id <certificate_id>
+murmel id team fetch-cert --namespace <domain> --team <team> --cert-id <certificate_id>
 ```
 
 If fetch returns that the certificate blob is unavailable or not fetchable,
@@ -164,15 +164,15 @@ certificate locally and do not mark the install as successful. The remediation
 is controller-side reissue:
 
 ```bash
-aw id team add-member --namespace <domain> --team <team> --member <domain>/<name>
+murmel id team add-member --namespace <domain> --team <team> --member <domain>/<name>
 ```
 
 For direct DID approvals, use the values from the member's request:
 
 ```bash
-aw id team add-member --namespace <domain> --team <team> \
+murmel id team add-member --namespace <domain> --team <team> \
   --did <did:key> --alias <alias> \
-  --global --did-aw <did:aw> --address <domain>/<name>
+  --global --did-murmel <did:aw> --address <domain>/<name>
 ```
 
 `add-member` prints the new `certificate_id` and a fetch command for the
@@ -180,7 +180,7 @@ member. After confirming the new blob-backed certificate works, revoke stale
 metadata-only rows so they no longer appear as active membership records:
 
 ```bash
-aw id team remove-member --namespace <domain> --team <team> --member <domain>/<name>
+murmel id team remove-member --namespace <domain> --team <team> --member <domain>/<name>
 ```
 
 When inspecting registry state, treat records with `revoked_at` as historical
@@ -211,7 +211,7 @@ content visibility.
 
 ## Support Bundles
 
-`aw doctor support-bundle --output <file> --json` writes a redacted JSON bundle
+`murmel doctor support-bundle --output <file> --json` writes a redacted JSON bundle
 that can be shared with support. Offline generation works and preserves the
 same no-surprise network behavior as the selected doctor mode.
 
@@ -219,7 +219,7 @@ The bundle may include:
 
 - doctor output and checks
 - non-secret platform metadata
-- non-secret `.aw` metadata such as team IDs, aliases, DID/address fields,
+- non-secret `.murmel` metadata such as team IDs, aliases, DID/address fields,
   lifetime, custody, and parsed certificate metadata
 - E2E operational metadata such as message ids, conversation ids, key ids,
   ciphertext hashes/sizes, delivery state, and verification/decryption error
@@ -255,7 +255,7 @@ Examples:
 - `persistent_identity_registry_repair_review`: if the local DID key is valid,
   caller-authorized DID registration or registry repair is preferred before
   replacement. When local caller authority is present, the explicit command is
-  `aw id register`.
+  `murmel id register`.
 - `managed_address_repair_review`: address repair requires namespace authority.
   Repair is first-line when the existing DID key is valid.
 - `namespace_controller_recovery_review`: BYOD namespace recovery requires the

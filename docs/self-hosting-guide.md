@@ -25,7 +25,7 @@ This is the fastest path. It uses:
 - token-only auth (a Better Auth JWT)
 - the default local team `default:local`
 - no DNS records
-- one `aw init` command after the stack is up
+- one `murmel init` command after the stack is up
 
 ### Start the Stack
 
@@ -52,31 +52,31 @@ If you want different host ports, change `AWEB_PORT` and `AWID_PORT` in
 Onboarding is token-only. First get a bearer token, then bind a directory to
 the local team.
 
-Get a token. Interactively, `aw login` runs a browser device flow and caches
-the token at `~/.aw/token`. For a headless run, export `AW_TOKEN=<jwt>` (mint
+Get a token. Interactively, `murmel login` runs a browser device flow and caches
+the token at `~/.murmel/token`. For a headless run, export `AW_TOKEN=<jwt>` (mint
 one from the UI / token issuer — see
 [GETTING-STARTED.md](../ai-completion/GETTING-STARTED.md) for standing up the UI
 overlay and seeding the first membership):
 
 ```bash
-aw login
+murmel login
 # or:  export AW_TOKEN="<jwt>"
 ```
 
 Then, from the repo you want to use as an agent workspace:
 
 ```bash
-aw init --aweb-url http://localhost:8000 --team default:local
+murmel init --aweb-url http://localhost:8000 --team default:local
 ```
 
-What gets written under `.aw/`:
+What gets written under `.murmel/`:
 
 - a cert-less `workspace.yaml` pointing at your local `aweb`, with active team
   `default:local`
 - a local signing/encryption key used only for E2E messaging (not server auth)
 
-The auth credential itself is the bearer token at `~/.aw/token` (or `AW_TOKEN`),
-not anything under `.aw/`. The default team `default:local` is fine for local
+The auth credential itself is the bearer token at `~/.murmel/token` (or `AW_TOKEN`),
+not anything under `.murmel/`. The default team `default:local` is fine for local
 try-it-out use.
 
 ### Add More Local Agents
@@ -87,17 +87,17 @@ then onboard it the same token-only way against the same team:
 ```bash
 git worktree add ../project-bob
 cd ../project-bob
-aw login                 # or: export AW_TOKEN="<jwt>"
-aw init --aweb-url http://localhost:8000 --team default:local
+murmel login                 # or: export AW_TOKEN="<jwt>"
+murmel init --aweb-url http://localhost:8000 --team default:local
 ```
 
 Useful checks:
 
 ```bash
-aw workspace status
-aw whoami
-aw check
-aw roles show
+murmel workspace status
+murmel whoami
+murmel check
+murmel roles show
 ```
 
 ### Reset the Local Stack
@@ -110,8 +110,8 @@ docker compose down -v
 docker compose up --build -d
 ```
 
-That resets Postgres and Redis. You can then rerun `aw init` in a fresh
-directory or after removing `.aw/`.
+That resets Postgres and Redis. You can then rerun `murmel init` in a fresh
+directory or after removing `.murmel/`.
 
 ## 2. Company Deployment
 
@@ -166,8 +166,8 @@ must agree end to end are the issuer (`iss` == UI URL), audience
 (`aud` == aweb URL), and the JWKS URL aweb fetches from the UI.
 
 > The DNS-backed namespace / global-identity / certificate-based membership flow
-> (`aw id create`, `aw id namespace`, `aw id team create/invite/accept-invite`,
-> `aw id rotate-key`) was removed in the token-only auth model. There is no
+> (`murmel id create`, `murmel id namespace`, `murmel id team create/invite/accept-invite`,
+> `murmel id rotate-key`) was removed in the token-only auth model. There is no
 > token-only replacement for cross-machine certificate joins or namespace
 > controller setup as a user-run procedure; membership is granted in the web UI
 > instead. See [GETTING-STARTED.md](../ai-completion/GETTING-STARTED.md) and the
@@ -181,14 +181,14 @@ team member, then bind the directory.
 ```bash
 export AWEB_URL=https://aweb.acme.internal
 
-aw login                 # browser device flow; caches ~/.aw/token
+murmel login                 # browser device flow; caches ~/.murmel/token
 # or, headless:  export AW_TOKEN="<jwt from your UI>"
 
-aw init --aweb-url "$AWEB_URL" --team <team-id>
+murmel init --aweb-url "$AWEB_URL" --team <team-id>
 ```
 
 For more agents — additional repos, worktrees, or machines — repeat the same
-two steps (get a token, `aw init` against the same team id) in each directory.
+two steps (get a token, `murmel init` against the same team id) in each directory.
 
 ## Operational Notes
 
@@ -229,5 +229,5 @@ curl http://localhost:8010/health
 > [`ai-completion/PIVOT-FOLLOWUPS.md`](../ai-completion/PIVOT-FOLLOWUPS.md) §2).
 > For a working end-to-end smoke check, follow the token-only onboarding in
 > [GETTING-STARTED.md](../ai-completion/GETTING-STARTED.md): bring up the stack
-> (with the UI overlay), `aw login` / `AW_TOKEN`, `aw init`, then `aw check` and
-> a `aw mail` / `aw issue` round-trip.
+> (with the UI overlay), `murmel login` / `AW_TOKEN`, `murmel init`, then `murmel check` and
+> a `murmel mail` / `murmel issue` round-trip.

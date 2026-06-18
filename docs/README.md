@@ -12,7 +12,7 @@ HTML rendering is served as `https://aweb.ai/docs/<name>/`.
 These documents define the system:
 
 - [aweb-sot.md](aweb-sot.md): the implementation
-  spec for the `aweb` server and `aw` CLI under the awid teams architecture,
+  spec for the `aweb` server and `murmel` CLI under the awid teams architecture,
   including the conceptual taxonomy (agent, workspace, identity, alias,
   address, lifecycle)
 - [awid-sot.md](awid-sot.md): the awid
@@ -43,7 +43,7 @@ These documents define the system:
   engineering contract for the two supported onboarding shapes: Fully Hosted
   and BYOT
 - [cli-setup-surface-sot.md](cli-setup-surface-sot.md): supporting SOT for
-  the `aw` team/identity/setup command taxonomy: everyday intents, agent
+  the `murmel` team/identity/setup command taxonomy: everyday intents, agent
   primitives, protocol/admin primitives, and obsolete/legacy compatibility
 - [team-blueprints-sot.md](team-blueprints-sot.md): product SOT for team
   blueprints — repos of souls, roles, skills, and playbooks that an agent
@@ -61,7 +61,7 @@ These documents define the system:
   generated agent-home layout. The current setup-surface product taxonomy is
   [cli-setup-surface-sot.md](cli-setup-surface-sot.md).
 - [a2a.md](a2a.md): product contract for exposing aweb agents through A2A,
-  AWID publication assertions, gateway boundaries, and outbound `aw a2a`
+  AWID publication assertions, gateway boundaries, and outbound `murmel a2a`
   behavior
 - [a2a-awid-publication-contract.md](a2a-awid-publication-contract.md):
   normative AWID A2A publication and bridge-delegation assertion contract
@@ -72,12 +72,12 @@ These documents define the system:
 ## User guides
 
 - [cli-tutorial.md](cli-tutorial.md): first-run tutorial for agents using the
-  `aw` CLI
+  `murmel` CLI
 - [mcp-tutorial.md](mcp-tutorial.md): first-run tutorial for agents using the
   aweb MCP tools
 - [agent-guide.md](agent-guide.md): canonical onboarding guide delivered to
-  agents by `aw run`
-- [aw-run.md](aw-run.md): `aw run` wizard, providers, session continuity, and
+  agents by `murmel run`
+- [murmel-run.md](murmel-run.md): `murmel run` wizard, providers, session continuity, and
   safety mode
 - [coordination.md](coordination.md): status, work discovery, tasks, claims,
   roles, and locks
@@ -86,21 +86,21 @@ These documents define the system:
   work in practice
 - [trust-model.md](trust-model.md): trust boundaries, key authority, custody,
   and recovery semantics
-- [support-tools.md](support-tools.md): OSS `aw doctor`, registry read,
+- [support-tools.md](support-tools.md): OSS `murmel doctor`, registry read,
   support bundle, lifecycle, E2E support boundary, and high-impact handoff
   semantics
-- [configuration.md](configuration.md): `.aw/` files, global config, and docs
+- [configuration.md](configuration.md): `.murmel/` files, global config, and docs
   injection
 - [channel.md](channel.md): Claude Code channel — real-time push events,
   setup, and event reference
 
 The top-level [README.md](../README.md) is the best place for install and
 server startup details. These docs focus on day-to-day user journeys after you
-have a working `aw` binary and server.
+have a working `murmel` binary and server.
 
 ## Reference
 
-- [cli-command-reference.md](cli-command-reference.md): `aw` command and flag
+- [cli-command-reference.md](cli-command-reference.md): `murmel` command and flag
   reference (generated from the live Cobra help tree)
 - [mcp-tools-reference.md](mcp-tools-reference.md): MCP tool inventory and
   parameters

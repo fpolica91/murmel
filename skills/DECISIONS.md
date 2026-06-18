@@ -18,9 +18,9 @@ V1 ships five default skills:
 
 - `aweb-coordination`: session/work-loop policy for coordinating with an aweb team.
 - `aweb-messaging`: mail/chat/channel-awakening response policy.
-- `aweb-identity`: local signing/encryption keys (E2E only), what token-only `aw init` does, stable per-identity signing key across devices, addressability, inbound mode, contacts, identity-level diagnostics. (Reconciled to token-only auth 2026-06-16: certificates / `did:aw` / AWID-registry / `aw id create` / `aw id rotate-key` content removed — server auth is the bearer token; the local signing key is E2E-only.)
-- `aweb-team-membership`: token-only onboarding — obtaining a bearer token (`aw login` / `AW_TOKEN`), binding a directory with `aw init --aweb-url --team`, selecting the active team across multiple memberships, auth/membership diagnostics. (Reconciled to token-only auth 2026-06-16: the hosted/BYOT cert/controller cluster, accept-invite/fetch-cert, and fresh-BYOT setup were removed; membership is granted via the web UI.)
-- `aweb-bootstrap`: RETIRED 2026-06-16. Documented the legacy `aw agents` / `aw service` layout-generator cluster, all removed in the token-only pivot. Now a retirement notice pointing to token-only onboarding (`aw login` + `aw init`); the layout generator has no token-only equivalent, so it was retired rather than rewritten.
+- `aweb-identity`: local signing/encryption keys (E2E only), what token-only `murmel init` does, stable per-identity signing key across devices, addressability, inbound mode, contacts, identity-level diagnostics. (Reconciled to token-only auth 2026-06-16: certificates / `did:aw` / AWID-registry / `murmel id create` / `murmel id rotate-key` content removed — server auth is the bearer token; the local signing key is E2E-only.)
+- `aweb-team-membership`: token-only onboarding — obtaining a bearer token (`murmel login` / `AW_TOKEN`), binding a directory with `murmel init --aweb-url --team`, selecting the active team across multiple memberships, auth/membership diagnostics. (Reconciled to token-only auth 2026-06-16: the hosted/BYOT cert/controller cluster, accept-invite/fetch-cert, and fresh-BYOT setup were removed; membership is granted via the web UI.)
+- `aweb-bootstrap`: RETIRED 2026-06-16. Documented the legacy `murmel agents` / `murmel service` layout-generator cluster, all removed in the token-only pivot. Now a retirement notice pointing to token-only onboarding (`murmel login` + `murmel init`); the layout generator has no token-only equivalent, so it was retired rather than rewritten.
 
 Do not ship separate top-level v1 skills for awid, directory, or channel internals. Those topics appear as references/sections unless a future operator/developer audience needs a dedicated non-default skill such as `awid-operator`.
 
@@ -36,7 +36,7 @@ Each SKILL.md must include at least:
 ---
 name: aweb-...
 description: ...
-allowed-tools: "Bash(aw *)"
+allowed-tools: "Bash(murmel *)"
 ---
 ```
 
@@ -44,7 +44,7 @@ allowed-tools: "Bash(aw *)"
 
 ## Writing model
 
-Skills teach decision policy and operational playbooks, not exhaustive command or MCP syntax. Agents can inspect `aw --help` or MCP schemas for surface details. Put non-obvious judgment in the skill body:
+Skills teach decision policy and operational playbooks, not exhaustive command or MCP syntax. Agents can inspect `murmel --help` or MCP schemas for surface details. Put non-obvious judgment in the skill body:
 
 - when to use mail vs chat
 - when to claim work or take a lock
@@ -59,4 +59,4 @@ When an external awakening surface tells the agent to load a skill, mirror the a
 
 For v1 aweb channel awakenings, keep the `aweb-messaging` opening aligned with this contract:
 
-> This skill is the playbook for aweb channel awakenings. When you receive an injected aweb mail/chat event, inspect the metadata, respect verification warnings, and respond with aw CLI or the equivalent MCP tool surface for your harness.
+> This skill is the playbook for aweb channel awakenings. When you receive an injected aweb mail/chat event, inspect the metadata, respect verification warnings, and respond with murmel CLI or the equivalent MCP tool surface for your harness.

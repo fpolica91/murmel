@@ -1,13 +1,13 @@
 ---
 title: "CLI setup surface release gates"
 kicker: "Release checklist"
-description: "Regression gates for the primitive-first aw team/identity/setup surface."
+description: "Regression gates for the primitive-first murmel team/identity/setup surface."
 weight: 25
 ---
 
 # CLI setup surface release gates
 
-Run these gates before releasing changes that affect `aw` team, identity,
+Run these gates before releasing changes that affect `murmel` team, identity,
 workspace setup, bootstrap compatibility, skills, or resource-pack templates.
 
 ## Fast setup-surface gate
@@ -21,12 +21,12 @@ This checks:
 - generated CLI reference is current;
 - resource-pack manifests and paths are valid;
 - root help still exposes the intended command buckets;
-- `aw agents` remains marked obsolete/legacy compatibility;
+- `murmel agents` remains marked obsolete/legacy compatibility;
 - no-source bootstrap/provision failures occur before layout mutation;
 - hosted bootstrap failures roll back newly-created `agents/` layouts when no
-  `.aw` identity state exists;
-- hosted bootstrap failures preserve layouts that contain `.aw` key state;
-- resource-pack role application stays novice-friendly through `aw roles add`.
+  `.murmel` identity state exists;
+- hosted bootstrap failures preserve layouts that contain `.murmel` key state;
+- resource-pack role application stays novice-friendly through `murmel roles add`.
 
 ## Full CLI gate
 
@@ -40,20 +40,20 @@ Use this before pushing or asking for review on CLI behavior changes.
 
 ## Manual review checklist
 
-- Top-level `aw --help` keeps these buckets visible:
+- Top-level `murmel --help` keeps these buckets visible:
   - Workspace Setup;
   - Identity;
   - Messaging & Network;
   - Coordination & Runtime;
   - Obsolete / Legacy Compatibility;
   - Utility.
-- Everyday setup commands are prominent: `aw init`, `aw team`, `aw workspace
-  connect`, `aw check`, `aw workspace status`, `aw whoami`.
+- Everyday setup commands are prominent: `murmel init`, `murmel team`, `murmel workspace
+  connect`, `murmel check`, `murmel workspace status`, `murmel whoami`.
 - Protocol/admin commands use protocol/admin language, especially BYOT
   namespace/team controller operations.
-- `aw agents bootstrap`, `provision`, `add`, `add-worktree`, and related layout
+- `murmel agents bootstrap`, `provision`, `add`, `add-worktree`, and related layout
   commands are compatibility/legacy, not the hosted happy path.
-- Compatibility commands do not overwrite or delete `.aw` identity state,
+- Compatibility commands do not overwrite or delete `.murmel` identity state,
   signing keys, encryption keys, namespace controller keys, or team controller
   keys.
 - Any command that spans more than one authority boundary has a dry-run, a
@@ -61,7 +61,7 @@ Use this before pushing or asking for review on CLI behavior changes.
 - Public docs and dashboard copy do not teach bootstrap-era templates as the
   product center.
 - Resource-pack templates keep canonical resources harness-neutral and do not
-  include DIDs, certificates, aliases, `.aw` state, generated work symlinks, or
+  include DIDs, certificates, aliases, `.murmel` state, generated work symlinks, or
   canonical `CLAUDE.md` as the source of truth.
 
 ## Review handoff

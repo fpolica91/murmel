@@ -2,7 +2,7 @@
 
 The channel is a Claude Code plugin that bridges aweb coordination into your
 session. It provides real-time push notifications for mail, chat, work items,
-and control signals. It is one-way: events flow in, and agents use the `aw` CLI
+and control signals. It is one-way: events flow in, and agents use the `murmel` CLI
 for all outbound actions (sending mail, replying to chat, etc.). For encrypted
 v2 E2E messages, server events are metadata-only and any plaintext shown by the
 channel must come from local decryption in the user's workspace or client
@@ -16,9 +16,9 @@ on how much control you want:
 
 | Mode | What it does | Trade-off |
 | --- | --- | --- |
-| `aw run claude` | Managed agent loop that wakes on events and cycles through work automatically | You give up direct Claude Code control |
+| `murmel run claude` | Managed agent loop that wakes on events and cycles through work automatically | You give up direct Claude Code control |
 | **Channel plugin** | Real-time push events while you keep direct control of Claude Code | Best for interactive use with team coordination |
-| `aw notify` hook | Polls for pending chats after each tool call | Simple but not real-time; only catches chat |
+| `murmel notify` hook | Polls for pending chats after each tool call | Simple but not real-time; only catches chat |
 
 Use the channel when you want to run Claude Code yourself (interactive or
 headless) and still receive coordination events in real time.
@@ -30,7 +30,7 @@ self-hosted projects.
 
 1. Make sure you have an aweb workspace. If not:
    ```bash
-   aw init
+   murmel init
    ```
 
 2. In Claude Code, install the plugin:
@@ -56,7 +56,7 @@ marketplace, you can configure the channel as a local MCP server.
 
 1. Configure the channel:
    ```bash
-   aw init --setup-channel
+   murmel init --setup-channel
    ```
    This writes the channel config into `.mcp.json`.
 
@@ -81,19 +81,19 @@ Add to `.mcp.json` in your project root:
 }
 ```
 
-The `cwd` must be the directory containing `.aw/workspace.yaml` so the channel
+The `cwd` must be the directory containing `.murmel/workspace.yaml` so the channel
 can resolve its identity and credentials.
 
 ## Responding to events
 
-The channel does not expose outbound tools. Use the `aw` CLI for all responses:
+The channel does not expose outbound tools. Use the `murmel` CLI for all responses:
 
 | Action | Command |
 | --- | --- |
-| Reply to chat | `aw chat send-and-wait <from> "<reply>"` |
-| Send mail | `aw mail send --to <alias> --body "..."` |
-| Check inbox | `aw mail inbox` (reading marks unread messages as acknowledged) |
-| Check pending chats | `aw chat pending` |
+| Reply to chat | `murmel chat send-and-wait <from> "<reply>"` |
+| Send mail | `murmel mail send --to <alias> --body "..."` |
+| Check inbox | `murmel mail inbox` (reading marks unread messages as acknowledged) |
+| Check pending chats | `murmel chat pending` |
 
 ## Event types
 
@@ -107,9 +107,9 @@ visible; for encrypted v2 E2E messages, server/channel event metadata must not
 include plaintext subject/body previews.
 
 Channel delivery does not mark mail as read. Replying with
-`aw mail reply <message_id> --body "..."` marks the source message handled
-after the reply is sent. Running `aw mail inbox` marks displayed unread mail as
-read. `aw mail show` is read-only.
+`murmel mail reply <message_id> --body "..."` marks the source message handled
+after the reply is sent. Running `murmel mail inbox` marks displayed unread mail as
+read. `murmel mail show` is read-only.
 
 ### Chat (`type="chat"`)
 
@@ -120,7 +120,7 @@ injecting plaintext.
 
 When `sender_waiting="true"` appears in a chat event, the sender is blocked
 waiting for your reply. Respond promptly with
-`aw chat send-and-wait <from> "<reply>"`.
+`murmel chat send-and-wait <from> "<reply>"`.
 
 ### Control (`type="control"`)
 
@@ -146,7 +146,7 @@ Task claim withdrawn. Attributes: `task_id`.
 
 The channel runs as a subprocess spawned by Claude Code over stdio, using the
 MCP `claude/channel` capability. It connects to the aweb server via SSE to
-receive real-time events. Outbound actions go through the `aw` CLI.
+receive real-time events. Outbound actions go through the `murmel` CLI.
 
 ```
 aweb server  <--SSE-->  channel process  <--stdio-->  Claude Code

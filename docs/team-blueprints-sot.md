@@ -34,7 +34,7 @@ harness. The agent that created the team has no role in the finished team.
 
 There is no monolithic bootstrap command in the CLI. Each blueprint may ship
 a `create-team` program that performs the whole creation in one go — but it
-must compose the same explicit primitives, show every `aw` command it runs,
+must compose the same explicit primitives, show every `murmel` command it runs,
 refuse to overwrite existing identities or published team context, and on
 failure report what exists rather than delete anything. The fast path and
 the agent-driven skill are two speeds of the same explicit procedure.
@@ -43,7 +43,7 @@ the agent-driven skill are two speeds of the same explicit procedure.
 
 Two forces drove this design.
 
-**The bootstrap monolith failed a real customer.** `aw agents bootstrap`
+**The bootstrap monolith failed a real customer.** `murmel agents bootstrap`
 combined template reading, team creation, identity minting, role/instruction
 publication, filesystem mutation, gitignore edits, and worktree creation in
 one command. A non-TTY run created `agents/` before hosted setup completed;
@@ -70,13 +70,13 @@ There is no upstream to sync; the copies fork and grow.
   happy-path copy.
 - **Create a team (from a blueprint)** — the activity. The blueprint's skill
   is named `create-team`. Do not call this "bootstrapping" in product copy:
-  `aw agents bootstrap` is the obsolete/legacy command, and one word cannot
+  `murmel agents bootstrap` is the obsolete/legacy command, and one word cannot
   name both the deprecated path and its replacement.
 - **Soul** — the committed, identity-free canonical body of an agent:
   `AGENTS.md`, `soul.yaml`, its own skills, and accumulated
   `docs/`/`decisions/`/`memory/`. One soul can back many instances.
 - **Instance** — a runnable copy of a soul with its own aweb identity. Its
-  directory is its **home** (`.aw`, body symlinked to the soul) plus a
+  directory is its **home** (`.murmel`, body symlinked to the soul) plus a
   `work` location (the main checkout or its own git worktree). Instances are
   gitignored and machine-local.
 - **Spawn an instance** — minting one instance from a soul
@@ -86,9 +86,9 @@ There is no upstream to sync; the copies fork and grow.
   plus the knowledge needed to apply and understand it.
 - **Community blueprints** — externally contributed blueprints.
 - **Template** — legacy/compatibility vocabulary only, for the bootstrap-era
-  repos and `aw agents` surfaces.
+  repos and `murmel agents` surfaces.
 
-`aw team create` (network-team creation) and creating a team from a
+`murmel team create` (network-team creation) and creating a team from a
 blueprint are different layers: the first creates the hosted/BYOT team
 object; the second creates the working team in the repo and uses the first
 (or the dashboard) for authority.
@@ -104,10 +104,10 @@ agents/
     AGENTS.md            the operating doc; never edited by the agent itself
     docs/ decisions/ memory/   accumulated knowledge (living)
     .agents/skills/      soul-specific skills, if any
-  roles/<role>.md        published with `aw roles add`
-  instructions.md        published with `aw instructions set`
+  roles/<role>.md        published with `murmel roles add`
+  instructions.md        published with `murmel instructions set`
   docs/                  team architecture doc and other shared team docs
-  instances/<name>/      gitignored homes: .aw identity, body -> soul, work
+  instances/<name>/      gitignored homes: .murmel identity, body -> soul, work
 .agents/
   skills/                repo-level shared skills (spawn-instance, self-maintenance)
   bin/                   shared helpers (e.g. launch-session.sh)
@@ -124,7 +124,7 @@ Notes:
 - An instance's `work` is declared by its soul: `main` (symlink to the main
   checkout) for coordination agents, `worktree` (own git worktree and
   branch) for code agents. Never move or rename an instance home after
-  `aw init`; the service registers the workspace at its path.
+  `murmel init`; the service registers the workspace at its path.
 
 ## Lifecycle
 
@@ -132,13 +132,13 @@ Notes:
 team member) clones the blueprint, copies resources into the target repo,
 commits, creates `agents/instances/<first>` (usually the coordinator), and
 has the human connect it with the dashboard-generated
-`AWEB_API_KEY=... AWEB_URL=... aw init ...` (or explicit team primitives
+`AWEB_API_KEY=... AWEB_URL=... murmel init ...` (or explicit team primitives
 where the installed CLI supports them). From that connected instance it
-publishes `aw instructions set` and `aw roles add` per role, then hands the
+publishes `murmel instructions set` and `murmel roles add` per role, then hands the
 human the launch command for the first instance and stops.
 
-**Grow.** Existing instances mint new ones: `aw id team invite` from the
-spawner's home, `aw id team accept-invite` + `aw init` in the new home,
+**Grow.** Existing instances mint new ones: `murmel id team invite` from the
+spawner's home, `murmel id team accept-invite` + `murmel init` in the new home,
 symlink the body to the soul, add a worktree if the soul says so. Spawning
 is constrained: only on explicit human request or a documented workflow
 step.
@@ -148,7 +148,7 @@ step.
 changes are commits reviewed like any other change.
 
 **Retire.** The instance closes its session; the spawner runs
-`aw workspace delete` and removes the home/worktree/branch.
+`murmel workspace delete` and removes the home/worktree/branch.
 
 ## What a blueprint must contain
 
@@ -172,7 +172,7 @@ everything the resulting team needs to **understand itself**:
 - adapter notes per harness (Claude Code, Codex, Pi, ...);
 - a README for the human browsing GitHub.
 
-A blueprint must **not** contain `.aw` state, DIDs, certificates, aliases,
+A blueprint must **not** contain `.murmel` state, DIDs, certificates, aliases,
 invite tokens, private keys, generated worktrees, or canonical
 harness-specific files (a committed final `CLAUDE.md`). Harness wiring is
 done by adapters/symlinks at create/spawn time.
@@ -180,12 +180,12 @@ done by adapters/symlinks at create/spawn time.
 ## Boundaries that must hold
 
 - Pattern application (copying resources) never creates identities, accepts
-  invites, mutates `.aw`, or creates worktrees. Those are separate explicit
+  invites, mutates `.murmel`, or creates worktrees. Those are separate explicit
   steps.
 - Identity/team/service mutation uses aweb primitives the human can see;
   filesystem/git mutation uses git and the shell.
 - Public copy must not teach unreleased CLI verbs; the released-safe
-  connection step is the dashboard-generated `aw init`.
+  connection step is the dashboard-generated `murmel init`.
 - The hosted happy path never requires namespace/controller/certificate
   vocabulary; BYOT remains explicit protocol/admin.
 

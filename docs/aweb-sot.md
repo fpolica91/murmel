@@ -1,7 +1,7 @@
 # aweb — Source of Truth
 
 This is the canonical contract for **aweb**: the OSS coordination
-server (Python FastAPI) and the `aw` CLI (Go). It defines the
+server (Python FastAPI) and the `murmel` CLI (Go). It defines the
 shape of every endpoint, schema, authentication mechanism,
 dependency, and configuration knob aweb exposes or relies
 on. Implementers build against this document; operators run aweb
@@ -13,7 +13,7 @@ runs at <https://app.aweb.ai>; anyone can self-host the same OSS server
 against any awid registry.
 
 For supporting reference material that does not redefine the contract:
-- [`cli-command-reference.md`](cli-command-reference.md) — full `aw`
+- [`cli-command-reference.md`](cli-command-reference.md) — full `murmel`
   CLI surface, generated from the live Cobra help tree
 - [`mcp-tools-reference.md`](mcp-tools-reference.md) — MCP tool
   inventory and parameters exposed by aweb's MCP server
@@ -87,17 +87,17 @@ An **agent** is a running participant.
 
 A **workspace** is a local runtime container.
 
-- It is represented by a local `.aw/` directory.
+- It is represented by a local `.murmel/` directory.
 - It stores local runtime state and configuration.
 - It may also store secret key material for self-custodial global identities.
 - A workspace belongs to one local machine/path, but it may be moved by moving
-  the `.aw/` directory.
+  the `.murmel/` directory.
 - A workspace has one active identity and one active team binding.
 - Hosted OAuth MCP runtimes do **not** have a local workspace.
 
 A workspace is bound to exactly one team. An agent that needs to
 participate in multiple teams uses multiple workspaces (typically
-multiple git worktrees), each with its own `.aw/` directory and its own
+multiple git worktrees), each with its own `.murmel/` directory and its own
 team certificate. The certificate format does not preclude an agent
 identity (`did:key`) from being a member of more than one team — multi-
 team agents are a future capability the cert format already accommodates
@@ -124,8 +124,8 @@ Trust continuity is only promised for global identities.
 Global identities have two custody modes:
 
 - **Self-custodial**: the agent holds its own Ed25519 private key locally,
-  inside its `.aw/` workspace. Created only from the CLI. Cannot be used by
-  hosted OAuth MCP runtimes. Created explicitly via `aw init --global
+  inside its `.murmel/` workspace. Created only from the CLI. Cannot be used by
+  hosted OAuth MCP runtimes. Created explicitly via `murmel init --global
   --name <name>` — never as a side effect of a default flow.
 - **Custodial**: the hosted service holds the encrypted private key. Created
   from the dashboard for hosted/browser MCP use. The dashboard creates
@@ -172,11 +172,11 @@ Projection paths:
   team certificate, then projects the member into aweb runtime rows. Audit
   operation: `hosted-add-existing-agent`.
 - **Local controller add-member**: for BYOD/BYOIDT teams where the operator
-  has `~/.awid/team-keys/<namespace>/<team>.key`, `aw id team add-member`
+  has `~/.awid/team-keys/<namespace>/<team>.key`, `murmel id team add-member`
   signs and registers the AWID certificate. It does not create cloud runtime
   state by itself.
 - **Certificate-based lazy projection**: a member that presents a valid team
-  certificate through `aw init` / `/v1/connect` may be projected into aweb
+  certificate through `murmel init` / `/v1/connect` may be projected into aweb
   runtime state even when no bulk import has run.
 - **BYOIDT import/sync**: a user may create an AWID team and memberships
   independently, then connect that team to aweb without giving aweb the team
@@ -744,7 +744,7 @@ CREATE TABLE audit_log (
 
 | Route | Purpose |
 |-------|---------|
-| `POST /v1/connect` | Agent connects with certificate. Auto-provisions team + agent if needed. Returns workspace binding info. Called by `aw init` under the hood. |
+| `POST /v1/connect` | Agent connects with certificate. Auto-provisions team + agent if needed. Returns workspace binding info. Called by `murmel init` under the hood. |
 | `GET /v1/team` | Get team info (team_id, team_did_key, member count). |
 | `GET /v1/usage` | Per-team usage metrics. Query params: `team_id`, `since`, `until`. Returns `{messages_sent, active_agents}`. Auth: dashboard JWT via `X-Dashboard-Token`, not team certificate. Intended for operator billing and metering rather than agent traffic. |
 
@@ -967,21 +967,21 @@ whichever upstream service mints the dashboard tokens).
 
 ## Agent lifecycle
 
-### `aw init` — the two main cases
+### `murmel init` — the two main cases
 
-`aw init` has two main cases depending on whether the current
-directory already has a `.aw/` with an identity.
+`murmel init` has two main cases depending on whether the current
+directory already has a `.murmel/` with an identity.
 
-**Case A — directory already has `.aw/identity.yaml` and a team certificate under `.aw/team-certs/`:**
+**Case A — directory already has `.murmel/identity.yaml` and a team certificate under `.murmel/team-certs/`:**
 The CLI just connects. Reads the identity and certificate, calls
 POST /v1/connect, server auto-provisions the agent, returns workspace
-binding, CLI writes `.aw/workspace.yaml`. No prompts.
+binding, CLI writes `.murmel/workspace.yaml`. No prompts.
 
 **Case B — directory has no identity yet:**
 The CLI runs the wizard to create the identity, then connects.
 
 Hosted is the default path; `--byod` is the explicit opt-in.
-There is no interactive path-chooser — plain `aw init` on a clean
+There is no interactive path-chooser — plain `murmel init` on a clean
 directory goes to the hosted flow against the configured aweb
 server.
 
@@ -995,7 +995,7 @@ DEFAULT — Hosted (use a managed namespace from a hosted operator):
 - The operator's onboarding service registers the namespace at awid
   using the parent controller key it holds, creates a default team,
   signs a team certificate, and returns the certificate to the CLI.
-- CLI saves the certificate under `.aw/team-certs/<team>.pem`.
+- CLI saves the certificate under `.murmel/team-certs/<team>.pem`.
 - Proceeds to connect.
 
 `--byod` — Bring Your Own Domain (you control the namespace):
@@ -1018,7 +1018,7 @@ record before running.
 After either path, the connect step is the same:
 - CLI calls server `POST /v1/connect` with the team certificate
 - Server auto-provisions team + agent rows
-- CLI writes `.aw/workspace.yaml`
+- CLI writes `.murmel/workspace.yaml`
 
 The hosted path requires a server that holds the parent controller key
 for the managed namespace family (e.g., `*.aweb.ai` for the public
@@ -1032,23 +1032,23 @@ namespace family.
 ### Global agent (joining an existing team via invite)
 
 ```
-1. aw id create --name alice --domain acme.com
+1. murmel id create --name alice --domain acme.com
    → identity created at awid (did:aw, did:key, address)
 
 2. Team controller invites alice:
-   aw id team invite --global
+   murmel id team invite --global
    → returns invite token
 
 3. Alice accepts:
-   aw id team accept-invite <token> --address acme.com/alice
+   murmel id team accept-invite <token> --address acme.com/alice
    → team controller signs certificate for alice's did:key
-   → certificate saved under .aw/team-certs/<team>.pem
+   → certificate saved under .murmel/team-certs/<team>.pem
 
-4. AWEB_URL=https://app.aweb.ai aw init
+4. AWEB_URL=https://app.aweb.ai murmel init
    → presents team certificate to aweb
    → POST /v1/connect (aweb auto-provisions team + agent rows)
    → aweb returns workspace binding
-   → writes .aw/workspace.yaml
+   → writes .murmel/workspace.yaml
 ```
 
 (The server URL above is the public hosted instance; substitute your
@@ -1058,24 +1058,24 @@ own server URL for self-hosted aweb.)
 
 ```
 1. Team controller creates invite for local member:
-   aw id team invite
+   murmel id team invite
 
 2. New agent accepts:
-   aw id team accept-invite <token>
-   → generates local keypair (.aw/signing.key)
+   murmel id team accept-invite <token>
+   → generates local keypair (.murmel/signing.key)
    → team controller signs local certificate for this did:key
-   → certificate saved under .aw/team-certs/<team>.pem
+   → certificate saved under .murmel/team-certs/<team>.pem
 
-3. AWEB_URL=https://app.aweb.ai aw init
+3. AWEB_URL=https://app.aweb.ai murmel init
    → POST /v1/connect to aweb
    → aweb auto-provisions local agent row
-   → writes .aw/workspace.yaml
+   → writes .murmel/workspace.yaml
 ```
 
 ### Agent removed from team
 
 ```
-1. aw id team remove-member --team backend --namespace acme.com \
+1. murmel id team remove-member --team backend --namespace acme.com \
      --member acme.com/alice
    → team controller posts revocation to awid
      (certificate_id added to revocation list)
@@ -1089,14 +1089,14 @@ own server URL for self-hosted aweb.)
 Certificates do not expire. They are long-lived. Reissuance is only
 needed for two rare administrative events:
 
-- **Agent key rotation** (`aw id rotate-key`): the old certificate
+- **Agent key rotation** (`murmel id rotate-key`): the old certificate
   has the old did:key. The team controller issues a new certificate
   for the new did:key.
 - **Team key rotation**: the old certificates were signed by the old
   team key. All active members need new certificates signed by the
   new key.
 
-Team certificates are stored under `.aw/team-certs/` for self-custodial
+Team certificates are stored under `.murmel/team-certs/` for self-custodial
 CLI agents. For custodial agents (where a hosted operator holds the
 private key on behalf of the agent), the certificate lives wherever
 that operator stores it; the operator's storage layer is out of scope
@@ -1106,67 +1106,67 @@ for the aweb OSS contract.
 
 ## CLI commands
 
-The canonical `aw` CLI surface is documented in
+The canonical `murmel` CLI surface is documented in
 [`cli-command-reference.md`](cli-command-reference.md), generated from the
 live Cobra help tree. The bootstrap and team-management primitives this SOT
 relies on are:
 
 | Command | Purpose |
 |---------|---------|
-| `aw run <provider>` | Primary human entrypoint; guided onboarding + provider loop |
-| `aw init` | Bind the current workspace using the active certificate from `.aw/team-certs/` (`POST /v1/connect`) |
-| `aw connect --bootstrap-token TOKEN [--address ADDRESS]` | Join a team via a dashboard-issued bootstrap token; global when `--address` is supplied, local otherwise |
-| `aw id team create --name X --namespace Y` | Create team at awid |
-| `aw id team invite [--team X --namespace Y] [--global]` | Create invite token; defaults to the active team and a local invite |
-| `aw id team accept-invite <token>` | Accept a hosted `aw_inv_` or local-controller invite, receive certificate |
-| `aw id team add <token>` | Add another team membership to the current local identity and workspace without switching active team |
-| `aw id team switch <team_id>` | Change the active local team membership for this workspace |
-| `aw id team list` | Show local team memberships stored in `.aw/teams.yaml` |
-| `aw id team leave <team_id>` | Remove one local team membership and its cert from this workspace only |
-| `aw id team add-member --team X --namespace Y --member Z` | Add member directly by signing an AWID certificate with a local team controller key; no cloud runtime projection side effect |
-| `aw id team register --service URL --team X:Y` | Register or sync a customer-controlled AWID team with a service using the team controller signature; no private controller keys are uploaded |
-| `aw service init --service URL --team X:Y` | Connect the current certified worktree to a service projection for an existing AWID team; does not create identities or mutate AWID membership |
-| `aw id team import-request --team X --namespace Y --organization-id ORG` | Produce the customer team-controller-signed BYOT import/sync request body for aweb cloud; no private controller keys are uploaded |
-| `aw id team fetch-cert --team X --namespace Y --cert-id ID` | Fetch and install a blob-backed certificate after controller approval |
-| `aw id team remove-member --team X --namespace Y --member Z` | Remove member, post revocation |
-| `aw id cert show` | Show current certificate |
-| `aw claim-human --email <email>` | Attach an email to a hosted account on the configured operator (for the public hosted service, <https://app.aweb.ai>); triggers email verification; unlocks dashboard access after verification. The operator's account-management endpoints are out of scope for this contract. |
-| `aw whoami` | Show team membership + certificate info |
-| `aw workspace add-worktree [role]` | Create a sibling git worktree with its own local team certificate and connect it to the same team |
-| `aw workspace status [--all]` | Show team coordination state for the selected team, optionally including all local memberships |
+| `murmel run <provider>` | Primary human entrypoint; guided onboarding + provider loop |
+| `murmel init` | Bind the current workspace using the active certificate from `.murmel/team-certs/` (`POST /v1/connect`) |
+| `murmel connect --bootstrap-token TOKEN [--address ADDRESS]` | Join a team via a dashboard-issued bootstrap token; global when `--address` is supplied, local otherwise |
+| `murmel id team create --name X --namespace Y` | Create team at awid |
+| `murmel id team invite [--team X --namespace Y] [--global]` | Create invite token; defaults to the active team and a local invite |
+| `murmel id team accept-invite <token>` | Accept a hosted `aw_inv_` or local-controller invite, receive certificate |
+| `murmel id team add <token>` | Add another team membership to the current local identity and workspace without switching active team |
+| `murmel id team switch <team_id>` | Change the active local team membership for this workspace |
+| `murmel id team list` | Show local team memberships stored in `.murmel/teams.yaml` |
+| `murmel id team leave <team_id>` | Remove one local team membership and its cert from this workspace only |
+| `murmel id team add-member --team X --namespace Y --member Z` | Add member directly by signing an AWID certificate with a local team controller key; no cloud runtime projection side effect |
+| `murmel id team register --service URL --team X:Y` | Register or sync a customer-controlled AWID team with a service using the team controller signature; no private controller keys are uploaded |
+| `murmel service init --service URL --team X:Y` | Connect the current certified worktree to a service projection for an existing AWID team; does not create identities or mutate AWID membership |
+| `murmel id team import-request --team X --namespace Y --organization-id ORG` | Produce the customer team-controller-signed BYOT import/sync request body for aweb cloud; no private controller keys are uploaded |
+| `murmel id team fetch-cert --team X --namespace Y --cert-id ID` | Fetch and install a blob-backed certificate after controller approval |
+| `murmel id team remove-member --team X --namespace Y --member Z` | Remove member, post revocation |
+| `murmel id cert show` | Show current certificate |
+| `murmel claim-human --email <email>` | Attach an email to a hosted account on the configured operator (for the public hosted service, <https://app.aweb.ai>); triggers email verification; unlocks dashboard access after verification. The operator's account-management endpoints are out of scope for this contract. |
+| `murmel whoami` | Show team membership + certificate info |
+| `murmel workspace add-worktree [role]` | Create a sibling git worktree with its own local team certificate and connect it to the same team |
+| `murmel workspace status [--all]` | Show team coordination state for the selected team, optionally including all local memberships |
 
 Most coordination commands also accept `--team <team_id>` to override `active_team`
-for a single invocation without mutating `.aw/teams.yaml`.
+for a single invocation without mutating `.murmel/teams.yaml`.
 
 All coordination commands (mail, chat, issues, claims, locks, roles,
 instructions, work, contacts, etc.) are listed in
 [`cli-command-reference.md`](cli-command-reference.md):
 
 ```
-aw mail send/inbox
-aw chat send-and-wait/send-and-leave/pending/open/history/listen
-aw work ready/active
-aw issue list/create/show/comment/status/assign
-aw epic create/list
-aw story create/list
-aw lock acquire/renew/release/revoke/list
-aw roles show/list/set/activate/reset/deactivate
-aw role-name set
-aw instructions show/set/activate/reset
-aw contacts list/add/remove
-aw control pause/resume/interrupt
-aw events stream
-aw heartbeat
-aw notify
-aw mcp-config
+murmel mail send/inbox
+murmel chat send-and-wait/send-and-leave/pending/open/history/listen
+murmel work ready/active
+murmel issue list/create/show/comment/status/assign
+murmel epic create/list
+murmel story create/list
+murmel lock acquire/renew/release/revoke/list
+murmel roles show/list/set/activate/reset/deactivate
+murmel role-name set
+murmel instructions show/set/activate/reset
+murmel contacts list/add/remove
+murmel control pause/resume/interrupt
+murmel events stream
+murmel heartbeat
+murmel notify
+murmel mcp-config
 ```
 
 ---
 
-## .aw/ directory
+## .murmel/ directory
 
 ```
-.aw/
+.murmel/
   identity.yaml       # Global identity (did:aw, did:key, address, registry_url)
   signing.key          # Ed25519 private key
   teams.yaml           # awid team memberships + active_team
@@ -1301,8 +1301,8 @@ protocol.
 
 ### Two integration patterns
 
-aweb's MCP server is the local-CLI-embedded server: the `aw` CLI hosts
-the MCP server inside the local agent process, and `aw mcp-config`
+aweb's MCP server is the local-CLI-embedded server: the `murmel` CLI hosts
+the MCP server inside the local agent process, and `murmel mcp-config`
 writes the connection config into the LLM client (Claude Code,
 programmatic MCP clients running in the same machine, etc.). This is
 the only MCP surface defined by aweb itself.
@@ -1344,7 +1344,7 @@ X-AWID-Team-Certificate: <base64-encoded certificate JSON>
 
 External AWCO/BYOIDT-style services use the same membership proof when a
 local CLI agent needs to act outside aweb without a `did:aw` identity
-row. `aw id request --team-auth` sends:
+row. `murmel id request --team-auth` sends:
 
 ```
 Authorization: DIDKey <member did:key> <signature>

@@ -1,31 +1,31 @@
-# `aw run`
+# `murmel run`
 
-`aw run` is the primary human entrypoint for starting an AI coding agent in the
+`murmel run` is the primary human entrypoint for starting an AI coding agent in the
 current directory.
 
 ## Basic Usage
 
 ```bash
-aw run codex
-aw run claude
+murmel run codex
+murmel run claude
 ```
 
 You can seed the first cycle:
 
 ```bash
-aw run codex --prompt "review this repo and propose the next task"
+murmel run codex --prompt "review this repo and propose the next task"
 ```
 
 ## Wizard Behavior
 
-In a TTY, if the current directory is not initialized yet, `aw run` can guide
+In a TTY, if the current directory is not initialized yet, `murmel run` can guide
 you through onboarding before it launches the provider.
 
-Onboarding is token-only. `aw run` routes you into:
+Onboarding is token-only. `murmel run` routes you into:
 
-- `aw login` (browser device flow; caches a bearer token at `~/.aw/token`) if
+- `murmel login` (browser device flow; caches a bearer token at `~/.murmel/token`) if
   no token is available — or you can export `AW_TOKEN=<jwt>` instead
-- `aw init --aweb-url <server-url> --team <team-id>` to bind this directory to
+- `murmel init --aweb-url <server-url> --team <team-id>` to bind this directory to
   a team
 
 See [`cli-command-reference.md`](cli-command-reference.md) for the full
@@ -43,8 +43,8 @@ Current providers are:
 Provider-specific flags can be forwarded after `--`:
 
 ```bash
-aw run claude -- --model sonnet
-aw run codex -- --model gpt-5-codex
+murmel run claude -- --model sonnet
+murmel run codex -- --model gpt-5-codex
 ```
 
 ## Session Continuity
@@ -52,19 +52,19 @@ aw run codex -- --model gpt-5-codex
 Use `--continue` to resume the most recent provider session across wake cycles:
 
 ```bash
-aw run codex --continue
+murmel run codex --continue
 ```
 
-When a session exits, `aw run` prints:
+When a session exits, `murmel run` prints:
 
-- an `aw run --continue ...` command
+- an `murmel run --continue ...` command
 - the raw provider resume command with the captured session id
 
-That gives you both the `aw`-managed path and the direct provider path.
+That gives you both the `murmel`-managed path and the direct provider path.
 
 ## Safety Mode
 
-By default, `aw run` launches providers in full-autonomy mode:
+By default, `murmel run` launches providers in full-autonomy mode:
 
 - Claude uses `--dangerously-skip-permissions`
 - Codex uses `--dangerously-bypass-approvals-and-sandbox`
@@ -73,7 +73,7 @@ Use `--trip-on-danger` when you want native provider approvals/sandbox checks
 back on:
 
 ```bash
-aw run codex --trip-on-danger
+murmel run codex --trip-on-danger
 ```
 
 ## Common Flags
@@ -91,7 +91,7 @@ aw run codex --trip-on-danger
 - `--base-prompt`, `--comms-prompt-suffix`, `--work-prompt-suffix`: override
   configured prompt text
 
-Use `aw run --init` to write `~/.config/aw/run.json` interactively.
+Use `murmel run --init` to write `~/.config/aw/run.json` interactively.
 
 ## In-Session Controls
 
@@ -112,7 +112,7 @@ onto the terminal is also supported:
 
 ## Coordination-Aware Status
 
-`aw run` is not just a provider wrapper. It also watches project events and can
+`murmel run` is not just a provider wrapper. It also watches project events and can
 wake on:
 
 - mail

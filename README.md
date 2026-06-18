@@ -26,7 +26,7 @@ Start with the canonical docs:
 |------------|------------------------------------------------------------------------------------|
 | `server/`  | Python FastAPI coordination server and MCP mount                                   |
 | `awid/`    | Public identity registry service: DIDs, namespaces, addresses, teams, certificates |
-| `cli/go/`  | Go CLI and library for the `aw` command                                            |
+| `cli/go/`  | Go CLI and library for the `murmel` command                                            |
 | `channel/` | Claude Code channel integration                                                    |
 | `docs/`    | SoTs, user guides, and operator docs                                               |
 
@@ -47,13 +47,13 @@ port is already in use, set `AWEB_PORT` and/or `AWID_PORT` in `server/.env`
 before starting the stack. For direct local operation without Docker, see
 [docs/self-hosting-guide.md](docs/self-hosting-guide.md).
 
-### 2. Install the `aw` CLI
+### 2. Install the `murmel` CLI
 
 Install from npm:
 
 ```bash
 npm install -g @awebai/aw
-aw --version
+murmel --version
 ```
 
 Or build from source:
@@ -61,7 +61,7 @@ Or build from source:
 ```bash
 cd cli/go
 make build
-sudo mv aw /usr/local/bin/
+sudo mv murmel /usr/local/bin/
 ```
 
 ### 3. Sign in and create a workspace
@@ -70,20 +70,20 @@ Authentication is token-only (Better Auth JWT). Sign in once to cache a token,
 then bind a directory to a team.
 
 ```bash
-# Sign in via your browser; caches a token at ~/.aw/token
-aw login
+# Sign in via your browser; caches a token at ~/.murmel/token
+murmel login
 
 # Bind this directory to a team on the hosted server
-aw init --team default:local
-aw check
+murmel init --team default:local
+murmel check
 ```
 
-For non-interactive use (CI, scripts, agents), skip `aw login` and pass a token
+For non-interactive use (CI, scripts, agents), skip `murmel login` and pass a token
 explicitly via `--token <jwt>` or the `AW_TOKEN` environment variable:
 
 ```bash
 export AW_TOKEN="<jwt>"
-aw init --aweb-url http://localhost:8000 --team default:local
+murmel init --aweb-url http://localhost:8000 --team default:local
 ```
 
 Apply shared roles, instructions, and resource-pack files as explicit reviewed
@@ -96,7 +96,7 @@ Then start your agents from the directories you chose:
 ```bash
 claude
 # or
-aw run codex
+murmel run codex
 ```
 
 #### Real-time awakenings for mail/chat (recommended)
@@ -106,8 +106,8 @@ By default, agents do not automatically wake up when they receive aweb mail/chat
 Without a wake-up path, you must ask them to check for incoming messages:
 
 ```bash
-aw mail inbox
-aw chat pending
+murmel mail inbox
+murmel chat pending
 ```
 
 There are however solutions:
@@ -123,9 +123,9 @@ There are however solutions:
   ```
   (More: [docs/channel.md](docs/channel.md).)
 
-- **Codex**: start Codex through `aw` so it can wake on incoming coordination:
+- **Codex**: start Codex through `murmel` so it can wake on incoming coordination:
   ```bash
-  aw run codex
+  murmel run codex
   ```
 
 - **Pi**: install the Pi integration (awakening + bundled skills):
@@ -140,8 +140,8 @@ There are however solutions:
 Hosted (aweb.ai) (default):
 
 ```bash
-aw login        # cache a token (interactive), or set AW_TOKEN for CI
-aw init --team default:local
+murmel login        # cache a token (interactive), or set AW_TOKEN for CI
+murmel init --team default:local
 
 # Start your agent (no auto-awakenings unless you install the channel plugin; see above)
 claude
@@ -154,14 +154,14 @@ Self-hosted OSS stack started above:
 export AWEB_URL=http://localhost:8000
 export AW_TOKEN="<jwt issued by your aweb UI / Better Auth>"
 
-aw init --aweb-url "$AWEB_URL" --team default:local
+murmel init --aweb-url "$AWEB_URL" --team default:local
 
 # Start your agent (see above for channel/plugin and other awakening options)
 claude
 # or: codex
 ```
 
-`aw init` writes a cert-less `.aw/workspace.yaml` bound to `--team` on the
+`murmel init` writes a cert-less `.murmel/workspace.yaml` bound to `--team` on the
 `--aweb-url` server, plus a local self-custodial signing key used only for
 end-to-end encrypted messaging (never for server auth). The lifecycle contract
 is documented in [docs/aweb-sot.md](docs/aweb-sot.md).
@@ -169,12 +169,12 @@ is documented in [docs/aweb-sot.md](docs/aweb-sot.md).
 ### 5. Add another agent
 
 Each additional agent (another worktree, repo, or machine) onboards the same
-way: obtain a token for that identity, then `aw init` against the same team.
+way: obtain a token for that identity, then `murmel init` against the same team.
 
 ```bash
 # In the new directory, with AW_TOKEN set for that identity:
 export AW_TOKEN="<jwt for the joining identity>"
-aw init --aweb-url "$AWEB_URL" --team default:local
+murmel init --aweb-url "$AWEB_URL" --team default:local
 ```
 
 A human gets a token by signing up / logging in to the aweb UI (Better Auth);
@@ -187,7 +187,7 @@ carried by the token.
 - `awid` owns identity, namespaces, addresses, teams, and certificate issuance records.
 - `aweb` owns coordination state: mail, chat, issues, work discovery, roles, instructions, contacts, presence, and MCP tools.
 - For encrypted message v2, self-custodial local clients decrypt content locally while servers route ciphertext and metadata. Hosted custodial MCP/dashboard/server-side messaging is server-readable hosted messaging, not E2E.
-- Workspaces are local `.aw/` directories. A workspace binds one directory to one team.
+- Workspaces are local `.murmel/` directories. A workspace binds one directory to one team.
 - Global identities carry public addresses such as `acme.com/alice`; local identities use team-local aliases such as `alice`.
 - A Better Auth JWT (bearer token) is the coordination credential for OSS aweb; the token carries team membership. See [docs/aweb-sot.md](docs/aweb-sot.md) and [docs/awid-sot.md](docs/awid-sot.md).
 
@@ -206,11 +206,11 @@ See [server/README.md](server/README.md) and [docs/self-hosting-guide.md](docs/s
 
 ### `cli/go/`
 
-The `aw` CLI and Go client library:
+The `murmel` CLI and Go client library:
 
-- `aw login` / `AW_TOKEN` to authenticate; `aw init --team ...` for token-based workspace binding
-- `aw mail`, `aw chat`, `aw issue`, `aw epic`, `aw story`, `aw work`, `aw roles`, `aw instructions`
-- `aw id encryption-key ...` for local end-to-end encryption key management
+- `murmel login` / `AW_TOKEN` to authenticate; `murmel init --team ...` for token-based workspace binding
+- `murmel mail`, `murmel chat`, `murmel issue`, `murmel epic`, `murmel story`, `murmel work`, `murmel roles`, `murmel instructions`
+- `murmel id encryption-key ...` for local end-to-end encryption key management
 
 See [cli/go/README.md](cli/go/README.md).
 

@@ -24,12 +24,12 @@ Your job is to turn a clear task into a small, tested, reviewable change. Stay f
 ## Daily loop
 
 ```bash
-aw workspace status
-aw mail inbox
-aw chat pending
-aw work ready
-aw work active
-aw roles show
+murmel workspace status
+murmel mail inbox
+murmel chat pending
+murmel work ready
+murmel work active
+murmel roles show
 git status --short
 ```
 
@@ -50,7 +50,7 @@ If this workspace is not currently editing code, start by checking mail/work bef
 When work is ready, send a concise packet to the coordinator or reviewer:
 
 ```bash
-aw mail send --to <alias> --subject "Review request: <task>" --body "Summary: ...
+murmel mail send --to <alias> --subject "Review request: <task>" --body "Summary: ...
 Files: ...
 Tests: ...
 Risks/follow-ups: ..."
@@ -70,20 +70,20 @@ Include:
 Use chat only for synchronous blockers:
 
 ```bash
-aw chat send-and-wait <alias> "Blocked on <task>: <question>" --start-conversation
+murmel chat send-and-wait <alias> "Blocked on <task>: <question>" --start-conversation
 ```
 
 Use mail for async status:
 
 ```bash
-aw mail send --to <alias> --body "Status on <task>: blocked by <reason>. Next step: <plan>."
+murmel mail send --to <alias> --body "Status on <task>: blocked by <reason>. Next step: <plan>."
 ```
 
 Escalate when the task needs product direction, security/authorization judgment, migration/deployment authority, credentials, or a scope decision.
 
 ## Guardrails
 
-- Do not mutate another agent's `.aw/` state or workspace identity.
+- Do not mutate another agent's `.murmel/` state or workspace identity.
 - Do not edit another agent's worktree unless the coordinator explicitly reassigns the work.
 - Do not merge/release your own work without the agreed review path.
 - Do not hide failing tests; report them with context.

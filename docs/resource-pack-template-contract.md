@@ -32,7 +32,7 @@ Resource packs should make it easy to answer:
 - Which aweb skills should an agent load while applying the pack?
 
 Resource packs must not make setup unrecoverable by mixing these resources with
-team membership, identity keys, generated worktrees, or `.aw` state.
+team membership, identity keys, generated worktrees, or `.murmel` state.
 
 ## Authority boundaries
 
@@ -42,20 +42,20 @@ A resource pack **never** controls:
 - team controller keys;
 - identity signing or encryption keys;
 - DIDs, addresses, aliases, team certificates, or cert IDs;
-- the active team in `.aw/teams.yaml`;
-- service connection state in `.aw/workspace.yaml`;
+- the active team in `.murmel/teams.yaml`;
+- service connection state in `.murmel/workspace.yaml`;
 - git branches or worktrees in the target repo.
 
 Those are created or connected with explicit primitives such as:
 
 ```bash
-aw team invite
-aw team join <invite-token>
-aw init
-aw workspace connect --service <service-url> --team <team>:<namespace>
-aw roles add <role-name> --title <title> --playbook-file <path>
-aw roles set --bundle-file <path>
-aw instructions set --body-file <path>
+murmel team invite
+murmel team join <invite-token>
+murmel init
+murmel workspace connect --service <service-url> --team <team>:<namespace>
+murmel roles add <role-name> --title <title> --playbook-file <path>
+murmel roles set --bundle-file <path>
+murmel instructions set --body-file <path>
 ```
 
 BYOT/controller operations remain protocol/admin primitives and are not hidden
@@ -143,7 +143,7 @@ Forbidden manifest fields:
 
 - `alias`, `default_alias`, `default_name`, `did`, `did_aw`, `address`,
   `certificate`, `cert_id`, `team_id`, `active_team`, `workspace_id`;
-- any field whose value is a private key, token, API key, or `.aw` path;
+- any field whose value is a private key, token, API key, or `.murmel` path;
 - any field that instructs a tool to create git worktrees or mutate a target
   repo automatically without an explicit applying step.
 
@@ -165,10 +165,10 @@ Allowed:
 Forbidden:
 
 - committing final `CLAUDE.md` as the pack's canonical source of truth;
-- committing final `.aw/`, `team-certs/`, generated `work` symlinks, or private
+- committing final `.murmel/`, `team-certs/`, generated `work` symlinks, or private
   keys;
 - embedding final aliases, addresses, DIDs, or certificate IDs;
-- relying on a monolithic `aw agents bootstrap` command as the normal apply
+- relying on a monolithic `murmel agents bootstrap` command as the normal apply
   path.
 
 ## Applying a pack
@@ -177,7 +177,7 @@ An agent applying a resource pack should:
 
 1. Inspect `resource-pack.yaml` and README.
 2. Confirm the target team/workspace is already created or choose the correct
-   primitive setup path (`aw team invite`, `aw team join`, `aw init`, `aw
+   primitive setup path (`murmel team invite`, `murmel team join`, `murmel init`, `murmel
    workspace connect`).
 3. Copy/adapt harness-neutral resources into a reviewable location in the
    target repo.
@@ -185,22 +185,22 @@ An agent applying a resource pack should:
    from Markdown files:
 
    ```bash
-   aw instructions set --body-file <adapted-instructions.md>
-   aw roles add coordinator --title "Coordinator" --playbook-file resources/roles/coordinator.md
-   aw roles add developer --title "Developer" --playbook-file resources/roles/developer.md
+   murmel instructions set --body-file <adapted-instructions.md>
+   murmel roles add coordinator --title "Coordinator" --playbook-file resources/roles/coordinator.md
+   murmel roles add developer --title "Developer" --playbook-file resources/roles/developer.md
    ```
 
    For scripted/bulk updates, publish a reviewed JSON bundle:
 
    ```bash
-   aw roles set --bundle-file <adapted-roles.json>
+   murmel roles set --bundle-file <adapted-roles.json>
    ```
 
 5. Generate or copy harness adapters only after the human chooses that harness.
 6. Record what was applied in a task/comment/mail handoff.
 
 The pack may include helper scripts, but helpers must be dry-run friendly and
-must not create identities, accept invites, delete `.aw` state, or create git
+must not create identities, accept invites, delete `.murmel` state, or create git
 worktrees without an explicit command and confirmation.
 
 ## Validation checklist
@@ -209,7 +209,7 @@ A resource pack is valid when:
 
 - `resource-pack.yaml` exists and declares `schema_version: 1`;
 - every manifest path exists;
-- no file under the pack contains `.aw/signing.key`, `.aw/team-certs`, private
+- no file under the pack contains `.murmel/signing.key`, `.murmel/team-certs`, private
   key material, API keys, invite tokens, final DIDs, final addresses, or final
   certificate IDs;
 - no core resource is named or treated as canonical `CLAUDE.md`/Pi/Cursor
@@ -234,7 +234,7 @@ Bootstrap-era `team.yaml` fields map to resource-pack resources as follows:
 | `agents.<responsibility>.identity_scope` | Remove from template; choose identity with setup primitives |
 | `agents.<responsibility>.work` | Remove from template; use explicit git/filesystem steps |
 | `naming.*` | Remove from template; choose aliases/addresses at invite/join/identity time |
-| generated `agents/home/*/.aw` | Forbidden |
+| generated `agents/home/*/.murmel` | Forbidden |
 | generated `agents/worktrees/` | Forbidden |
 
 Old template repos should either redirect to their replacement resource pack or

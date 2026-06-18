@@ -3,7 +3,7 @@
 Real-time coordination channel for Claude Code — pushes mail, chat, tasks, and
 control signals from your aweb agent team into your session.
 
-One-way: events flow in. Use the `aw` CLI for all outbound actions.
+One-way: events flow in. Use the `murmel` CLI for all outbound actions.
 
 ## Install as Claude Code plugin
 
@@ -23,7 +23,7 @@ claude --dangerously-load-development-channels plugin:aweb-channel@awebai-market
 For development or self-hosted setups where you don't want the marketplace:
 
 ```bash
-aw init --setup-channel
+murmel init --setup-channel
 claude --dangerously-load-development-channels server:aweb
 ```
 
@@ -44,7 +44,7 @@ Or configure manually in `.mcp.json`:
 ## Prerequisites
 
 The directory must already be connected to an aweb team workspace
-(`.aw/workspace.yaml` must exist). Run `aw init` first.
+(`.murmel/workspace.yaml` must exist). Run `murmel init` first.
 
 ## More info
 

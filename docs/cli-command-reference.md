@@ -1,7 +1,7 @@
 # CLI Command Reference
 
 This reference is generated from the live Cobra help tree emitted by the
-`aw` binary built from [`cli/go/cmd/aw/`](../cli/go/cmd/aw). Run
+`murmel` binary built from [`cli/go/cmd/aw/`](../cli/go/cmd/aw). Run
 [`scripts/regenerate-cli-reference.sh`](../scripts/regenerate-cli-reference.sh)
 to refresh it.
 
@@ -18,10 +18,10 @@ to refresh it.
 ## Global Flags
 
 - `--debug Log background errors to stderr`
-- `-h, --help help for aw`
+- `-h, --help help for murmel`
 - `--json Output as JSON`
 - `--server-name string Override the server host or name for this command`
-- `--token string Bearer JWT to authenticate with (overrides AW_TOKEN and the cached ~/.aw/token; for non-interactive use)`
+- `--token string Bearer JWT to authenticate with (overrides AW_TOKEN and the cached ~/.murmel/token; for non-interactive use)`
 
 ## `check`
 
@@ -30,7 +30,7 @@ to refresh it.
 Check local identity, workspace, team, and service connectivity.
 
 This is the everyday setup diagnostic entrypoint. It runs the same checks as
-`aw doctor` and is safe to run before asking a teammate or support for help.
+`murmel doctor` and is safe to run before asking a teammate or support for help.
 
 Flags:
 - `--dry-run Plan fixes without applying them`
@@ -57,14 +57,14 @@ Flags:
 
 ### `init`
 
-Initialize the current directory as a token-authenticated aw workspace.
+Initialize the current directory as a token-authenticated murmel workspace.
 
 Authentication is by bearer token (no team certificate):
 
-- run "aw login" first to cache a token at ~/.aw/token, or
+- run "murmel login" first to cache a token at ~/.murmel/token, or
 - pass --token <jwt> / set AW_TOKEN for non-interactive use (CI, scripts).
 
-init writes a cert-less .aw/workspace.yaml bound to --team on the --aweb-url
+init writes a cert-less .murmel/workspace.yaml bound to --team on the --aweb-url
 server, plus a local signing key for end-to-end encrypted messaging (held only
 on this machine, never used for server auth).
 
@@ -74,24 +74,24 @@ AGENTS.md or CLAUDE.md. Use --do-not-touch-agents-md to skip that file update.
 Flags:
 - `--agent-type string Runtime type (default: AWEB_AGENT_TYPE or agent)`
 - `--alias string Local workspace routing alias (optional; default: server-suggested)`
-- `--aweb-url string Base URL for the aweb server used by aw init (overrides AWEB_URL)`
+- `--aweb-url string Base URL for the aweb server used by murmel init (overrides AWEB_URL)`
 - `--do-not-touch-agents-md Do not create or update AGENTS.md or CLAUDE.md during init`
 - `-h, --help help for init`
 - `--human-name string Human name (default: AWEB_HUMAN or $USER)`
-- `--inject-docs Inject aw coordination instructions into CLAUDE.md and AGENTS.md`
+- `--inject-docs Inject murmel coordination instructions into CLAUDE.md and AGENTS.md`
 - `--print-exports Print shell export lines after JSON output`
 - `--role string Compatibility alias for --role-name`
 - `--role-name string Workspace role name (must match a role in the active team roles bundle)`
 - `--setup-channel Set up Claude Code channel MCP server for real-time coordination`
-- `--setup-hooks Set up Claude Code PostToolUse hook for aw notify`
+- `--setup-hooks Set up Claude Code PostToolUse hook for murmel notify`
 - `--team string Team ID to bind this workspace to (e.g. default:local). Defaults to AWEB_TEAM_ID.`
-- `--write-context Ensure .aw/context exists in the current directory (default true)`
+- `--write-context Ensure .murmel/context exists in the current directory (default true)`
 
 ## `reset`
 
 ### `reset`
 
-Removes the local .aw/context and .aw/workspace.yaml files in the current directory without mutating any server-side identity state.
+Removes the local .murmel/context and .murmel/workspace.yaml files in the current directory without mutating any server-side identity state.
 
 Flags:
 - `-h, --help help for reset`
@@ -118,7 +118,7 @@ Flags:
 
 Legacy convenience for existing users: create a sibling git worktree and initialize a new coordination workspace in it.
 
-New setup flows should prefer explicit git worktree/filesystem steps followed by aw init, invite/join, or service init primitives unless this command is reduced to a transparent wrapper with no identity/team orchestration.
+New setup flows should prefer explicit git worktree/filesystem steps followed by murmel init, invite/join, or service init primitives unless this command is reduced to a transparent wrapper with no identity/team orchestration.
 
 Flags:
 - `--alias string Override the default alias`
@@ -824,11 +824,11 @@ Silent if no pending chats; outputs JSON with additionalContext if there are
 messages waiting. Designed for Claude Code PostToolUse hooks so notifications
 are surfaced to the agent automatically.
 
-Hook configuration in .claude/settings.json (set up via aw init --setup-hooks):
+Hook configuration in .claude/settings.json (set up via murmel init --setup-hooks):
   "hooks": {
     "PostToolUse": [{
       "matcher": ".*",
-      "hooks": [{"type": "command", "command": "aw notify"}]
+      "hooks": [{"type": "command", "command": "murmel notify"}]
     }]
   }
 
@@ -970,19 +970,19 @@ Flags:
 
 Start the requested AI coding agent in this directory.
 
-In a TTY, if this directory is not initialized yet, aw run can guide you
+In a TTY, if this directory is not initialized yet, murmel run can guide you
 through supported onboarding before starting the provider. The explicit
-bootstrap path is aw init, backed by guided onboarding, hosted signup,
-or a team certificate already present in .aw/.
+bootstrap path is murmel init, backed by guided onboarding, hosted signup,
+or a team certificate already present in .murmel/.
 
 Current implementation includes:
   - repeated provider invocations (currently Claude and Codex)
   - provider session continuity when --continue is requested
   - /stop, /wait, /autofeed on|off, /quit, and prompt override controls
-  - aw event-stream wakeups for mail, chat, and optional work events
-  - optional background services declared in aw run config
+  - murmel event-stream wakeups for mail, chat, and optional work events
+  - optional background services declared in murmel run config
 
-This aw-first command intentionally excludes bead-specific dispatch.
+This murmel-first command intentionally excludes bead-specific dispatch.
 
 Flags:
 - `--allowed-tools string Provider-specific allowed tools string`
@@ -1189,7 +1189,7 @@ Flags:
 
 ### `completion`
 
-Generate the autocompletion script for aw for the specified shell.
+Generate the autocompletion script for murmel for the specified shell.
 See each sub-command's help for details on how to use the generated script.
 
 Subcommands:
@@ -1212,17 +1212,17 @@ If it is not installed already, you can install it via your OS's package manager
 
 To load completions in your current shell session:
 
-	source <(aw completion bash)
+	source <(murmel completion bash)
 
 To load completions for every new session, execute once:
 
 #### Linux:
 
-	aw completion bash > /etc/bash_completion.d/aw
+	murmel completion bash > /etc/bash_completion.d/aw
 
 #### macOS:
 
-	aw completion bash > $(brew --prefix)/etc/bash_completion.d/aw
+	murmel completion bash > $(brew --prefix)/etc/bash_completion.d/aw
 
 You will need to start a new shell for this setup to take effect.
 
@@ -1238,11 +1238,11 @@ Generate the autocompletion script for the fish shell.
 
 To load completions in your current shell session:
 
-	aw completion fish | source
+	murmel completion fish | source
 
 To load completions for every new session, execute once:
 
-	aw completion fish > ~/.config/fish/completions/aw.fish
+	murmel completion fish > ~/.config/fish/completions/aw.fish
 
 You will need to start a new shell for this setup to take effect.
 
@@ -1258,7 +1258,7 @@ Generate the autocompletion script for powershell.
 
 To load completions in your current shell session:
 
-	aw completion powershell | Out-String | Invoke-Expression
+	murmel completion powershell | Out-String | Invoke-Expression
 
 To load completions for every new session, add the output of the above command
 to your powershell profile.
@@ -1280,17 +1280,17 @@ to enable it.  You can execute the following once:
 
 To load completions in your current shell session:
 
-	source <(aw completion zsh)
+	source <(murmel completion zsh)
 
 To load completions for every new session, execute once:
 
 #### Linux:
 
-	aw completion zsh > "${fpath[1]}/_aw"
+	murmel completion zsh > "${fpath[1]}/_aw"
 
 #### macOS:
 
-	aw completion zsh > $(brew --prefix)/share/zsh/site-functions/_aw
+	murmel completion zsh > $(brew --prefix)/share/zsh/site-functions/_aw
 
 You will need to start a new shell for this setup to take effect.
 
@@ -1391,7 +1391,7 @@ Flags:
 ### `help`
 
 Help provides help for any command in the application.
-Simply type aw help [path to command] for full details.
+Simply type murmel help [path to command] for full details.
 
 Flags:
 - `-h, --help help for help`
@@ -1400,7 +1400,7 @@ Flags:
 
 ### `upgrade`
 
-Upgrade aw to the latest version
+Upgrade murmel to the latest version
 
 Flags:
 - `-h, --help help for upgrade`

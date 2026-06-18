@@ -1,6 +1,6 @@
 # Support Contract v1
 
-Shared JSON vocabulary for `aw doctor` output, `aw id` registry
+Shared JSON vocabulary for `murmel doctor` output, `murmel id` registry
 read commands, and cloud support endpoints. This is the
 machine-readable contract that lets humans and agents parse output
 from any of these tools without learning per-tool field names.
@@ -20,8 +20,8 @@ This doc is the byte-level contract those docs assume.
 
 ## Scope
 
-- **OSS `aw doctor`** output (JSON + human).
-- **`aw id` registry read commands** (resolve, addresses, namespace
+- **OSS `murmel doctor`** output (JSON + human).
+- **`murmel id` registry read commands** (resolve, addresses, namespace
   state/addresses/resolve — any awid-protocol registry, not only
   awid.ai).
 - **Cloud support read endpoints** under `/api/v1/admin/support/…`.
@@ -137,7 +137,7 @@ an unknown-authority state is more ambiguous than a known failure.
 Per-tool payload shapes are named schemas nested under the
 envelope `payload` field. Known schemas in v1:
 
-- **`registry_read.v1`** — response shape for `aw id` registry
+- **`registry_read.v1`** — response shape for `murmel id` registry
   read commands (resolve-key, list-did-addresses, namespace
   addresses, resolve-address, namespace-state). MUST include:
   - `status` — one of `ok | fail | unknown | blocked`. This is
@@ -164,7 +164,7 @@ gracefully.
 
 ## Per-check structure (doctor output)
 
-Each entry under `payload.checks[]` for an `aw doctor` run:
+Each entry under `payload.checks[]` for an `murmel doctor` run:
 
 ```json
 {
@@ -307,5 +307,5 @@ neighboring statuses, or as a no-op for next_step kinds).
 
 - Epic: [`ac/docs/support/agent-lifetime-support-epic.md`](https://app.aweb.ai/docs/support/agent-lifetime-support-epic).
 - aweb tracking subtask: `aweb-aaka.29` (CROSS-01).
-- Consumers blocked on this contract: AWEB-05 (`aw doctor`), AC-10
+- Consumers blocked on this contract: AWEB-05 (`murmel doctor`), AC-10
   (support CLI/API wrappers).

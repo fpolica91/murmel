@@ -1,6 +1,6 @@
 # aweb Bootstrap scenarios — RETIRED
 
-This reference documented scenarios for the legacy `aw agents`
+This reference documented scenarios for the legacy `murmel agents`
 bootstrap/provision/add lifecycle and BYOT team/namespace setup. **Those
 commands were removed in the token-only auth pivot** and no longer exist, so
 these scenarios are no longer runnable.
@@ -9,9 +9,9 @@ There is no replacement "bootstrap" reference because the layout-generator
 concept itself was retired. Onboarding is now token-only and per-directory:
 
 ```bash
-aw login                                          # or: export AW_TOKEN=<jwt>
-aw init --aweb-url <server-url> --team <team-id>
-aw check
+murmel login                                          # or: export AW_TOKEN=<jwt>
+murmel init --aweb-url <server-url> --team <team-id>
+murmel check
 ```
 
 For current guidance see:

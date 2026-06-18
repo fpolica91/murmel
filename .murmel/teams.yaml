@@ -1,0 +1,6 @@
+active_team: default:aweb
+memberships:
+    - team_id: default:aweb
+      cert_path: ""
+      joined_at: "2026-06-17T17:06:03Z"
+      aweb_url: https://aweb-production-e89d.up.railway.app

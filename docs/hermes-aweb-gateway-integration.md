@@ -58,31 +58,31 @@ Hermes then handles platform config parsing, status display, user authorization,
 
 ## Aweb surface consumed
 
-The MVP deliberately consumes the `aw` CLI rather than reimplementing Aweb auth or signing in Python:
+The MVP deliberately consumes the `murmel` CLI rather than reimplementing Aweb auth or signing in Python:
 
-- inbound event stream: `aw events stream --json`
-- fetch mail body: `aw mail show --message-id <id> --json`
-- fetch chat body: `aw chat history --session-id <id> --message-id <id> --limit 1 --json`
-- reply to mail: `aw mail reply <message-id> --plaintext --body-file <tmp> --json`
-- reply to chat: `aw chat send --session-id <id> --plaintext --body-file <tmp> --leave --json`
-- ack mail after confirmed send: `aw mail ack <message-id> --json`
-- mark chat read after confirmed send: `aw chat read --session-id <id> --message-id <id> --json`
+- inbound event stream: `murmel events stream --json`
+- fetch mail body: `murmel mail show --message-id <id> --json`
+- fetch chat body: `murmel chat history --session-id <id> --message-id <id> --limit 1 --json`
+- reply to mail: `murmel mail reply <message-id> --plaintext --body-file <tmp> --json`
+- reply to chat: `murmel chat send --session-id <id> --plaintext --body-file <tmp> --leave --json`
+- ack mail after confirmed send: `murmel mail ack <message-id> --json`
+- mark chat read after confirmed send: `murmel chat read --session-id <id> --message-id <id> --json`
 
-Using `aw` keeps workspace selection, DID signatures, team certs, hosted/BYOT routing, and plaintext/E2EE policy inside Aweb.
+Using `murmel` keeps workspace selection, DID signatures, team certs, hosted/BYOT routing, and plaintext/E2EE policy inside Aweb.
 
 ## Aweb gap found and closed
 
 Before this work, Aweb had event streaming and message body fetches but did not expose all of the precise machine commands a gateway adapter needs:
 
-- `aw mail inbox` marks all listed unread mail read as a side effect.
-- `aw chat open <alias>` marks unread messages read by alias/session resolution.
-- `aw chat send-and-leave <target>` routes by recipient lookup rather than the exact triggering session.
+- `murmel mail inbox` marks all listed unread mail read as a side effect.
+- `murmel chat open <alias>` marks unread messages read by alias/session resolution.
+- `murmel chat send-and-leave <target>` routes by recipient lookup rather than the exact triggering session.
 
 That is not safe enough for a gateway adapter because Hermes should reply to the triggering session exactly and ack/read only after it has delivered the message to the agent and sent a visible response. This change adds:
 
-- `aw mail ack <message-id> --json`
-- `aw chat send --session-id <session-id> --body-file <path> --leave --json`
-- `aw chat read --session-id <session-id> --message-id <message-id> --json`
+- `murmel mail ack <message-id> --json`
+- `murmel chat send --session-id <session-id> --body-file <path> --leave --json`
+- `murmel chat read --session-id <session-id> --message-id <message-id> --json`
 
 These wrap existing client/server primitives (`ChatSendMessage`, `AckMessage`, `ChatMarkRead`) with explicit CLI contracts.
 
@@ -98,12 +98,12 @@ Files:
 
 Runtime behavior:
 
-1. `connect()` validates `aw`, records `AWEB_PLATFORM_WORKDIR`, starts `aw events stream --json` as a subprocess, and reconnects with backoff.
-2. On `actionable_mail`, the adapter fetches the exact message with `aw mail show --message-id`, creates `chat_id="mail:<conversation_id>"`, stores a reply route, and injects a Hermes `MessageEvent`.
-3. On `actionable_chat`, the adapter fetches the exact message with `aw chat history --session-id --message-id`, creates `chat_id="chat:<session_id>"`, stores a reply route, and injects a Hermes `MessageEvent`.
+1. `connect()` validates `murmel`, records `AWEB_PLATFORM_WORKDIR`, starts `murmel events stream --json` as a subprocess, and reconnects with backoff.
+2. On `actionable_mail`, the adapter fetches the exact message with `murmel mail show --message-id`, creates `chat_id="mail:<conversation_id>"`, stores a reply route, and injects a Hermes `MessageEvent`.
+3. On `actionable_chat`, the adapter fetches the exact message with `murmel chat history --session-id --message-id`, creates `chat_id="chat:<session_id>"`, stores a reply route, and injects a Hermes `MessageEvent`.
 4. When Hermes calls `send()`:
-   - mail routes use `aw mail reply`, then `aw mail ack` only after the reply succeeds;
-   - chat routes use exact `aw chat send --session-id ... --leave`, then `aw chat read` only after the reply succeeds;
+   - mail routes use `murmel mail reply`, then `murmel mail ack` only after the reply succeeds;
+   - chat routes use exact `murmel chat send --session-id ... --leave`, then `murmel chat read` only after the reply succeeds;
    - unknown/home routes are treated as Aweb chat targets for cron delivery.
 
 ## MVP user flow
@@ -112,8 +112,8 @@ Runtime behavior:
 
    ```bash
    cd /path/to/hermes-aweb-workspace
-   aw init   # or aw agents bootstrap / invite accept / existing workspace setup
-   aw workspace status
+   murmel init   # or murmel agents bootstrap / invite accept / existing workspace setup
+   murmel workspace status
    ```
 
 2. Install the plugin into Hermes for local testing:
@@ -129,7 +129,7 @@ Runtime behavior:
    ```bash
    AWEB_PLATFORM_ENABLED=true
    AWEB_PLATFORM_WORKDIR=/path/to/hermes-aweb-workspace
-   AWEB_PLATFORM_AW_BIN=aw
+   AWEB_PLATFORM_AW_BIN=murmel
    AWEB_ALLOWED_USERS=example.aweb.ai/alice
    # or for development only:
    # AWEB_ALLOW_ALL_USERS=true
@@ -169,8 +169,8 @@ Recommended order: external repo first, then Hermes bundled-plugin PR only if ma
 
 ## Risks
 
-- Shelling to `aw` is reliable enough for MVP but not as efficient as a library surface.
-- `aw events stream --json` is a process boundary; restart/backoff is required.
+- Shelling to `murmel` is reliable enough for MVP but not as efficient as a library surface.
+- `murmel events stream --json` is a process boundary; restart/backoff is required.
 - Cron/home-channel fallback still treats the target as an Aweb alias/address. Inbound chat replies do not: they use the exact triggering `session_id`.
 - Hermes plugin install UX is clean for separate plugin repos, not for monorepo subdirectories.
 - The plugin currently uses plaintext explicit sends because current Aweb release default is plaintext and recent `--e2ee` opt-in smoke hit a server 422 schema mismatch.
@@ -194,6 +194,6 @@ Recommended order: external repo first, then Hermes bundled-plugin PR only if ma
 6. Confirm:
    - Hermes receives both as inbound platform messages;
    - Hermes replies through Aweb;
-   - `aw mail ack` runs only after mail reply succeeds;
-   - `aw chat read` runs only after chat reply succeeds;
+   - `murmel mail ack` runs only after mail reply succeeds;
+   - `murmel chat read` runs only after chat reply succeeds;
    - unauthorized senders are rejected unless `AWEB_ALLOW_ALL_USERS=true`.

@@ -14,7 +14,7 @@ built on the existing aweb coordination stack.
 ## Locked decisions
 
 1. **Auth:** Better Auth runs in the Next.js UI and **issues** JWTs; the FastAPI
-   server and the `aw` CLI are pure **verifiers** (JWKS). Better Auth is
+   server and the `murmel` CLI are pure **verifiers** (JWKS). Better Auth is
    TypeScript and cannot run inside the Python server, so the issuer lives with
    the UI; Python/Go only validate tokens.
 2. **UI framework:** Next.js + React.
@@ -36,7 +36,7 @@ Humans log in with SSO; agents inherit one short-lived token. No certs/keys/DNS.
   - Issue: token shape — `sub, team_ids, roles, agent_name?, exp, jti`; verified via JWKS
   - Issue: refresh flow + revocation denylist (kill by `jti`)
 - **Story 1.2 — CLI login**
-  - Issue: `aw login` browser/device flow → cache token in `~/.aw/token`, auto-refresh; `aw logout`
+  - Issue: `murmel login` browser/device flow → cache token in `~/.murmel/token`, auto-refresh; `murmel logout`
 - **Story 1.3 — One auth path on the server**
   - Issue: extend the existing dashboard-JWT verifier into a single token dependency for REST + `/mcp/`
   - Issue: keep cert path behind a flag (additive) until cutover

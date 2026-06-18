@@ -150,7 +150,7 @@ Recommended first-line support steps:
 server-readable hosted messaging.
 - For v2 E2E, inspect message id, conversation id, sender/recipient ids, key ids,
 route, delivery state, and error category.
-- Ask the customer to run the relevant local diagnostics (`aw doctor` or the
+- Ask the customer to run the relevant local diagnostics (`murmel doctor` or the
 approved key/decrypt diagnostic once implemented) from the affected client.
 - If content must be inspected, ask the customer to export decrypted content from
 a local client and attach it intentionally.

@@ -23,10 +23,10 @@ Your job is not to rewrite the change. Your job is to identify material issues, 
 ## Daily loop
 
 ```bash
-aw workspace status
-aw mail inbox
-aw chat pending
-aw roles show
+murmel workspace status
+murmel mail inbox
+murmel chat pending
+murmel roles show
 git status --short
 ```
 

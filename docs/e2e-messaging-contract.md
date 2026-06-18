@@ -596,7 +596,7 @@ plaintext support dumps for v2 E2E messages.
 Server-side content search over E2E subject/body is forbidden. Search must be
 metadata-only or local-client-side after decryption.
 
-## Dashboard, Notifications, Channel, Pi, And `aw run`
+## Dashboard, Notifications, Channel, Pi, And `murmel run`
 
 AC dashboard and server-side support surfaces must remove, hide, or downgrade
 plaintext mail/chat views for v2 E2E content. They may show metadata-only
@@ -606,7 +606,7 @@ Server notifications and SSE events may say that an encrypted message arrived,
 who it is from, which conversation it belongs to, and whether action is needed.
 They must not include plaintext subject/body previews.
 
-Local clients such as the channel, Pi, and `aw run` may decrypt locally before
+Local clients such as the channel, Pi, and `murmel run` may decrypt locally before
 showing plaintext or injecting it into a prompt. The decryption boundary must be
 local to the user's workspace or client process, not AC/aweb server-side.
 
@@ -616,7 +616,7 @@ Clients must keep archived encryption private keys needed for historical
 messages. Losing archived keys makes old encrypted messages unrecoverable. The
 server cannot repair this.
 
-`aw doctor`, key setup, key rotation, and docs/skills must distinguish:
+`murmel doctor`, key setup, key rotation, and docs/skills must distinguish:
 
 - missing identity signing key,
 - missing local encryption private key,

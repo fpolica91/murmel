@@ -27,7 +27,7 @@ Two planes:
 
 - **Issuer plane** — the Next.js app (`ui/`) runs Better Auth, holds the signing
   key, serves JWKS, and mints EdDSA JWTs.
-- **Verifier plane** — the aweb server and `aw` CLI verify those JWTs against the
+- **Verifier plane** — the aweb server and `murmel` CLI verify those JWTs against the
   issuer's JWKS and authorize via the `memberships` table. They never sign.
 
 ## 1. Start the backend stack
@@ -167,7 +167,7 @@ cd ui && npm run typecheck && npm run build
 
 ## Known remaining work
 
-- **`aw login` (CLI device flow) — WORKING.** Implemented and verified
+- **`murmel login` (CLI device flow) — WORKING.** Implemented and verified
   end-to-end. The UI enables the `deviceAuthorization` + `bearer` plugins and
   serves a `/device` approval page; the CLI runs the RFC 8628 device flow
   (JSON bodies), gets a Better Auth **session** token, then exchanges it for a
@@ -175,20 +175,20 @@ cd ui && npm run typecheck && npm run build
   plugin) and caches the JWT (session kept as the refresh credential). Run:
   ```bash
   cd ui && npm run db:migrate    # adds the deviceCode table (one-time)
-  aw login --issuer http://localhost:3000/api/auth
+  murmel login --issuer http://localhost:3000/api/auth
   # open the printed /device?user_code=... URL, approve while signed in
   ```
-  The cached JWT at `~/.aw/token` authorizes against aweb (verified: created an
+  The cached JWT at `~/.murmel/token` authorizes against aweb (verified: created an
   issue → 201). **Auto-attach is wired:** the awid client takes an injected
   bearer provider (`SetBearerProvider`); the command layer installs one
   (`bearerTokenProvider` → `LoadValidToken` + a refresher that re-mints from the
   cached session at `/api/auth/token`). When a workspace resolves but has no
   team certificate, `resolveClientSelection` falls back to a bearer client, so
-  `aw` commands auto-attach + auto-refresh the token (and send `X-AWEB-Team-Id`).
+  `murmel` commands auto-attach + auto-refresh the token (and send `X-AWEB-Team-Id`).
   The cert path is unchanged. `resolveClient` also falls back to a bearer client
   (base URL from `AWEB_URL`) for a fully workspace-less user. **Caveat:** many
-  commands (e.g. `aw issue list`) resolve via `resolveClientSelection`, which
-  requires a `.aw/` workspace and errors before the bearer fallback. Full
+  commands (e.g. `murmel issue list`) resolve via `resolveClientSelection`, which
+  requires a `.murmel/` workspace and errors before the bearer fallback. Full
   workspace-less support is a broader change — decoupling those commands from
   the workspace `Selection` so they can run on a bearer token + `AWEB_URL`
   alone. The realistic bearer scenario (a joined team with a workspace but no

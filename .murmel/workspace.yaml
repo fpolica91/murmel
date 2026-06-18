@@ -1,0 +1,12 @@
+aweb_url: https://aweb-production-e89d.up.railway.app
+memberships:
+    - team_id: default:aweb
+      alias: Fabricio Policarpo
+      cert_path: ""
+      joined_at: "2026-06-17T17:06:03Z"
+human_name: fabricio
+agent_type: agent
+canonical_origin: github.com/awebai/aweb
+hostname: fabricios-MacBook-Pro-2.local
+workspace_path: /Users/fabricio/Desktop/aweb
+updated_at: "2026-06-17T17:06:03Z"

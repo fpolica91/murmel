@@ -1,17 +1,17 @@
 ---
-title: "aw setup surface taxonomy"
+title: "murmel setup surface taxonomy"
 kicker: "Product SOT"
-description: "How aw presents team, identity, workspace, template, and protocol/admin setup operations."
+description: "How murmel presents team, identity, workspace, template, and protocol/admin setup operations."
 weight: 23
 ---
 
-# aw setup surface taxonomy
+# murmel setup surface taxonomy
 
-This document is the source of truth for the customer-facing `aw` setup
+This document is the source of truth for the customer-facing `murmel` setup
 surface. It classifies team, identity, workspace, template, and BYOT operations
 so the CLI, docs, dashboard copy, and agent skills all teach the same model.
 
-The goal is not to remove protocol power from `aw`. The goal is to make the
+The goal is not to remove protocol power from `murmel`. The goal is to make the
 normal path match what people actually want to do, and to keep protocol/admin
 plumbing available without presenting it as the happy path.
 
@@ -26,7 +26,7 @@ The distinction is not beginner versus expert. The distinction is:
 ## Why this taxonomy exists
 
 The current bootstrap-era product center combines too many boundaries in one
-command. A single `aw agents bootstrap` invocation may read a template, create
+command. A single `murmel agents bootstrap` invocation may read a template, create
 or join a team, create identities, install roles/instructions, write files,
 edit gitignore, and create worktrees. A partial failure can strand local layout
 state before hosted team/account setup completes. Retrying then fails because
@@ -118,60 +118,60 @@ the categories stable unless this document is updated.
 
 | Current command/action | Classification | Intended presentation |
 | --- | --- | --- |
-| `aw run <provider>` | Everyday intent + runtime entrypoint | Primary way to start an agent session; may suggest setup, but setup mutations stay explicit and should not become hidden orchestration. |
-| `aw init` | Everyday connect/create workspace intent | Keep prominent. Copy should say it initializes/connects this directory as a workspace. |
-| `aw service init` / `aw workspace connect` | Everyday connect workspace intent | Keep prominent for already-certified AWID identities connecting to a service. `aw workspace connect` is the first-class human verb; `aw service init` remains the service-oriented primitive. |
-| `aw team create` / `aw team invite` / `aw team join` / `aw team list` / `aw team switch` / `aw team leave` / `aw team remove-agent` | Everyday team lifecycle intent | Human-facing verbs for team creation guidance, normal invite/join membership flow, installed-membership management, and explicit removal. Protocol/admin team operations remain under `aw id team`. |
-| `aw whoami` | Everyday check | Keep prominent. |
-| `aw workspace status` | Everyday check/doctor | Keep prominent. It should explain active team, identity, claims, locks, service binding, and mismatch symptoms. |
-| `aw check` / `aw doctor` | Everyday check/repair | Keep prominent. `aw check` is the everyday diagnostic verb; `aw doctor` remains the support/deeper diagnostics name. |
-| `aw id team list` / `switch` / `leave` | Everyday membership management backed by primitives | Keep discoverable; consider human-facing aliases if taxonomy implementation adds `aw team ...`. |
-| `aw roles`, `aw role-name`, `aw instructions` | Everyday team context + agent primitives | Keep prominent for team operating context. `aw roles add ... --playbook-file` is the novice/resource-pack path; `aw roles set --bundle-file` remains the bulk/scripted path. |
-| `aw mail`, `aw chat`, `aw work`, `aw issue`, `aw epic`, `aw story`, `aw lock` | Everyday coordination | Out of setup scope, but remain primary day-to-day commands. |
+| `murmel run <provider>` | Everyday intent + runtime entrypoint | Primary way to start an agent session; may suggest setup, but setup mutations stay explicit and should not become hidden orchestration. |
+| `murmel init` | Everyday connect/create workspace intent | Keep prominent. Copy should say it initializes/connects this directory as a workspace. |
+| `murmel service init` / `murmel workspace connect` | Everyday connect workspace intent | Keep prominent for already-certified AWID identities connecting to a service. `murmel workspace connect` is the first-class human verb; `murmel service init` remains the service-oriented primitive. |
+| `murmel team create` / `murmel team invite` / `murmel team join` / `murmel team list` / `murmel team switch` / `murmel team leave` / `murmel team remove-agent` | Everyday team lifecycle intent | Human-facing verbs for team creation guidance, normal invite/join membership flow, installed-membership management, and explicit removal. Protocol/admin team operations remain under `murmel id team`. |
+| `murmel whoami` | Everyday check | Keep prominent. |
+| `murmel workspace status` | Everyday check/doctor | Keep prominent. It should explain active team, identity, claims, locks, service binding, and mismatch symptoms. |
+| `murmel check` / `murmel doctor` | Everyday check/repair | Keep prominent. `murmel check` is the everyday diagnostic verb; `murmel doctor` remains the support/deeper diagnostics name. |
+| `murmel id team list` / `switch` / `leave` | Everyday membership management backed by primitives | Keep discoverable; consider human-facing aliases if taxonomy implementation adds `murmel team ...`. |
+| `murmel roles`, `murmel role-name`, `murmel instructions` | Everyday team context + agent primitives | Keep prominent for team operating context. `murmel roles add ... --playbook-file` is the novice/resource-pack path; `murmel roles set --bundle-file` remains the bulk/scripted path. |
+| `murmel mail`, `murmel chat`, `murmel work`, `murmel issue`, `murmel epic`, `murmel story`, `murmel lock` | Everyday coordination | Out of setup scope, but remain primary day-to-day commands. |
 
 ### Agent primitives to keep sharp
 
 | Current command/action | Classification | Notes |
 | --- | --- | --- |
-| `aw id team invite` | Agent primitive / human invite verb | Normal hosted add-agent starts here. It may use hosted cloud authority or local controller authority depending on team context. |
-| `aw id team accept-invite <token>` | Agent primitive / human join verb | Must refuse to overwrite existing `.aw` identity/key state. Prints `aw init`/connect next step when needed. |
-| `aw id create --domain --name` | Agent primitive for standalone self-custodial global identity | Identity-only. Skills must distinguish it from `aw init --global`, which also connects a workspace. |
-| `aw id encryption-key setup|rotate|show` | Agent primitive for E2E readiness | Keep in identity skills; not a team setup happy path. |
-| `aw service init` | Agent primitive / service-oriented connect workspace | Connects an existing identity+cert to a service; does not create team/identity/membership. |
-| `aw roles add|set|activate|show|list` | Agent primitive for team context | Publishing roles is a team-context mutation, not template bootstrap side effect. Prefer `add` for one-role-at-a-time resource-pack application; use `set` for full-bundle replacement. |
-| `aw instructions set|activate|show` | Agent primitive for team context | Publishing instructions is a team-context mutation, not template bootstrap side effect. |
-| `aw contacts`, `aw inbound-mode` | Agent primitives for addressability policy | Keep in identity/messaging skills. |
+| `murmel id team invite` | Agent primitive / human invite verb | Normal hosted add-agent starts here. It may use hosted cloud authority or local controller authority depending on team context. |
+| `murmel id team accept-invite <token>` | Agent primitive / human join verb | Must refuse to overwrite existing `.murmel` identity/key state. Prints `murmel init`/connect next step when needed. |
+| `murmel id create --domain --name` | Agent primitive for standalone self-custodial global identity | Identity-only. Skills must distinguish it from `murmel init --global`, which also connects a workspace. |
+| `murmel id encryption-key setup|rotate|show` | Agent primitive for E2E readiness | Keep in identity skills; not a team setup happy path. |
+| `murmel service init` | Agent primitive / service-oriented connect workspace | Connects an existing identity+cert to a service; does not create team/identity/membership. |
+| `murmel roles add|set|activate|show|list` | Agent primitive for team context | Publishing roles is a team-context mutation, not template bootstrap side effect. Prefer `add` for one-role-at-a-time resource-pack application; use `set` for full-bundle replacement. |
+| `murmel instructions set|activate|show` | Agent primitive for team context | Publishing instructions is a team-context mutation, not template bootstrap side effect. |
+| `murmel contacts`, `murmel inbound-mode` | Agent primitives for addressability policy | Keep in identity/messaging skills. |
 
 ### Protocol/admin primitives
 
 | Current command/action | Classification | Presentation rule |
 | --- | --- | --- |
-| `aw id namespace prepare-controller` | Protocol/admin BYOT primitive | Show only in BYOT/controller setup docs and skills. It is local-only and creates controller authority. |
-| `aw id namespace check-txt` | Protocol/admin BYOT primitive | BYOT DNS verification; not hosted happy path. |
-| `aw id namespace assign-address` / `delete-address` / `set-delivery-origin` / `rotate-controller` / `delete` | Protocol/admin primitives | Controller-holder operations. Keep documented in protocol/admin reference. |
-| `aw id team create` | Protocol/admin BYOT primitive; backing primitive for `aw team create --byot` | Creates AWID team with customer controller. Do not present as hosted default create-team. |
-| `aw id team add-member` / `remove-member` | Protocol/admin certificate primitives | Controller signs/revokes membership. Hosted users should normally use invite/dashboard flows. BYOT controller holders use these directly. |
-| `aw id team fetch-cert` | Protocol/admin/agent primitive bridge | Installs a cert minted elsewhere. Use in BYOT cross-machine and hosted add-existing-identity flows. |
-| `aw id team request` | Protocol/admin bridge primitive | Joiner prints the controller-side add-member command. Useful for BYOT; not the hosted invite happy path. |
-| `aw id team register` | Protocol/admin service projection primitive | Registers/syncs customer-controlled AWID team with a service; does not initialize workspaces. |
-| `aw id team import-request` | Protocol/admin BYOT import primitive | Signs customer-controller import/sync payload for AC/aweb Cloud. Never ask for private controller keys in dashboard. |
-| `aw id team cleanup-cloud` | Protocol/admin cleanup primitive | Projection cleanup after registry team deletion or recovery. |
-| `aw id team delete` | Protocol/admin destructive primitive | AWID team deletion after revocation; controller-holder only. |
-| `aw id register` / `resolve` / `verify` / `addresses` / `log` / `sign` / `request` | Protocol/admin or diagnostic identity primitives | Keep available for debugging, automation, and registry-aware tooling. |
-| hidden `aw connect --bootstrap-token` | Protocol/bootstrap plumbing | Keep hidden unless a current dashboard flow still emits it; prefer clearer connect/join wording where possible. |
+| `murmel id namespace prepare-controller` | Protocol/admin BYOT primitive | Show only in BYOT/controller setup docs and skills. It is local-only and creates controller authority. |
+| `murmel id namespace check-txt` | Protocol/admin BYOT primitive | BYOT DNS verification; not hosted happy path. |
+| `murmel id namespace assign-address` / `delete-address` / `set-delivery-origin` / `rotate-controller` / `delete` | Protocol/admin primitives | Controller-holder operations. Keep documented in protocol/admin reference. |
+| `murmel id team create` | Protocol/admin BYOT primitive; backing primitive for `murmel team create --byot` | Creates AWID team with customer controller. Do not present as hosted default create-team. |
+| `murmel id team add-member` / `remove-member` | Protocol/admin certificate primitives | Controller signs/revokes membership. Hosted users should normally use invite/dashboard flows. BYOT controller holders use these directly. |
+| `murmel id team fetch-cert` | Protocol/admin/agent primitive bridge | Installs a cert minted elsewhere. Use in BYOT cross-machine and hosted add-existing-identity flows. |
+| `murmel id team request` | Protocol/admin bridge primitive | Joiner prints the controller-side add-member command. Useful for BYOT; not the hosted invite happy path. |
+| `murmel id team register` | Protocol/admin service projection primitive | Registers/syncs customer-controlled AWID team with a service; does not initialize workspaces. |
+| `murmel id team import-request` | Protocol/admin BYOT import primitive | Signs customer-controller import/sync payload for AC/aweb Cloud. Never ask for private controller keys in dashboard. |
+| `murmel id team cleanup-cloud` | Protocol/admin cleanup primitive | Projection cleanup after registry team deletion or recovery. |
+| `murmel id team delete` | Protocol/admin destructive primitive | AWID team deletion after revocation; controller-holder only. |
+| `murmel id register` / `resolve` / `verify` / `addresses` / `log` / `sign` / `request` | Protocol/admin or diagnostic identity primitives | Keep available for debugging, automation, and registry-aware tooling. |
+| hidden `murmel connect --bootstrap-token` | Protocol/bootstrap plumbing | Keep hidden unless a current dashboard flow still emits it; prefer clearer connect/join wording where possible. |
 
 ### Obsolete/legacy compatibility candidates
 
 | Current command/action | Classification | Required compatibility behavior |
 | --- | --- | --- |
-| `aw agents bootstrap` | Obsolete/legacy compatibility once replacement resource-pack flow lands | Keep callable short-term. Stop teaching as happy path. Fail before filesystem/git side effects when team source cannot be resolved. On post-layout hosted/setup failures, roll back newly-created in-repo layouts when no `.aw` identity state exists; preserve layouts that contain `.aw` keys and print recovery guidance. |
-| `aw agents provision` | Obsolete/legacy compatibility | Keep for existing `agents/` layouts. Make error messages point to invite/API key/BYOT/current-workspace sources and resource-pack replacement guidance. |
-| `aw agents plan` | Compatibility diagnostic for old layout | Keep while old layouts exist; avoid teaching as new template planning model. |
-| `aw agents add` | Obsolete/legacy compatibility if it mutates shared layout + identity state | Prefer separate primitives: invite/join/connect workspace, then resource-pack/application steps. |
-| `aw agents add-worktree` | Obsolete/legacy compatibility if it couples template layout with identity/worktree setup | Prefer explicit git/filesystem primitives, then `aw init`/invite/join/connect primitives and skills/resource application. |
-| `aw workspace add-worktree` | Local convenience/compatibility for existing users | Future skills should prefer explicit `git worktree`/filesystem steps followed by `aw init`/invite/join/connect primitives, unless this command is reduced to a transparent wrapper with no identity/team/template magic. |
-| `aw agents remove` | Compatibility command with strong safety constraints | Removal/deprovision may remain useful, but must clearly separate layout removal, membership revocation, local `.aw` state movement, worktree cleanup, and address deletion. |
-| `aw init --byod` wording | Retired middle-ground risk unless carefully scoped | If retained, copy must not imply the BYOT controller-first import path. BYOT docs should teach controller primitives. |
+| `murmel agents bootstrap` | Obsolete/legacy compatibility once replacement resource-pack flow lands | Keep callable short-term. Stop teaching as happy path. Fail before filesystem/git side effects when team source cannot be resolved. On post-layout hosted/setup failures, roll back newly-created in-repo layouts when no `.murmel` identity state exists; preserve layouts that contain `.murmel` keys and print recovery guidance. |
+| `murmel agents provision` | Obsolete/legacy compatibility | Keep for existing `agents/` layouts. Make error messages point to invite/API key/BYOT/current-workspace sources and resource-pack replacement guidance. |
+| `murmel agents plan` | Compatibility diagnostic for old layout | Keep while old layouts exist; avoid teaching as new template planning model. |
+| `murmel agents add` | Obsolete/legacy compatibility if it mutates shared layout + identity state | Prefer separate primitives: invite/join/connect workspace, then resource-pack/application steps. |
+| `murmel agents add-worktree` | Obsolete/legacy compatibility if it couples template layout with identity/worktree setup | Prefer explicit git/filesystem primitives, then `murmel init`/invite/join/connect primitives and skills/resource application. |
+| `murmel workspace add-worktree` | Local convenience/compatibility for existing users | Future skills should prefer explicit `git worktree`/filesystem steps followed by `murmel init`/invite/join/connect primitives, unless this command is reduced to a transparent wrapper with no identity/team/template magic. |
+| `murmel agents remove` | Compatibility command with strong safety constraints | Removal/deprovision may remain useful, but must clearly separate layout removal, membership revocation, local `.murmel` state movement, worktree cleanup, and address deletion. |
+| `murmel init --byod` wording | Retired middle-ground risk unless carefully scoped | If retained, copy must not imply the BYOT controller-first import path. BYOT docs should teach controller primitives. |
 | bootstrap-era template repos | Obsolete template model | Replace with team blueprints (see [team-blueprints-sot.md](team-blueprints-sot.md)). Old repos should redirect or clearly mark legacy/compatibility. |
 
 ## Desired everyday flows
@@ -181,8 +181,8 @@ the categories stable unless this document is updated.
 The hosted happy path should not require namespace, controller, certificate, or
 AWID vocabulary. The user wants a team they can invite agents into.
 
-Implementation may be dashboard-first or CLI-first. In this release, `aw team
-create` is dashboard-first for hosted teams and `aw team create --byot` wraps
+Implementation may be dashboard-first or CLI-first. In this release, `murmel team
+create` is dashboard-first for hosted teams and `murmel team create --byot` wraps
 the customer-controlled AWID team primitive. The copy should be:
 
 1. create team;
@@ -198,7 +198,7 @@ Canonical flow:
    authority;
 2. joiner accepts the invite in a clean directory;
 3. joiner connects the workspace if the accept step did not already bind it;
-4. both sides verify with `aw workspace status` / dashboard agent list.
+4. both sides verify with `murmel workspace status` / dashboard agent list.
 
 The user should not have to understand certificate IDs on the hosted default
 path.
@@ -223,7 +223,7 @@ This is protocol/admin because the customer chose BYOT.
 Removal must diagnose authority and split effects:
 
 - membership revocation/deprovision;
-- local `.aw` state preservation or explicit move-aside;
+- local `.murmel` state preservation or explicit move-aside;
 - generated worktree cleanup if any;
 - shared template/resource references;
 - global address deletion only when explicitly requested and authorized.
@@ -235,7 +235,7 @@ human's certificate.
 
 The support entrypoint should answer:
 
-- does this directory have `.aw/signing.key` or custodial context?
+- does this directory have `.murmel/signing.key` or custodial context?
 - does it have a team certificate for the selected team?
 - is `active_team` correct?
 - is `workspace.yaml` connected to the intended service?
@@ -243,8 +243,8 @@ The support entrypoint should answer:
 - what exact next command fixes the mismatch?
 
 This deserves first-class visibility because many failures look like "files are
-initialized" locally but the team/service view is disconnected. `aw check` is
-the everyday spelling; `aw doctor` remains the support/deeper diagnostics
+initialized" locally but the team/service view is disconnected. `murmel check` is
+the everyday spelling; `murmel doctor` remains the support/deeper diagnostics
 spelling.
 
 ## Resource-pack template contract summary
@@ -266,7 +266,7 @@ CLAUDE/Pi/Cursor-specific outputs are adapters or generated examples. The core
 resources should be harness-neutral Markdown so skills can adapt them to the
 current runtime.
 
-They must not include final aliases, DIDs, addresses, certificates, `.aw` state,
+They must not include final aliases, DIDs, addresses, certificates, `.murmel` state,
 or generated work symlinks.
 
 Applying a resource pack is separate from creating identities, inviting agents,
@@ -295,7 +295,7 @@ connecting workspaces, and creating git worktrees.
 All compatibility commands, including obsolete/legacy ones, must obey these
 rules:
 
-- no automatic overwrite of `.aw` identity state;
+- no automatic overwrite of `.murmel` identity state;
 - no automatic deletion of private signing, encryption, namespace controller,
   or team controller keys;
 - no partial filesystem/git side effects before required hosted inputs are
@@ -312,7 +312,7 @@ rules:
 - BYOT docs must be precise about customer-held namespace and team controller
   authority.
 - Skills should teach decision policy and safe primitive composition. They
-  should not be long flag references; `aw --help` and generated command docs are
+  should not be long flag references; `murmel --help` and generated command docs are
   the syntax reference.
 - Any command shown in a skill must be source-grep verified against current CLI
   help before release.

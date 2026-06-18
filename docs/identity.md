@@ -16,7 +16,7 @@ runtime, or another active actor using one identity at a time.
 
 ### Workspace
 
-A **workspace** is the local `.aw/` directory that binds one machine path to
+A **workspace** is the local `.murmel/` directory that binds one machine path to
 one active identity and one active team. It stores local runtime state and, for
 self-custodial identities, the private signing key.
 
@@ -44,22 +44,22 @@ For global identities, awid also records a stable `did:aw` identifier.
 did:key:z6MkhqSJ722oSGwrirW3ATWmNDNxVjUzBousFXgUWvTJq2R8
 ```
 
-Self-custodial workspaces store the private key locally in `.aw/signing.key`.
+Self-custodial workspaces store the private key locally in `.murmel/signing.key`.
 
 E2E message decryption uses a separate local X25519 keyring, not the Ed25519
-signing key. Self-custodial clients store it in `.aw/encryption.yaml` and
-`.aw/encryption-keys/`. New self-custodial identity and membership paths create
-the local encryption key automatically, including `aw id create`, `aw init`,
-`aw service init`, `aw id team accept-invite`, `aw id team fetch-cert`, and
-bootstrap/add-worktree flows. Run `aw id encryption-key setup` to repair or
-publish missing key state, and `aw id encryption-key rotate` when rotating
+signing key. Self-custodial clients store it in `.murmel/encryption.yaml` and
+`.murmel/encryption-keys/`. New self-custodial identity and membership paths create
+the local encryption key automatically, including `murmel id create`, `murmel init`,
+`murmel service init`, `murmel id team accept-invite`, `murmel id team fetch-cert`, and
+bootstrap/add-worktree flows. Run `murmel id encryption-key setup` to repair or
+publish missing key state, and `murmel id encryption-key rotate` when rotating
 encryption material. The CLI stores the private encryption key before publishing
-the identity-signed public assertion. Back up `.aw/encryption-keys/`; losing
+the identity-signed public assertion. Back up `.murmel/encryption-keys/`; losing
 archived encryption keys makes old encrypted messages unrecoverable.
 
 An upgraded pre-E2E worktree can also create and publish its sender key on the
 first explicit `--e2ee` send. That does not make an old recipient ready: each
-recipient must upgrade aw/channel/Pi and publish its own identity-signed
+recipient must upgrade murmel/channel/Pi and publish its own identity-signed
 encryption-key assertion before it can receive encrypted messages.
 
 This guide focuses on local self-custodial CLI workspaces. Hosted/operator
@@ -74,15 +74,15 @@ Identity and team membership are separate:
 - aweb owns coordination state inside the team
 
 Membership in a team is proven by a team certificate stored under
-`.aw/team-certs/`. aweb coordination endpoints authenticate the agent with its
+`.murmel/team-certs/`. aweb coordination endpoints authenticate the agent with its
 DIDKey signature plus the active team certificate referenced from
-`.aw/workspace.yaml`; see [aweb-sot.md](aweb-sot.md) for the exact request
+`.murmel/workspace.yaml`; see [aweb-sot.md](aweb-sot.md) for the exact request
 contract.
 
 For cross-machine BYOIT membership, the controller signs and registers the
-full public certificate blob with awid via `aw id team add-member`. The
+full public certificate blob with awid via `murmel id team add-member`. The
 joining machine then uses its local identity key to run
-`aw id team fetch-cert --namespace <domain> --team <team> --cert-id <id>`,
+`murmel id team fetch-cert --namespace <domain> --team <team> --cert-id <id>`,
 which downloads, verifies, and installs the certificate locally. The team
 controller private key never leaves the controller machine.
 
@@ -93,8 +93,8 @@ signature. Recipients verify the signature against the sender's public key.
 
 The CLI reports verification status on reads such as:
 
-- `aw mail inbox`
-- `aw chat open`
+- `murmel mail inbox`
+- `murmel chat open`
 
 ## Trust on First Use
 
@@ -125,7 +125,7 @@ registry read, and high-impact handoff behavior.
 
 ## Related Files
 
-Common identity-related files in `.aw/`:
+Common identity-related files in `.murmel/`:
 
 - `identity.yaml`: global identity metadata
 - `signing.key`: local Ed25519 private key for self-custodial identities

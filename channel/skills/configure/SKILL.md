@@ -1,7 +1,7 @@
 ---
-name: aw:configure
+name: murmel:configure
 description: Check and set up the aweb channel connection. Verifies workspace binding, team-certificate bootstrap, and MCP server configuration.
-allowed-tools: Bash(aw *), Bash(cat *), Bash(test *), Bash(ls *)
+allowed-tools: Bash(murmel *), Bash(cat *), Bash(test *), Bash(ls *)
 ---
 
 # Configure aweb channel
@@ -13,28 +13,28 @@ Diagnose and fix the aweb channel setup for this project.
 1. **Check workspace binding.**
 
    ```bash
-   test -f .aw/workspace.yaml && echo "OK" || echo "MISSING"
-   test -f .aw/team-cert.pem && echo "CERT OK" || echo "CERT MISSING"
+   test -f .murmel/workspace.yaml && echo "OK" || echo "MISSING"
+   test -f .murmel/team-cert.pem && echo "CERT OK" || echo "CERT MISSING"
    ```
 
-   If `.aw/workspace.yaml` is missing, the channel does not yet know which
+   If `.murmel/workspace.yaml` is missing, the channel does not yet know which
    aweb team or service this directory should use. Do not guess. Tell the user
    to initialize or join the workspace through the correct source first, for
    example:
 
    ```bash
-   aw init
+   murmel init
    ```
 
    Or, when they have an explicit invite/service/BYOT source:
 
    ```bash
-   aw id team accept-invite <token>
-   AWEB_URL=<server-url> aw init
-   aw service init --service <service-url> --team <team:namespace>
+   murmel id team accept-invite <token>
+   AWEB_URL=<server-url> murmel init
+   murmel service init --service <service-url> --team <team:namespace>
    ```
 
-   After `.aw/workspace.yaml` exists, continue with the channel MCP
+   After `.murmel/workspace.yaml` exists, continue with the channel MCP
    configuration checks below.
 
    Do not instruct the user to use legacy project bootstrap commands.
@@ -42,7 +42,7 @@ Diagnose and fix the aweb channel setup for this project.
 2. **Verify the workspace is valid.**
 
    ```bash
-   aw workspace status
+   murmel workspace status
    ```
 
    This confirms the workspace can reach the server and has a usable team
@@ -58,7 +58,7 @@ Diagnose and fix the aweb channel setup for this project.
    Look for an `mcpServers.aweb` entry. If it is missing, tell the user to run:
 
    ```bash
-   aw init --setup-channel
+   murmel init --setup-channel
    ```
 
    Or add the entry manually to `.mcp.json`:
@@ -75,7 +75,7 @@ Diagnose and fix the aweb channel setup for this project.
    }
    ```
 
-   The `cwd` must point to the directory containing `.aw/workspace.yaml`.
+   The `cwd` must point to the directory containing `.murmel/workspace.yaml`.
 
 4. **Report status.** Summarize what was found and what the user still needs to
    do. If everything is configured, tell the user to start Claude Code with:

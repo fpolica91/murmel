@@ -32,9 +32,9 @@ cat pyproject.toml  # or requirements.txt
 ### Daily Loop
 
 ```bash
-aw workspace status      # Your identity + team status
-aw mail inbox
-aw work ready
+murmel workspace status      # Your identity + team status
+murmel mail inbox
+murmel work ready
 ```
 
 ### Work Patterns
@@ -51,5 +51,5 @@ aw work ready
 
 **When blocked:**
 ```bash
-aw chat send-and-wait coordinator "Need clarification on API contract" --start-conversation
+murmel chat send-and-wait coordinator "Need clarification on API contract" --start-conversation
 ```

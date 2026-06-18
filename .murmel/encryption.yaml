@@ -1,0 +1,10 @@
+active_key_id: sha256:W9WM/jAtfsZ6kRjU9QeBuLJyisIbOSkKxv/VlvEeJA8
+keys:
+    - key_id: sha256:W9WM/jAtfsZ6kRjU9QeBuLJyisIbOSkKxv/VlvEeJA8
+      public_key: zAnnesOKtYzgCnywkdU/3lhEB5Cu1eylPqT4iqcIiRk
+      private_key_path: .aw/encryption-keys/sha256-W9WM_jAtfsZ6kRjU9QeBuLJyisIbOSkKxv_VlvEeJA8.x25519.key
+      assertion_path: .aw/encryption-keys/sha256-W9WM_jAtfsZ6kRjU9QeBuLJyisIbOSkKxv_VlvEeJA8.assertion.json
+      created_at: "2026-06-17T17:06:03Z"
+      not_before: "2026-06-17T17:06:03Z"
+      expires_at: "2026-09-15T17:06:03Z"
+      published_at: "2026-06-17T17:06:03Z"

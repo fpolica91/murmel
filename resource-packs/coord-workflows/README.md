@@ -3,7 +3,7 @@
 Successor to the bootstrap-era `aweb-team-coord-worktrees` template.
 
 This pack provides harness-neutral resources for a coordinator/developer/reviewer
-team. It does **not** create identities, teams, `.aw` state, git worktrees, or
+team. It does **not** create identities, teams, `.murmel` state, git worktrees, or
 runtime-specific canonical files.
 
 ## Apply
@@ -11,25 +11,25 @@ runtime-specific canonical files.
 1. Create or join the team explicitly:
 
    ```bash
-   aw init
-   aw team invite
-   aw team join <invite-token>
-   aw workspace connect --service <service-url>
-   aw check
+   murmel init
+   murmel team invite
+   murmel team join <invite-token>
+   murmel workspace connect --service <service-url>
+   murmel check
    ```
 
 2. Copy/adapt the resources under `resources/` into your repo for review.
 3. Publish shared operating context explicitly:
 
    ```bash
-   aw instructions set --body-file resources/instructions.md
-   aw roles add coordinator --title "Coordinator" --playbook-file resources/roles/coordinator.md
-   aw roles add developer --title "Developer" --playbook-file resources/roles/developer.md
-   aw roles add reviewer --title "Reviewer" --playbook-file resources/roles/reviewer.md
+   murmel instructions set --body-file resources/instructions.md
+   murmel roles add coordinator --title "Coordinator" --playbook-file resources/roles/coordinator.md
+   murmel roles add developer --title "Developer" --playbook-file resources/roles/developer.md
+   murmel roles add reviewer --title "Reviewer" --playbook-file resources/roles/reviewer.md
    ```
 
 4. Use normal `git worktree` commands when you want separate working copies;
-   then initialize/connect each workspace with `aw init`, `aw team join`, or
-   `aw workspace connect`.
+   then initialize/connect each workspace with `murmel init`, `murmel team join`, or
+   `murmel workspace connect`.
 
 See `docs/resource-pack-template-contract.md` in the aweb repo for the contract.

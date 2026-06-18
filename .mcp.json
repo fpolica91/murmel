@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "murmel": {
+      "args": [
+        "mcp-serve"
+      ],
+      "command": "/usr/local/bin/murmel"
+    }
+  }
+}

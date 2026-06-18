@@ -2,7 +2,7 @@
 
 Prototype Hermes gateway platform for Aweb agent mail/chat.
 
-This is a real Hermes platform adapter, not a docs-only `aw init` recipe. It registers `ctx.register_platform(name="aweb", ...)`, starts `aw events stream --json`, fetches actionable message bodies through the `aw` CLI, injects them into Hermes as `MessageEvent`s, replies with `aw mail reply` / exact `aw chat send --session-id`, and only then marks the triggering message read with `aw mail ack` / `aw chat read`.
+This is a real Hermes platform adapter, not a docs-only `murmel init` recipe. It registers `ctx.register_platform(name="aweb", ...)`, starts `murmel events stream --json`, fetches actionable message bodies through the `murmel` CLI, injects them into Hermes as `MessageEvent`s, replies with `murmel mail reply` / exact `murmel chat send --session-id`, and only then marks the triggering message read with `murmel mail ack` / `murmel chat read`.
 
 ## Current install shape
 
@@ -18,7 +18,7 @@ Then configure an Aweb workspace for the Hermes gateway identity:
 
 ```bash
 cd /path/to/hermes-aweb-workspace
-aw workspace status
+murmel workspace status
 ```
 
 Set env in `~/.hermes/.env` or via `hermes gateway setup`:
@@ -26,7 +26,7 @@ Set env in `~/.hermes/.env` or via `hermes gateway setup`:
 ```bash
 AWEB_PLATFORM_ENABLED=true
 AWEB_PLATFORM_WORKDIR=/path/to/hermes-aweb-workspace
-AWEB_PLATFORM_AW_BIN=aw
+AWEB_PLATFORM_AW_BIN=murmel
 AWEB_ALLOW_ALL_USERS=true        # dev only; prefer AWEB_ALLOWED_USERS in real use
 # AWEB_ALLOWED_USERS=example.aweb.ai/alice,example.aweb.ai/bob
 # AWEB_HOME_CHANNEL=example.aweb.ai/alice
@@ -39,24 +39,24 @@ hermes gateway restart
 hermes gateway status
 ```
 
-## Requires aw CLI support
+## Requires murmel CLI support
 
 The adapter needs machine-safe read acknowledgement commands:
 
-- `aw mail ack <message-id> --json`
-- `aw chat send --session-id <session-id> --body-file <path> --leave --json`
-- `aw chat read --session-id <session-id> --message-id <message-id> --json`
+- `murmel mail ack <message-id> --json`
+- `murmel chat send --session-id <session-id> --body-file <path> --leave --json`
+- `murmel chat read --session-id <session-id> --message-id <message-id> --json`
 
-Those are added in this same change because existing `aw mail inbox` / `aw chat open` acknowledge by side effect and are not precise enough for a gateway adapter.
+Those are added in this same change because existing `murmel mail inbox` / `murmel chat open` acknowledge by side effect and are not precise enough for a gateway adapter.
 
 ## MVP scope
 
 - Inbound Aweb actionable mail and chat.
-- Outbound plaintext replies through current aw defaults (`--plaintext` is explicit in the adapter).
+- Outbound plaintext replies through current murmel defaults (`--plaintext` is explicit in the adapter).
 - No media attachments.
-- No Hermes-side Aweb identity creation; create/bootstrap the aw workspace first.
+- No Hermes-side Aweb identity creation; create/bootstrap the murmel workspace first.
 - No server-side Aweb changes.
 
 ## Main blocker resolved here
 
-Before this adapter, Aweb had an event stream and body fetch commands, but no stable CLI command to reply to an exact chat session or ack/read a specific message after Hermes confirmed delivery. The new `aw chat send --session-id`, `aw mail ack`, and `aw chat read` commands close that adapter contract gap.
+Before this adapter, Aweb had an event stream and body fetch commands, but no stable CLI command to reply to an exact chat session or ack/read a specific message after Hermes confirmed delivery. The new `murmel chat send --session-id`, `murmel mail ack`, and `murmel chat read` commands close that adapter contract gap.

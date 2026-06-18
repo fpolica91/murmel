@@ -1,6 +1,6 @@
 # Messaging
 
-`aw` has two messaging modes:
+`murmel` has two messaging modes:
 
 - mail: asynchronous, durable, good for handoffs and updates
 - chat: synchronous, presence-aware, good for quick coordination
@@ -43,12 +43,12 @@ user must explicitly choose `--plaintext` when that server-readable mode is
 allowed. Losing local archived encryption keys makes historical
 encrypted messages unrecoverable; AC/aweb cannot decrypt them for support.
 
-Interim CLI posture: current aw sends mail/chat as server-readable plaintext by
+Interim CLI posture: current murmel sends mail/chat as server-readable plaintext by
 default. Use `--e2ee` only when the human explicitly wants encrypted send; that
 path creates and publishes the sender's local encryption key when needed and
 fails closed before storage if the recipient lacks a valid E2E key/capability.
 It cannot create keys for another recipient. If the recipient is still running
-old aw/channel/Pi and has no published encryption key, the sender may use the
+old murmel/channel/Pi and has no published encryption key, the sender may use the
 plaintext default or `--plaintext` only for a server-readable upgrade note when
 policy and the human allow it.
 
@@ -76,7 +76,7 @@ defined in
 E2E send may use plaintext only through an explicit, separately named legacy
 plaintext command or flag when policy allows it.
 
-Publishing ripple for E2E wording changes: keep the aw CLI docs/help, PyPI
+Publishing ripple for E2E wording changes: keep the murmel CLI docs/help, PyPI
 `aweb`/server docs, AC dashboard copy, canonical skills, Codex/Claude skill
 packages, and Pi/channel package wording aligned. The staged rollout and
 mixed-version release checklist lives in
@@ -89,13 +89,13 @@ action.
 Send a message:
 
 ```bash
-aw mail send --to eve --subject "Handoff" --body "aweb-aaac is ready for review"
+murmel mail send --to eve --subject "Handoff" --body "aweb-aaac is ready for review"
 ```
 
 Reply by conversation id when continuing a known conversation:
 
 ```bash
-aw mail send --conversation-id <conversation-id> --body "I pushed the follow-up"
+murmel mail send --conversation-id <conversation-id> --body "I pushed the follow-up"
 ```
 
 Priorities are:
@@ -108,50 +108,50 @@ Priorities are:
 Example:
 
 ```bash
-aw mail send --to dave --priority urgent --body "P0 release blocker is fixed"
+murmel mail send --to dave --priority urgent --body "P0 release blocker is fixed"
 ```
 
 Read inbox messages:
 
 ```bash
-aw mail inbox
-aw mail inbox --show-all
+murmel mail inbox
+murmel mail inbox --show-all
 ```
 
-Important behavior: there is no separate `aw mail ack` command in the current
-CLI. Reading mail with `aw mail inbox` marks unread messages as acknowledged.
+Important behavior: there is no separate `murmel mail ack` command in the current
+CLI. Reading mail with `murmel mail inbox` marks unread messages as acknowledged.
 
 ## Chat
 
 Start a synchronous exchange and wait for a reply:
 
 ```bash
-aw chat send-and-wait eve "Can you review provider_codex.go?" --start-conversation
+murmel chat send-and-wait eve "Can you review provider_codex.go?" --start-conversation
 ```
 
 Reply in an existing conversation:
 
 ```bash
-aw chat send-and-wait eve "I pushed the fix"
+murmel chat send-and-wait eve "I pushed the fix"
 ```
 
 Send a message and leave:
 
 ```bash
-aw chat send-and-leave eve "No blocker on my side"
+murmel chat send-and-leave eve "No blocker on my side"
 ```
 
 Other useful commands:
 
 ```bash
-aw chat pending
-aw chat open eve
-aw chat history eve
-aw chat extend-wait eve "Need 20 more minutes"
+murmel chat pending
+murmel chat open eve
+murmel chat history eve
+murmel chat extend-wait eve "Need 20 more minutes"
 ```
 
-`aw chat open` is optimized for pending replies and may prioritize a waiting
-conversation. `aw chat history` selects the latest active conversation for the
+`murmel chat open` is optimized for pending replies and may prioritize a waiting
+conversation. `murmel chat history` selects the latest active conversation for the
 target.
 
 ## When To Use Which
@@ -160,7 +160,7 @@ target.
 - Use chat when you need an answer in the current working session.
 - If a chat becomes asynchronous, move the longer update to mail.
 
-## `aw run` Integration
+## `murmel run` Integration
 
-If you are using `aw run`, incoming mail and chat can wake the agent loop.
-`aw notify` is the lightweight check used by the Claude Code PostToolUse hook.
+If you are using `murmel run`, incoming mail and chat can wake the agent loop.
+`murmel notify` is the lightweight check used by the Claude Code PostToolUse hook.

@@ -49,7 +49,7 @@ The intended user flow is:
 Key boundary:
 
 - Pattern repos teach agents how to bootstrap teams.
-- Pattern repos do not contain `.aw`, DIDs, certs, aliases, private keys,
+- Pattern repos do not contain `.murmel`, DIDs, certs, aliases, private keys,
   generated identities, generated worktrees, or final harness files.
 - Concrete instances are created later and explicitly.
 - Identity/team/service mutation must stay separate from filesystem/template/git
@@ -95,18 +95,18 @@ Important commits on `rose`:
 - `af17c368` — setup-surface source of truth
 - `d94d542d` — SOT review adjustment
 - `e88bf837` — CLI legacy/protocol grouping
-- `c08b7d19` — initial `aw team` / `aw workspace connect`
+- `c08b7d19` — initial `murmel team` / `murmel workspace connect`
 - `a8661c9c` — skills update
 - `6691f0e5` — resource-pack contract
 - `dc31fb12` — bootstrap trigger alignment
-- `21f98217` — `aw check` + bootstrap rollback
+- `21f98217` — `murmel check` + bootstrap rollback
 - `9cda3d61` — setup surface release gate
 - `a220f11a` — docs stop teaching bootstrap happy path
 - `2d9e22ee` — complete human team lifecycle verbs
 - `3ec2d191` — successor resource packs inside aweb repo
 - `45d0bc24` — merge `origin/main` into `rose`
 - `c3986736` — full bootstrap git-side-effect rollback
-- `d7c3e534` — `aw roles add`
+- `d7c3e534` — `murmel roles add`
 - `75f8cd51` — novice resource-pack skill/gate polish
 - `b6a5a367` — exploratory operating-pattern docs in aweb repo
 - `034a0c11` — revert of `b6a5a367`
@@ -120,19 +120,19 @@ exact approach without explicit direction.
 
 Already implemented in source, but not yet necessarily released to npm:
 
-- `aw team create`
-- `aw team invite`
-- `aw team join <invite-token>`
-- `aw team list`
-- `aw team switch <team_id>`
-- `aw team leave <team_id>`
-- `aw team remove-agent <member-address>`
-- `aw workspace connect`
-- `aw check` aliasing/supporting `aw doctor`
-- `aw roles add <role-name> --title <title> --playbook-file <path>`
-- `aw roles show <role-name>` positional support
+- `murmel team create`
+- `murmel team invite`
+- `murmel team join <invite-token>`
+- `murmel team list`
+- `murmel team switch <team_id>`
+- `murmel team leave <team_id>`
+- `murmel team remove-agent <member-address>`
+- `murmel workspace connect`
+- `murmel check` aliasing/supporting `murmel doctor`
+- `murmel roles add <role-name> --title <title> --playbook-file <path>`
+- `murmel roles show <role-name>` positional support
 
-`aw agents bootstrap`, `aw agents provision`, and `aw workspace add-worktree`
+`murmel agents bootstrap`, `murmel agents provision`, and `murmel workspace add-worktree`
 remain callable but are now obsolete/legacy compatibility surfaces rather than
 the product center.
 
@@ -142,17 +142,17 @@ Public copy must not teach unreleased commands yet.
 
 Observed npm `@awebai/aw` 1.26.8/1.26.9 does **not** include:
 
-- `aw team ...`
-- `aw workspace connect`
-- `aw check`
-- `aw roles add`
+- `murmel team ...`
+- `murmel workspace connect`
+- `murmel check`
+- `murmel roles add`
 
 Released-safe public flow for now:
 
 ```bash
 npm install -g @awebai/aw
 # dashboard-generated:
-AWEB_API_KEY=... AWEB_URL=... aw init ...
+AWEB_API_KEY=... AWEB_URL=... murmel init ...
 ```
 
 After a CLI release includes the source-only verbs, public docs can promote the
@@ -162,7 +162,7 @@ new explicit primitives.
 
 The customer bug that motivated much of this:
 
-- non-TTY/interrupted `aw agents bootstrap` created `agents/`/worktrees before
+- non-TTY/interrupted `murmel agents bootstrap` created `agents/`/worktrees before
   hosted setup completed;
 - retry refused existing `agents/`;
 - provision could not create the missing hosted team;
@@ -177,7 +177,7 @@ Fixes landed on `rose`:
 
 Rollback now restores `.gitignore`, removes generated `agents/`, generated
 worktrees, and branches created by a failed run, while preserving layouts that
-contain `.aw` key state.
+contain `.murmel` key state.
 
 Athena reviewed through `c3986736` and had no remaining blocker.
 
@@ -266,7 +266,7 @@ The `bootstrapping-a-team` skill teaches the applying agent to:
 3. copy only identity-free resources into the target repo;
 4. keep concrete instances local, usually via `.git/info/exclude` `/instances/`;
 5. create `instances/coordinator` explicitly first;
-6. connect with dashboard-generated `AWEB_API_KEY=... AWEB_URL=... aw init ...`
+6. connect with dashboard-generated `AWEB_API_KEY=... AWEB_URL=... murmel init ...`
    or explicit primitives when available;
 7. publish instructions and roles;
 8. create developer/reviewer worktree instances only when needed.
@@ -339,14 +339,14 @@ site/layouts/_default/orchestration.html
 
 What changed on `/orchestration`:
 
-- removed user-facing `aw agents bootstrap` from that page;
+- removed user-facing `murmel agents bootstrap` from that page;
 - removed `template`, `template repo`, `team.yaml`, `agents/home`,
   one-command bootstrap happy path from that page;
 - added “Tell your agent” prompt-as-command pattern;
 - centered **team operating patterns**, **pattern repos**, `AGENTS.md`,
   `resource-pack.yaml`, `skills/bootstrapping-a-team`, souls, roles, playbooks;
 - kept released-safe by avoiding unreleased shell commands;
-- described dashboard-generated `aw init` as the connection step.
+- described dashboard-generated `murmel init` as the connection step.
 
 Gate run:
 
@@ -357,7 +357,7 @@ cd ../ac/site && hugo --minify
 Grep gate run against touched files for stale terms:
 
 ```bash
-rg -n "aw agents bootstrap|team template|template repo|team.yaml|agents/home|Bootstrap docs|claim-human|one command" \
+rg -n "murmel agents bootstrap|team template|template repo|team.yaml|agents/home|Bootstrap docs|claim-human|one command" \
   site/layouts/_default/orchestration.html site/content/orchestration.md
 ```
 
@@ -407,7 +407,7 @@ Do not assume AC is fully aligned until Olivia’s lane lands.
 ## Hestia/deploy context
 
 Earlier Hestia deploy was put on hold because AC hero commit `27f43d4c` centered
-`aw agents bootstrap`.
+`murmel agents bootstrap`.
 
 Current deploy posture:
 
@@ -440,12 +440,12 @@ A pattern repo should teach agents via:
 
 ## Things to avoid next session
 
-- Do not re-center public copy on `aw agents bootstrap`.
+- Do not re-center public copy on `murmel agents bootstrap`.
 - Do not call new pattern repos “templates” in happy-path copy.
 - Do not teach unreleased commands on public AC/site pages until the CLI release
   ships.
 - Do not hide git worktree creation behind pattern application.
-- Do not allow pattern repos to contain `.aw`, identities, DIDs, certs, aliases,
+- Do not allow pattern repos to contain `.murmel`, identities, DIDs, certs, aliases,
   invite tokens, private keys, generated work symlinks, or canonical
   harness-specific files like committed final `CLAUDE.md`.
 - Do not mutate AC while Olivia is patching the same surfaces without locking and
@@ -456,16 +456,16 @@ A pattern repo should teach agents via:
 Check current aweb coordination:
 
 ```bash
-aw workspace status
-aw work ready
-aw mail inbox
-aw chat pending
+murmel workspace status
+murmel work ready
+murmel mail inbox
+murmel chat pending
 ```
 
 Check AC stale setup copy broadly:
 
 ```bash
-rg -n "aw agents bootstrap|template repo|team.yaml|agents/home|agents/worktrees|workspace add-worktree" ../ac/site
+rg -n "murmel agents bootstrap|template repo|team.yaml|agents/home|agents/worktrees|workspace add-worktree" ../ac/site
 ```
 
 Validate AC site after copy changes:
@@ -480,7 +480,7 @@ Validate pattern repo install helper shape:
 tmp=$(mktemp -d)
 mkdir -p "$tmp/project"
 ./scripts/install-local.sh "$tmp/project"
-find "$tmp/project" -path '*/.aw*' -print
+find "$tmp/project" -path '*/.murmel*' -print
 ```
 
 Validate aweb setup-surface gates:

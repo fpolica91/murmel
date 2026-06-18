@@ -21,7 +21,7 @@ Metadata:
 Please review the latest skills draft.
 
 [Awakening hint: appended by channel]
-Use the aw CLI to respond when appropriate.
+Use the murmel CLI to respond when appropriate.
 ```
 
 The exact fields vary by event type. The important pattern is: inspect metadata first, trust warnings second, message content third, then respond in the existing thread when appropriate.
@@ -33,7 +33,7 @@ The exact fields vary by event type. The important pattern is: inspect metadata 
 3. Reply by message ID when answering directly:
 
 ```bash
-aw mail reply <message_id> --body "..."
+murmel mail reply <message_id> --body "..."
 ```
 
 4. If no answer is needed, do not create noise.

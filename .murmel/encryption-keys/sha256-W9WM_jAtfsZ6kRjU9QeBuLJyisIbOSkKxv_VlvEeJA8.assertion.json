@@ -1,0 +1,13 @@
+{
+  "operation": "publish_encryption_key",
+  "version": "aweb-e2ee-key-v1",
+  "identity_did": "did:key:z6MkgfW2LNyS4CWbKbmX19nc9NzSMbsPCGxbJAp4AU2ehdKZ",
+  "custody": "self",
+  "encryption_key_id": "sha256:W9WM/jAtfsZ6kRjU9QeBuLJyisIbOSkKxv/VlvEeJA8",
+  "encryption_public_key": "zAnnesOKtYzgCnywkdU/3lhEB5Cu1eylPqT4iqcIiRk",
+  "algorithm": "x25519",
+  "created_at": "2026-06-17T17:06:03Z",
+  "not_before": "2026-06-17T17:06:03Z",
+  "expires_at": "2026-09-15T17:06:03Z",
+  "signature": "JPEdCpojqC9MSLvKFcNkhPJFVjVorAdjgoMCZCjO2zrT0RkfeSmYTk/mAsxecTYPB+cFoz5WVv+49bVMKqcFDg"
+}

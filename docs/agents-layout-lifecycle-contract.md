@@ -1,11 +1,11 @@
-# aw agents Layout and Lifecycle Contract
+# murmel agents Layout and Lifecycle Contract
 
-This document is the normative contract for `aw agents`: the repo-root
+This document is the normative contract for `murmel agents`: the repo-root
 command family that owns the project-local `agents/` convention, multi-human
 provisioning, naming, and agent lifecycle operations.
 
-It supersedes the `aw team bootstrap` command model for this surface. Team
-authority remains in `aw id team`; `aw agents` manages the repo-local
+It supersedes the `murmel team bootstrap` command model for this surface. Team
+authority remains in `murmel id team`; `murmel agents` manages the repo-local
 convention and per-human materialization of identities into that convention.
 
 Implementation of `aweb-aapz.2+` must cite this document. If command taxonomy,
@@ -19,7 +19,7 @@ The customer work repo should be the center of gravity:
 
 ```bash
 cd my-project
-aw agents bootstrap gh:awebai/aweb-team-coord-worktrees \
+murmel agents bootstrap gh:awebai/aweb-team-coord-worktrees \
   --username juan \
   --identity-prefix juan
 cd agents/home/coordinator
@@ -31,7 +31,7 @@ The same repo should work for multiple humans:
 ```bash
 git clone git@github.com:customer/my-project.git
 cd my-project
-aw agents provision --identity-prefix maria --invite-token "$TOKEN"
+murmel agents provision --identity-prefix maria --invite-token "$TOKEN"
 cd agents/worktrees/developer
 claude
 ```
@@ -51,7 +51,7 @@ team without reusing Juan's aliases, addresses, DIDs, keys, or certificates.
 - **Blueprint home**: `agents/home/<responsibility>/`, containing committed
   agent instructions such as `AGENTS.md`, `CLAUDE.md`, and any generated
   `work` symlink.
-- **Runtime workspace**: the directory where aw commands run and `.aw/` lives.
+- **Runtime workspace**: the directory where murmel commands run and `.murmel/` lives.
   Repo-root-bound responsibilities use their blueprint home. Worktree-bound
   responsibilities use their generated git worktree.
 - **Worktree checkout**: `agents/worktrees/<name>/`, a generated git worktree
@@ -72,57 +72,57 @@ team without reusing Juan's aliases, addresses, DIDs, keys, or certificates.
 
 ## Command Taxonomy
 
-`aw agents` is the current command family for this product surface:
+`murmel agents` is the current command family for this product surface:
 
 ```text
-aw agents bootstrap <template>
-aw agents plan
-aw agents provision
-aw agents add <responsibility>
-aw agents add-worktree [role]
-aw agents remove <responsibility>
+murmel agents bootstrap <template>
+murmel agents plan
+murmel agents provision
+murmel agents add <responsibility>
+murmel agents add-worktree [role]
+murmel agents remove <responsibility>
 ```
 
 Command meanings:
 
-- `aw agents bootstrap <template>` creates the shared `agents/` convention
+- `murmel agents bootstrap <template>` creates the shared `agents/` convention
   from a template in the current customer repo and provisions this human's
   local state unless `--layout-only` or `--dry-run` is used.
-- `aw agents plan` reads an existing `agents/` layout and renders the complete
+- `murmel agents plan` reads an existing `agents/` layout and renders the complete
   naming/provisioning plan without mutation.
-- `aw agents provision` reads an existing committed `agents/` layout and
+- `murmel agents provision` reads an existing committed `agents/` layout and
   creates or verifies this human's local ignored identity state.
-- `aw agents add <responsibility>` adds a local or global agent responsibility
+- `murmel agents add <responsibility>` adds a local or global agent responsibility
   to the layout and optionally provisions it for this human.
-- `aw agents add-worktree [role]` creates a local worktree-bound agent from
+- `murmel agents add-worktree [role]` creates a local worktree-bound agent from
   repo root. The agent lives in the git worktree itself under
-  `agents/worktrees/<alias>/`, with `.aw/` stored in that worktree. It does not
+  `agents/worktrees/<alias>/`, with `.murmel/` stored in that worktree. It does not
   add a committed responsibility to `agents/team.yaml`.
-- `aw agents remove <responsibility>` safely removes or deprovisions an agent
+- `murmel agents remove <responsibility>` safely removes or deprovisions an agent
   responsibility or this human's local materialization, depending on flags.
 
-`aw team bootstrap` is not preserved as a compatibility alias in this
+`murmel team bootstrap` is not preserved as a compatibility alias in this
 contract. Remove it from the current command surface unless a later reviewed
 decision explicitly reverses that.
 
-`aw id team` remains the place for AWID team authority commands:
+`murmel id team` remains the place for AWID team authority commands:
 
 ```text
-aw id team create
-aw id team invite
-aw id team accept-invite
-aw id team add-member
-aw id team remove-member
-aw id team register
+murmel id team create
+murmel id team invite
+murmel id team accept-invite
+murmel id team add-member
+murmel id team remove-member
+murmel id team register
 ```
 
-`aw workspace` remains the place for operations on the current initialized
-workspace. `aw agents` may reuse workspace helpers internally, but its user
+`murmel workspace` remains the place for operations on the current initialized
+workspace. `murmel agents` may reuse workspace helpers internally, but its user
 contract is repo-root layout management.
 
 ## Authority Model
 
-`aw agents` must not invent team authority from repo files.
+`murmel agents` must not invent team authority from repo files.
 
 Allowed team sources:
 
@@ -163,7 +163,7 @@ server can delete their namespace address without their controller authority.
 
 ## Repo Root Invariant
 
-In-repo `aw agents` commands run from the customer repo root or a directory
+In-repo `murmel agents` commands run from the customer repo root or a directory
 inside that git worktree. The implementation must resolve the repo root using
 the equivalent of:
 
@@ -171,14 +171,14 @@ the equivalent of:
 git rev-parse --show-toplevel
 ```
 
-The customer repo root is not an aw identity. `aw agents` must not create
-`.aw/` at the repo root. Identity-dependent commands such as `aw whoami`,
-`aw mail`, and `aw chat` run from the repo root should fail with normal
+The customer repo root is not an murmel identity. `murmel agents` must not create
+`.murmel/` at the repo root. Identity-dependent commands such as `murmel whoami`,
+`murmel mail`, and `murmel chat` run from the repo root should fail with normal
 "not initialized" guidance plus, where practical, a hint to `cd` into the
 planned runtime workspace: `agents/home/<responsibility>` for repo-root
 agents, or `agents/worktrees/<name>` for worktree-bound agents.
 
-Committed blueprint homes created or provisioned by `aw agents` are under:
+Committed blueprint homes created or provisioned by `murmel agents` are under:
 
 ```text
 <agents-dir>/home/<responsibility>/
@@ -208,8 +208,8 @@ Committed/shared:
 
 Ignored/per-human:
 
-- `<agents-dir>/home/*/.aw/`
-- `<agents-dir>/worktrees/*/.aw/` and the generated worktree checkouts
+- `<agents-dir>/home/*/.murmel/`
+- `<agents-dir>/worktrees/*/.murmel/` and the generated worktree checkouts
 - private signing keys
 - private encryption keys
 - team certificates
@@ -220,7 +220,7 @@ Ignored/per-human:
 
 Never commit:
 
-- `.aw/`
+- `.murmel/`
 - `~/.awid/` key material
 - namespace controller keys
 - team controller keys
@@ -244,7 +244,7 @@ my-project/
    ├─ roles/
    ├─ home/
    │  ├─ coordinator/
-   │  │  ├─ .aw/              # ignored, created per human
+   │  │  ├─ .murmel/              # ignored, created per human
    │  │  ├─ AGENTS.md
    │  │  ├─ CLAUDE.md
    │  │  └─ work -> ../../..
@@ -258,15 +258,15 @@ my-project/
    │     └─ work -> ../../worktrees/<reviewer-worktree>
    └─ worktrees/
       ├─ <developer-worktree>/
-      │  └─ .aw/              # ignored, created per human
+      │  └─ .murmel/              # ignored, created per human
       └─ <reviewer-worktree>/
-         └─ .aw/              # ignored, created per human
+         └─ .murmel/              # ignored, created per human
 ```
 
 `work: repo_root` means the agent home's `work` symlink points to the customer
-repo root and the runtime `.aw/` state is in that home. `work: git_worktree`
+repo root and the runtime `.murmel/` state is in that home. `work: git_worktree`
 means the blueprint home's `work` symlink points to a generated checkout under
-`agents/worktrees/`, and the runtime `.aw/` state is in that worktree.
+`agents/worktrees/`, and the runtime `.murmel/` state is in that worktree.
 
 ## Template Source Shape
 
@@ -345,10 +345,10 @@ continue to use those fields after the transition. Do not treat
 `default_alias` or `default_name` as public addresses or mandatory team
 aliases for all users.
 
-After every `aw agents` command, committed `agents/team.yaml` remains
+After every `murmel agents` command, committed `agents/team.yaml` remains
 identity-free. It must not be rewritten with final aliases, global addresses,
 DIDs, cert paths, workspace ids, or any per-human state. Runtime state belongs
-under the planned runtime workspace's ignored `.aw/` directory (home for
+under the planned runtime workspace's ignored `.murmel/` directory (home for
 `work: repo_root`, worktree for `work: git_worktree`) or approved user key
 locations only.
 
@@ -465,11 +465,11 @@ Preflight must check:
 - namespace controller/team controller key presence when required;
 - service/API key reachability when required;
 - role/instructions install prerequisites;
-- existing local `.aw` state in any target home.
+- existing local `.murmel` state in any target home.
 
 The existing hosted service alias-suggestion endpoint may remain useful for
 single-workspace flows. It is not sufficient as the only planner for
-multi-agent `aw agents`, because the planner needs N coordinated names and
+multi-agent `murmel agents`, because the planner needs N coordinated names and
 must support AWID-only/BYOT/global-address cases.
 
 If a candidate is unavailable, the planner may try the next candidate in the
@@ -481,13 +481,13 @@ Another human or process can allocate the same team alias, namespace address,
 branch, or path after preflight and before mutation. Hosted-side or AWID-side
 conflict responses such as 409 must be treated as a re-plan/fail-actionable
 condition, not as a panic or silent fallback. The failing command must not
-leave local `.aw` state from a half-committed identity creation; it should
+leave local `.murmel` state from a half-committed identity creation; it should
 report the conflict and tell the user to rerun plan/provision with a different
 prefix, pattern, or sequence.
 
 ## Fail Before Side Effects
 
-Mutating `aw agents` commands must complete preflight before any observable
+Mutating `murmel agents` commands must complete preflight before any observable
 mutation.
 
 No mutation before preflight:
@@ -512,7 +512,7 @@ No mutation before preflight:
 - service registration/init calls;
 - local move-aside or deletion;
 - lock file writes;
-- `.aw/` mutation at any path.
+- `.murmel/` mutation at any path.
 
 If a future implementation needs remote template metadata to determine the
 layout, it must still perform path and existence checks for `<agents-dir>`
@@ -520,12 +520,12 @@ before fetching.
 
 ## Gitignore Contract
 
-`aw agents bootstrap` is responsible for writing scoped ignore entries after
+`murmel agents bootstrap` is responsible for writing scoped ignore entries after
 preflight passes:
 
 ```gitignore
-# Auto-written by aw agents (do not remove)
-/agents/home/*/.aw/
+# Auto-written by murmel agents (do not remove)
+/agents/home/*/.murmel/
 /agents/home/*/work
 /agents/worktrees/
 ```
@@ -533,8 +533,8 @@ preflight passes:
 For non-default agents dirs:
 
 ```gitignore
-# Auto-written by aw agents (do not remove)
-/ai-team/home/*/.aw/
+# Auto-written by murmel agents (do not remove)
+/ai-team/home/*/.murmel/
 /ai-team/home/*/work
 /ai-team/worktrees/
 ```
@@ -545,7 +545,7 @@ Rules:
 - Create `.gitignore` if missing.
 - Do not duplicate the canonical block.
 - If equivalent manual entries exist, avoid duplicate patterns where practical.
-- If the block is missing on a later run, `aw agents` may re-add it after
+- If the block is missing on a later run, `murmel agents` may re-add it after
   preflight passes.
 - Treat each agent home's `work` symlink as generated local state. It points at
   a machine-local repo root or generated worktree checkout and must be
@@ -553,7 +553,7 @@ Rules:
 
 ## Command Details
 
-### aw agents bootstrap
+### murmel agents bootstrap
 
 Creates the shared layout from a template and optionally provisions this
 human's identities.
@@ -561,17 +561,17 @@ human's identities.
 Examples:
 
 ```bash
-aw agents bootstrap gh:awebai/aweb-team-coord-worktrees \
+murmel agents bootstrap gh:awebai/aweb-team-coord-worktrees \
   --username juan \
   --identity-prefix juan
-aw agents bootstrap ./my-template \
+murmel agents bootstrap ./my-template \
   --namespace juanreyero.com \
   --team circle \
   --identity-prefix juan
-aw agents bootstrap gh:awebai/aweb-team-coord-worktrees \
+murmel agents bootstrap gh:awebai/aweb-team-coord-worktrees \
   --layout-only \
   --identity-prefix juan
-aw agents bootstrap gh:awebai/aweb-team-coord-worktrees \
+murmel agents bootstrap gh:awebai/aweb-team-coord-worktrees \
   --dry-run \
   --identity-prefix juan
 ```
@@ -585,25 +585,25 @@ Behavior:
 - Creates homes and work symlinks.
 - Creates worktrees only after preflight.
 - Provisions identities unless `--layout-only`.
-- Does not create `.aw` at repo root.
+- Does not create `.murmel` at repo root.
 
 V1 does not auto-adopt or resume partial `<agents-dir>` bootstrap output. If
 `<agents-dir>` exists, even partially, bootstrap fails before side effects with
 manual cleanup guidance. The error must tell the user to inspect/back up any
-`.aw` identity state before removing the directory, then remove or rename
+`.murmel` identity state before removing the directory, then remove or rename
 `<agents-dir>` or use the approved remove command once available. Automatic
 merge/resume requires a later contract with explicit idempotency markers.
 
-### aw agents plan
+### murmel agents plan
 
 Reads an existing layout or a template and prints what would happen.
 
 Examples:
 
 ```bash
-aw agents plan
-aw agents plan --identity-prefix maria --invite-token "$TOKEN"
-aw agents plan --global-name-pattern "{user}-{star-name}"
+murmel agents plan
+murmel agents plan --identity-prefix maria --invite-token "$TOKEN"
+murmel agents plan --global-name-pattern "{user}-{star-name}"
 ```
 
 Output must include:
@@ -620,43 +620,43 @@ Output must include:
 - branch/worktree path if any;
 - availability status and source of each check.
 
-### aw agents provision
+### murmel agents provision
 
 Creates this human's ignored identity state from an existing `agents/` layout.
 
 Examples:
 
 ```bash
-aw agents provision --identity-prefix maria --invite-token "$TOKEN"
-aw agents provision --identity-prefix juan --namespace juanreyero.com --team circle
-aw agents provision --identity-prefix alice
+murmel agents provision --identity-prefix maria --invite-token "$TOKEN"
+murmel agents provision --identity-prefix juan --namespace juanreyero.com --team circle
+murmel agents provision --identity-prefix alice
 ```
 
 Behavior:
 
 - Fails if `<agents-dir>/team.yaml` is missing.
-- Does not overwrite conflicting `.aw` state.
+- Does not overwrite conflicting `.murmel` state.
 - Accepts matching existing state and reports it as already provisioned.
 - Creates E2EE encryption keys for every new identity path.
 - Connects to service where the selected source requires service connection.
 - Installs roles/instructions only after the anchor identity is established.
 
-V1 provision does not auto-recover partial `.aw` state. If a previous run left
+V1 provision does not auto-recover partial `.murmel` state. If a previous run left
 a signing key without a certificate, a certificate without matching workspace
 state, or otherwise incomplete local state, fail before further mutation with
 actionable move-aside/repair instructions. Do not silently continue from
 ambiguous partial identity state.
 
-### aw agents add
+### murmel agents add
 
 Adds a responsibility to the layout and optionally provisions it.
 
 Examples:
 
 ```bash
-aw agents add analyst --local --role analyst
-aw agents add support --global --role support --namespace juanreyero.com --team circle --global-name-pattern "{user}-{star-name}" --identity-prefix juan
-aw agents add planner --layout-only
+murmel agents add analyst --local --role analyst
+murmel agents add support --global --role support --namespace juanreyero.com --team circle --global-name-pattern "{user}-{star-name}" --identity-prefix juan
+murmel agents add planner --layout-only
 ```
 
 Behavior:
@@ -666,15 +666,15 @@ Behavior:
 - Allocates aliases/global names through the planner.
 - Supports `--layout-only` for blueprint-only changes.
 
-### aw agents add-worktree
+### murmel agents add-worktree
 
 Creates a local worktree-bound agent from repo root.
 
 Examples:
 
 ```bash
-aw agents add-worktree developer
-aw agents add-worktree --role reviewer --alias maria-reviewer
+murmel agents add-worktree developer
+murmel agents add-worktree --role reviewer --alias maria-reviewer
 ```
 
 Behavior:
@@ -684,7 +684,7 @@ Behavior:
   non-interactive runs fail before side effects.
 - A supplied role must match one of the defined team roles.
 - Worktree path is `agents/worktrees/<alias>`.
-- `.aw/` state lives in that worktree, matching `aw workspace add-worktree`
+- `.murmel/` state lives in that worktree, matching `murmel workspace add-worktree`
   cleanup semantics.
 - Branch/worktree/alias name is sanitized and collision checked.
 - The command does not create roles, role files, source homes, or committed
@@ -692,23 +692,23 @@ Behavior:
 - Reuses established team authority paths internally:
   local team key, API key, hosted cert-only parent invite, or BYOT team key.
 
-### aw agents remove
+### murmel agents remove
 
 Safely removes/deprovisions an agent.
 
 Examples:
 
 ```bash
-aw agents remove reviewer --dry-run
-aw agents remove reviewer --deprovision-local
-aw agents remove reviewer --remove-layout
-aw agents remove support --delete-global-address
+murmel agents remove reviewer --dry-run
+murmel agents remove reviewer --deprovision-local
+murmel agents remove reviewer --remove-layout
+murmel agents remove support --delete-global-address
 ```
 
 Removal modes:
 
 - `--deprovision-local`: revoke this human's membership where possible and
-  move aside local `.aw`/home runtime state.
+  move aside local `.murmel`/home runtime state.
 - `--remove-layout`: remove the shared responsibility from `agents/team.yaml`
   and move aside source home files. This is a repo change and must be explicit.
 - `--delete-global-address`: delete the namespace address after membership
@@ -736,11 +736,11 @@ Human A:
 
 ```bash
 cd my-project
-aw agents bootstrap gh:awebai/aweb-team-coord-worktrees \
+murmel agents bootstrap gh:awebai/aweb-team-coord-worktrees \
   --namespace example.com --team circle \
   --identity-prefix juan
 git add agents .gitignore
-git commit -m "Add aw agents layout"
+git commit -m "Add murmel agents layout"
 ```
 
 Human B:
@@ -748,9 +748,9 @@ Human B:
 ```bash
 git clone git@github.com:customer/my-project.git
 cd my-project
-aw agents provision --invite-token "$TOKEN" --identity-prefix maria
+murmel agents provision --invite-token "$TOKEN" --identity-prefix maria
 cd agents/worktrees/developer
-aw whoami
+murmel whoami
 ```
 
 Expected result:
@@ -758,7 +758,7 @@ Expected result:
 - Human B does not reuse Human A's DIDs, aliases, private keys, certs, or
   global addresses.
 - Shared responsibilities and instructions are reused.
-- Runtime `.aw/` state remains ignored: `agents/home/*/.aw/` for repo-root
+- Runtime `.murmel/` state remains ignored: `agents/home/*/.murmel/` for repo-root
   agents and generated `agents/worktrees/` for worktree-bound agents.
 - Team aliases/global addresses are unique and checked before provisioning.
 
@@ -782,9 +782,9 @@ deprovision their local agent.
 `--remove-layout` is a shared-blueprint change only. It removes the
 responsibility from committed layout going forward; it does not revoke other
 humans' existing certificates, delete their global addresses, delete their
-private keys, or invalidate their local `.aw` state. If Maria provisioned
+private keys, or invalidate their local `.murmel` state. If Maria provisioned
 `reviewer` and Juan later commits a layout removal for `reviewer`, Maria's
-existing local identity remains under her ignored `.aw` state until she
+existing local identity remains under her ignored `.murmel` state until she
 explicitly deprovisions it or the certificate expires/revokes through normal
 authority. Commands run from a home whose responsibility no longer exists in
 the pulled layout should show a stale-layout notice and must not auto-remove
@@ -794,22 +794,22 @@ anything.
 
 Existing matching state:
 
-- If the home has `.aw` state matching the planned identity/team/alias, report
+- If the home has `.murmel` state matching the planned identity/team/alias, report
   already provisioned and continue.
 
 Existing conflicting state:
 
-- If the home has `.aw` state for a different identity/team/alias, fail before
+- If the home has `.murmel` state for a different identity/team/alias, fail before
   side effects and show move-aside or explicit override guidance.
 
 Existing committed layout:
 
-- `aw agents provision` and `aw agents add` operate on existing `agents/`.
-- `aw agents bootstrap` does not adopt/merge an existing agents directory.
+- `murmel agents provision` and `murmel agents add` operate on existing `agents/`.
+- `murmel agents bootstrap` does not adopt/merge an existing agents directory.
 
 ## Security and Key Handling
 
-- Private identity keys stay in agent-home `.aw/` or approved key storage.
+- Private identity keys stay in agent-home `.murmel/` or approved key storage.
 - Namespace/team controller keys stay under `~/.awid/`.
 - Global identities and namespace controller keys must print backup warnings
   consistent with identity docs.
@@ -833,20 +833,20 @@ Minimum release-blocking tests:
    layout into the same team without collisions.
 7. A collision in the second human's alias/address aborts before local or
    remote mutation.
-8. `aw agents bootstrap` refuses existing `<agents-dir>` before template fetch,
+8. `murmel agents bootstrap` refuses existing `<agents-dir>` before template fetch,
    file writes, git operations, identity creation, or network mutation.
-9. Repo root remains non-aw identity after bootstrap/provision.
-10. `aw agents add` local and global paths work and are dry-run visible.
-11. `aw agents add-worktree` creates a local workspace under
-    `agents/worktrees/<alias>`, stores `.aw/` in that worktree, does not create
+9. Repo root remains non-murmel identity after bootstrap/provision.
+10. `murmel agents add` local and global paths work and are dry-run visible.
+11. `murmel agents add-worktree` creates a local workspace under
+    `agents/worktrees/<alias>`, stores `.murmel/` in that worktree, does not create
     `agents/home/<alias>`, and does not mutate committed layout or roles.
-12. `aw agents remove` dry-run, move-aside, revoke, preserve-address default,
+12. `murmel agents remove` dry-run, move-aside, revoke, preserve-address default,
     and explicit address deletion are covered.
-13. Existing standalone `aw workspace add-worktree` behavior remains green.
+13. Existing standalone `murmel workspace add-worktree` behavior remains green.
 14. Skills/docs examples execute or are covered by smoke tests.
 15. CI guardrail scans docs, skills, generated CLI reference, and source for
-    stale `aw team bootstrap` recommendations. Historical/changelog mentions
-    may be allowlisted explicitly; current guidance must use `aw agents`.
+    stale `murmel team bootstrap` recommendations. Historical/changelog mentions
+    may be allowlisted explicitly; current guidance must use `murmel agents`.
 16. Path-traversal injection fails before side effects for inputs including
     `--identity-prefix '../escape'`, malicious responsibility keys,
     `--namespace`/`--team` values reused in derived names, and
@@ -855,8 +855,8 @@ Minimum release-blocking tests:
 17. Concurrent allocation/TOCTOU: two runs against the same team with the same
     identity prefix are serialized to force a mutation-time conflict. One
     succeeds; the other fails actionably on conflict without leaving local
-    `.aw` state in the failing branch.
-18. Custodial vs self-custodial removal: `aw agents remove
+    `.murmel` state in the failing branch.
+18. Custodial vs self-custodial removal: `murmel agents remove
     --delete-global-address` succeeds with the correct authority for both
     local controller-key namespaces and hosted custodial namespaces, and fails
     with the correct custody-specific recovery message when authority is
@@ -894,7 +894,7 @@ Before tag/publish:
 - implementation slice reviews by Mia;
 - canonical release gate at exact target SHA;
 - e2e tests green;
-- no stale `aw team bootstrap` recommendations in current docs/skills/help.
+- no stale `murmel team bootstrap` recommendations in current docs/skills/help.
 
 ## Review Gates
 
@@ -902,11 +902,11 @@ Mia must sign off this contract before `aweb-aapz.2+` implementation starts.
 
 Back-route to this contract for review if any of these change:
 
-- `aw agents` command taxonomy;
+- `murmel agents` command taxonomy;
 - naming sequence or pattern grammar;
 - default naming policy;
 - preflight availability list;
 - destructive remove semantics;
 - template `team.yaml` grammar;
 - shared vs per-human state boundary;
-- decision not to preserve `aw team bootstrap`.
+- decision not to preserve `murmel team bootstrap`.

@@ -44,7 +44,7 @@ code paths in specific ways. Backfilling signed payloads is impossible
   chat_sessions has no `expires_at` column to use a softer mechanism.
 
 Customers retain mail history (closed mail conversations remain
-readable via `aw mail show <conversation_id>`); pre-aame chat history
+readable via `murmel mail show <conversation_id>`); pre-aame chat history
 is lost (was un-continuable anyway, and at dogfooding scale this is
 small).
 
@@ -158,7 +158,7 @@ ORDER BY c.conversation_id, cp.alias;
 
 Each `conversation_id` returned is a candidate for closure. Cross-check
 empirically: from one of the participants' workspaces, send
-`aw mail send --to <other-participant>`. If it 409s with "Existing
+`murmel mail send --to <other-participant>`. If it 409s with "Existing
 active conversation found", that conversation is broken — close it.
 If it sends cleanly, leave it.
 
@@ -188,7 +188,7 @@ WHERE conversation_id IN (
 COMMIT;
 ```
 
-Closed conversations remain readable via `aw mail show
+Closed conversations remain readable via `murmel mail show
 <conversation_id>` and are NOT considered "active 1:1" by the dedup
 logic, so the next send between those pairs creates a fresh
 conversation cleanly.
@@ -262,12 +262,12 @@ WHERE created_at < '2026-05-05T21:27:26Z';
 
 After cleanup:
 
-- `aw mail send --to sofia` (and any other pair previously hit) from
+- `murmel mail send --to sofia` (and any other pair previously hit) from
   athena's CLI on this machine should succeed cleanly (no 409, fresh
   conversation created in a new conversation_id).
-- `aw chat send-and-wait sofia` should open a new session_id and
+- `murmel chat send-and-wait sofia` should open a new session_id and
   succeed cleanly (no 403, fresh signed payloads).
-- `aw mail send --to hestia` should continue to attach to 96317ca9
+- `murmel mail send --to hestia` should continue to attach to 96317ca9
   (the post-aame-binding conversation that was already working).
 - The post-check counts return 0.
 

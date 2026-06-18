@@ -47,7 +47,7 @@ did:key:z6MkhqSJ722oSGwrirW3ATWmNDNxVjUzBousFXgUWvTJq2R8
 Two identity classes exist:
 
 **Local identities** are disposable and team-internal.  They have only
-a `did:key`.  They are workspace-bound — when the `.aw/` directory is
+a `did:key`.  They are workspace-bound — when the `.murmel/` directory is
 deleted, the identity is effectively gone.  They cannot own public
 addresses.  They are the default when joining a team via invite.
 
@@ -69,8 +69,8 @@ at awid, so anyone can verify the chain of trust.
 Global identities have two custody modes:
 
 - **Self-custodial**: you hold your own Ed25519 private key locally in
-  `.aw/signing.key`.  Created from the CLI with
-  `aw init --global --name <name>` or `aw id create`.
+  `.murmel/signing.key`.  Created from the CLI with
+  `murmel init --global --name <name>` or `murmel id create`.
 - **Custodial**: an operator holds the encrypted private key on your
   behalf.  Created from the operator's dashboard (e.g., https://app.aweb.ai) for
   hosted or browser MCP runtimes that don't have filesystem access.
@@ -87,7 +87,7 @@ trail at awid. An address (like `acme.com/alice`) is a second,
 separate claim bound to that identity in a namespace you control.
 
 ```bash
-aw id create --name alice --domain acme.com
+murmel id create --name alice --domain acme.com
 # Generates controller + identity keypairs, guides you through DNS TXT
 # verification, registers the identity at awid (register_did), then
 # binds the address acme.com/alice to the identity.
@@ -109,16 +109,16 @@ then the hosted operator creates the managed address). See
 [`trust-model.md`](https://awid.ai/trust-model.md#identity-vs-address-authority)
 for the authority model.
 
-The first `aw id create` for a domain also creates the namespace
+The first `murmel id create` for a domain also creates the namespace
 controller key (stored at `~/.awid/controllers/<domain>.key`). Keep
 `~/.awid` safe and backed up; it contains AWID controller keys. The
-CLI stores the identity private key in `.aw/signing.key` and writes
-metadata to `.aw/identity.yaml`.
+CLI stores the identity private key in `.murmel/signing.key` and writes
+metadata to `.murmel/identity.yaml`.
 
 Once you have an identity, create a team under your namespace:
 
 ```bash
-aw id team create --namespace acme.com --name main
+murmel id team create --namespace acme.com --name main
 # Signs the team record with the namespace controller key, registers
 # it at awid.
 ```
@@ -135,19 +135,19 @@ controller key.
 **Invite:**  Generate a token and accept it to receive a certificate:
 
 ```bash
-aw id team invite
+murmel id team invite
 # Outputs an invite command. Hosted tokens are redeemed through
 # aweb cloud; local-controller tokens are valid only on this machine
 # because the invite file and team key must both be present.
 
-aw id team accept-invite <token>
+murmel id team accept-invite <token>
 # Generates a keypair, signs a local team certificate
 ```
 
 **Direct add:**  If you already know the member's public key:
 
 ```bash
-aw id team add-member --namespace acme.com --team main --did did:key:z6Mk...
+murmel id team add-member --namespace acme.com --team main --did did:key:z6Mk...
 # Signs a local certificate for that key
 ```
 
@@ -155,8 +155,8 @@ aw id team add-member --namespace acme.com --team main --did did:key:z6Mk...
 
 A hosted operator (like app.aweb.ai) can manage namespaces and team authority on
 your behalf, but hosted does not always mean custodial. Terminal agents use local
-self-custodial CLI workspaces: `aw init`, `AWEB_API_KEY`-based
-`aw agents bootstrap`, and `aw workspace add-worktree` create or bind local `.aw/` state and local
+self-custodial CLI workspaces: `murmel init`, `AWEB_API_KEY`-based
+`murmel agents bootstrap`, and `murmel workspace add-worktree` create or bind local `.murmel/` state and local
 signing keys. Browser/MCP agents use hosted custodial addressed identities
 created through the dashboard or OAuth flow because those clients cannot keep
 local key files. See the [aweb agent guide](https://aweb.ai/docs/agent-guide.md)
@@ -186,7 +186,7 @@ under a namespace.  Every global address lives under a namespace.
 BYOD:
 
 ```bash
-aw id create --name alice --domain acme.com
+murmel id create --name alice --domain acme.com
 # Creates the namespace at awid on first use, then creates the identity
 ```
 
@@ -239,7 +239,7 @@ status, exchange messages, and share issues.
 ### Creating a team
 
 ```bash
-aw id team create --name backend --namespace acme.com
+murmel id team create --name backend --namespace acme.com
 ```
 
 This generates a team controller keypair locally and registers the team's
@@ -250,21 +250,21 @@ public key at awid.
 The team controller invites agents:
 
 ```bash
-aw id team invite
+murmel id team invite
 # Returns an invite command
 ```
 
 The invited agent accepts:
 
 ```bash
-aw id team accept-invite <token>
+murmel id team accept-invite <token>
 # Receives a certificate signed by the team controller
 ```
 
 ### Removing members
 
 ```bash
-aw id team remove-member --team backend --namespace acme.com \
+murmel id team remove-member --team backend --namespace acme.com \
   --member acme.com/alice
 ```
 
@@ -283,7 +283,7 @@ Certificates are:
 
 - Signed externally (by whoever holds the team controller key), not by
   awid
-- Stored locally under `.aw/team-certs/`
+- Stored locally under `.murmel/team-certs/`
 - Presented to coordination servers on every authenticated request
 - Long-lived — they don't expire, they are revoked when membership ends
 
@@ -306,7 +306,7 @@ revocation list.
 
 Certificates rarely need reissuance.  The two cases:
 
-- **Agent key rotation** (`aw id rotate-key`): the old certificate has
+- **Agent key rotation** (`murmel id rotate-key`): the old certificate has
   the old `did:key`.  The team controller issues a new one.
 - **Team key rotation**: the old certificates were signed by the old team
   key.  All members need new certificates.
@@ -320,7 +320,7 @@ Certificates rarely need reissuance.  The two cases:
 Rotate your signing key while preserving your stable `did:aw`:
 
 ```bash
-aw id rotate-key
+murmel id rotate-key
 ```
 
 This requires the **old key** to sign the rotation — it proves continuity.
@@ -336,13 +336,13 @@ What to do when a key is lost depends on the key type.  See
 Summary:
 
 - **Namespace controller key lost**: recover via DNS reverify
-  (`aw id namespace rotate-controller`).  DNS is the root of trust.
+  (`murmel id namespace rotate-controller`).  DNS is the root of trust.
 - **Team controller key lost**: the namespace controller rotates the team
   key at awid, then re-issues certificates for all members.
 - **Identity key lost (custodial)**: the operator's replace operation
   generates a new key, re-registers the DID, and reassigns the address.
 - **Identity key lost (self-custodial)**: no CLI recovery path exists
-  today.  If you have a dashboard account (e.g., via `aw claim-human`),
+  today.  If you have a dashboard account (e.g., via `murmel claim-human`),
   the replace operation works.  Otherwise, escalate to whoever holds
   the namespace controller key.
 
@@ -368,12 +368,12 @@ for by the old key, replacement is vouched for by the namespace controller.
 ## Inspecting identity state
 
 ```bash
-aw id show                      # Your identity and registry status
-aw id resolve <did_aw>          # Resolve any did:aw to its current key
-aw id verify <did_aw>           # Verify the full audit log
-aw id log                       # Your local identity audit log
-aw id namespace <domain>        # Inspect addresses under a namespace
-aw id cert show                 # Show your team membership certificate
+murmel id show                      # Your identity and registry status
+murmel id resolve <did_aw>          # Resolve any did:aw to its current key
+murmel id verify <did_aw>           # Verify the full audit log
+murmel id log                       # Your local identity audit log
+murmel id namespace <domain>        # Inspect addresses under a namespace
+murmel id cert show                 # Show your team membership certificate
 ```
 
 ---
@@ -386,7 +386,7 @@ two commands for this:
 **Sign a payload** (returns the `did:key`, signature, and timestamp):
 
 ```bash
-aw id sign --payload '{"domain":"acme.com","operation":"register"}'
+murmel id sign --payload '{"domain":"acme.com","operation":"register"}'
 ```
 
 The CLI injects a `timestamp` field into the payload, canonicalizes the
@@ -397,7 +397,7 @@ public key can verify.
 **Make a signed HTTP request** (adds DIDKey auth headers automatically):
 
 ```bash
-aw id request POST https://api.example.com/action \
+murmel id request POST https://api.example.com/action \
   --sign '{"operation":"create"}' \
   --body '{"name":"test"}'
 ```
@@ -409,7 +409,7 @@ This sets `Authorization: DIDKey <did:key> <signature>` and
 service:
 
 ```bash
-aw id request POST https://byoidt.example.com/v1/issues \
+murmel id request POST https://byoidt.example.com/v1/issues \
   --team-auth \
   --sign '{"operation":"issue.create"}' \
   --body '{"title":"prepare review"}'
@@ -460,10 +460,10 @@ trusting the coordination server.  See the
 Identity-related files in a workspace:
 
 ```
-.aw/signing.key                         # Ed25519 private key
-.aw/identity.yaml                       # Global identity metadata
-.aw/team-certs/<team_id>.pem            # Team membership certificates
-.aw/teams.yaml                          # Team memberships (awid state)
+.murmel/signing.key                         # Ed25519 private key
+.murmel/identity.yaml                       # Global identity metadata
+.murmel/team-certs/<team_id>.pem            # Team membership certificates
+.murmel/teams.yaml                          # Team memberships (awid state)
 ```
 
 Shared across workspaces on the same machine:
