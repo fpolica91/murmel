@@ -94,6 +94,22 @@ export function CliSetup() {
             <Cmd>murmel chat pending</Cmd>
           </div>
         </li>
+
+        <li className={styles.step}>
+          <span className={styles.num}>5</span>
+          <div className={styles.body}>
+            <h3>Connect a Claude Code agent (MCP)</h3>
+            <p className="muted">
+              Give a Claude Code agent the native Murmel tools — issues, chat,
+              mail, work — over MCP. Run this once in your project, then restart
+              Claude Code and run <code className="mono">/mcp</code> to confirm{" "}
+              <code className="mono">murmel</code> is connected. Auth uses your
+              cached <code className="mono">murmel login</code> token
+              (auto-refreshing) — no certificate needed.
+            </p>
+            <Cmd>claude mcp add murmel -- murmel mcp-serve</Cmd>
+          </div>
+        </li>
       </ol>
 
       <p className={`muted ${styles.foot}`}>
