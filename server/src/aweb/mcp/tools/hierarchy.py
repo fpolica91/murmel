@@ -12,15 +12,18 @@ import json
 
 from aweb.coordination.hierarchy import (
     add_issue_comment,
+    add_issue_dependency,
     claim_issue,
     create_epic,
     create_issue,
     create_story,
     get_issue,
+    get_issue_dependencies,
     list_epics,
     list_issue_comments,
     list_issues,
     list_stories,
+    remove_issue_dependency,
     update_issue,
 )
 from aweb.mcp.tools._common import require_team_context
@@ -41,7 +44,7 @@ async def issues_create(
     """Create an issue in the authenticated team."""
     auth, error = require_team_context()
     if auth is None:
-        return error or json.dumps({"error": "This tool requires team context. Use a team certificate."})
+        return error or json.dumps({"error": "This tool requires team context. Provide a valid team token."})
     try:
         result = await create_issue(
             db_infra,
@@ -71,7 +74,7 @@ async def issues_list(
     """List issues in the authenticated team."""
     auth, error = require_team_context()
     if auth is None:
-        return error or json.dumps({"error": "This tool requires team context. Use a team certificate."})
+        return error or json.dumps({"error": "This tool requires team context. Provide a valid team token."})
     try:
         issues = await list_issues(
             db_infra,
@@ -91,12 +94,26 @@ async def issues_get(db_infra, *, issue_id: str) -> str:
     """Get an issue by UUID."""
     auth, error = require_team_context()
     if auth is None:
-        return error or json.dumps({"error": "This tool requires team context. Use a team certificate."})
+        return error or json.dumps({"error": "This tool requires team context. Provide a valid team token."})
     try:
         issue = await get_issue(db_infra, team_id=auth.team_id, issue_id=issue_id)
     except (NotFoundError, ValidationError) as exc:
         return json.dumps({"error": exc.detail})
     return json.dumps(issue)
+
+
+async def issues_dependencies(db_infra, *, issue_id: str) -> str:
+    """Get an issue's dependency neighbours (what blocks it and what it blocks)."""
+    auth, error = require_team_context()
+    if auth is None:
+        return error or json.dumps({"error": "This tool requires team context. Provide a valid team token."})
+    try:
+        result = await get_issue_dependencies(
+            db_infra, team_id=auth.team_id, issue_id=issue_id
+        )
+    except (NotFoundError, ValidationError) as exc:
+        return json.dumps({"error": exc.detail})
+    return json.dumps({"issue_id": issue_id, **result})
 
 
 async def issues_claim(
@@ -109,7 +126,7 @@ async def issues_claim(
     """Claim an issue for the authenticated actor (defaults to the agent alias)."""
     auth, error = require_team_context()
     if auth is None:
-        return error or json.dumps({"error": "This tool requires team context. Use a team certificate."})
+        return error or json.dumps({"error": "This tool requires team context. Provide a valid team token."})
     try:
         issue = await claim_issue(
             db_infra,
@@ -127,7 +144,7 @@ async def issues_update_status(db_infra, *, issue_id: str, status: str) -> str:
     """Update the status of an issue in the authenticated team."""
     auth, error = require_team_context()
     if auth is None:
-        return error or json.dumps({"error": "This tool requires team context. Use a team certificate."})
+        return error or json.dumps({"error": "This tool requires team context. Provide a valid team token."})
     try:
         issue = await update_issue(
             db_infra,
@@ -219,3 +236,40 @@ async def stories_list(db_infra, *, epic_id: str = "", status: str = "") -> str:
         db_infra, team_id=auth.team_id, status=status or None, epic_id=epic_id or None
     )
     return json.dumps({"team_id": auth.team_id, "stories": result})
+
+
+async def issues_add_dependency(db_infra, *, issue_id: str, depends_on_id: str) -> str:
+    """Mark that ``issue_id`` depends on (is blocked by) ``depends_on_id``.
+
+    A blocked issue is withheld from ``work_ready`` until every issue it depends
+    on is ``done``. Rejects self-dependencies and cycles."""
+    auth, error = require_team_context()
+    if auth is None:
+        return error or json.dumps({"error": "This tool requires team context."})
+    try:
+        result = await add_issue_dependency(
+            db_infra,
+            team_id=auth.team_id,
+            issue_id=issue_id,
+            depends_on_id=depends_on_id,
+        )
+    except (NotFoundError, ValidationError) as exc:
+        return json.dumps({"error": exc.detail})
+    return json.dumps(result)
+
+
+async def issues_remove_dependency(db_infra, *, issue_id: str, depends_on_id: str) -> str:
+    """Remove a dependency edge between two issues."""
+    auth, error = require_team_context()
+    if auth is None:
+        return error or json.dumps({"error": "This tool requires team context."})
+    try:
+        result = await remove_issue_dependency(
+            db_infra,
+            team_id=auth.team_id,
+            issue_id=issue_id,
+            depends_on_id=depends_on_id,
+        )
+    except (NotFoundError, ValidationError) as exc:
+        return json.dumps({"error": exc.detail})
+    return json.dumps(result)

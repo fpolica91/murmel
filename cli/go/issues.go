@@ -83,6 +83,28 @@ func (c *Client) IssueList(ctx context.Context, params IssueListParams) (*IssueL
 	return &out, nil
 }
 
+// WorkReady lists todo, unassigned, dependency-unblocked issues in the
+// authenticated team. The server applies the status/assignment/dependency
+// filtering; the response shares the same {team_id, issues} envelope as
+// GET /v1/issues.
+func (c *Client) WorkReady(ctx context.Context) (*IssueListResponse, error) {
+	var out IssueListResponse
+	if err := c.Get(ctx, "/v1/work/ready", &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// WorkBlocked lists open issues that are blocked by a not-done dependency.
+// Same {team_id, issues} envelope as GET /v1/issues.
+func (c *Client) WorkBlocked(ctx context.Context) (*IssueListResponse, error) {
+	var out IssueListResponse
+	if err := c.Get(ctx, "/v1/work/blocked", &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 // IssueCreate creates an issue.
 func (c *Client) IssueCreate(ctx context.Context, req *IssueCreateRequest) (*Issue, error) {
 	var out Issue

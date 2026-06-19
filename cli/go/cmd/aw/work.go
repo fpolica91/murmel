@@ -29,6 +29,12 @@ var workActiveCmd = &cobra.Command{
 	RunE:  runWorkActive,
 }
 
+var workBlockedCmd = &cobra.Command{
+	Use:   "blocked",
+	Short: "Blocked work",
+	RunE:  runWorkBlocked,
+}
+
 type workListItem struct {
 	IssueID  string  `json:"issue_id"`
 	Title    string  `json:"title"`
@@ -44,6 +50,7 @@ type workListOutput struct {
 func init() {
 	workCmd.AddCommand(workReadyCmd)
 	workCmd.AddCommand(workActiveCmd)
+	workCmd.AddCommand(workBlockedCmd)
 	rootCmd.AddCommand(workCmd)
 }
 
@@ -67,16 +74,16 @@ func runWorkReady(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	resp, err := client.IssueList(ctx, aweb.IssueListParams{Status: "todo"})
+	resp, err := client.WorkReady(ctx)
 	if err != nil {
 		return err
 	}
 
 	items := make([]workListItem, 0, len(resp.Issues))
 	for _, issue := range resp.Issues {
-		if issueIsAssigned(issue) {
-			continue
-		}
+		// The server already returns todo + unassigned + dependency-unblocked
+		// issues. We still drop issues claimed by *other* local workspaces,
+		// which the server cannot know about.
 		if claimedByOthers[issue.IssueID] {
 			continue
 		}
@@ -127,6 +134,38 @@ func runWorkActive(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+func runWorkBlocked(cmd *cobra.Command, args []string) error {
+	client, _, err := resolveClientSelection()
+	if err != nil {
+		return err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	resp, err := client.WorkBlocked(ctx)
+	if err != nil {
+		return err
+	}
+
+	items := make([]workListItem, 0, len(resp.Issues))
+	for _, issue := range resp.Issues {
+		items = append(items, workListItem{
+			IssueID:  issue.IssueID,
+			Title:    issue.Title,
+			Status:   issue.Status,
+			Assignee: workIssueAssignee(issue),
+		})
+	}
+
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].IssueID < items[j].IssueID
+	})
+
+	printOutput(workListOutput{Kind: "blocked", Items: items}, formatWorkList)
+	return nil
+}
+
 func issueIsAssigned(issue aweb.Issue) bool {
 	return issue.AssigneeID != nil && strings.TrimSpace(*issue.AssigneeID) != ""
 }
@@ -151,14 +190,17 @@ func formatWorkList(v any) string {
 			return "No ready work.\n"
 		case "active":
 			return "No active work.\n"
+		case "blocked":
+			return "No blocked work.\n"
 		default:
 			return "No work items.\n"
 		}
 	}
 
 	title := map[string]string{
-		"ready":  "Ready work",
-		"active": "Active work",
+		"ready":   "Ready work",
+		"active":  "Active work",
+		"blocked": "Blocked work",
 	}[out.Kind]
 	if title == "" {
 		title = "Work"
@@ -190,6 +232,8 @@ func valueOrEmpty(v *string) string {
 	return *v
 }
 
+// currentWorkspaceID resolves the active workspace id for the current worktree.
+// Retained as a small reusable helper for workspace-scoped CLI filtering.
 func currentWorkspaceID(workingDir string, sel *awconfig.Selection) string {
 	if state, _, err := awconfig.LoadWorktreeWorkspaceFromDir(workingDir); err == nil {
 		if membership, err := workspaceMembershipForSelection(state, sel); err == nil && membership != nil && strings.TrimSpace(membership.WorkspaceID) != "" {
@@ -201,3 +245,5 @@ func currentWorkspaceID(workingDir string, sel *awconfig.Selection) string {
 	}
 	return strings.TrimSpace(sel.WorkspaceID)
 }
+
+var _ = currentWorkspaceID

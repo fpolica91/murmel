@@ -61,13 +61,13 @@ def _event_timestamp(value: str | None) -> datetime:
 
 
 def check_requirements() -> bool:
-    aw_bin = os.getenv("AWEB_PLATFORM_AW_BIN", "aw")
+    aw_bin = os.getenv("AWEB_PLATFORM_AW_BIN", "murmel")
     return bool(shutil.which(aw_bin) or os.path.exists(aw_bin))
 
 
 def validate_config(config) -> bool:
     extra = getattr(config, "extra", {}) or {}
-    aw_bin = extra.get("aw_bin") or os.getenv("AWEB_PLATFORM_AW_BIN", "aw")
+    aw_bin = extra.get("aw_bin") or os.getenv("AWEB_PLATFORM_AW_BIN", "murmel")
     return bool(shutil.which(str(aw_bin)) or os.path.exists(str(aw_bin)))
 
 
@@ -85,7 +85,7 @@ def _env_enablement() -> dict | None:
     if not (enabled or workdir or home):
         return None
     seed: dict[str, Any] = {
-        "aw_bin": os.getenv("AWEB_PLATFORM_AW_BIN", "aw"),
+        "aw_bin": os.getenv("AWEB_PLATFORM_AW_BIN", "murmel"),
         "enable_mail": _truthy(os.getenv("AWEB_PLATFORM_ENABLE_MAIL"), True),
         "enable_chat": _truthy(os.getenv("AWEB_PLATFORM_ENABLE_CHAT"), True),
     }
@@ -104,7 +104,7 @@ class AwebAdapter(BasePlatformAdapter):
     def __init__(self, config: PlatformConfig):
         super().__init__(config=config, platform=Platform("aweb"))
         extra = getattr(config, "extra", {}) or {}
-        self.aw_bin = str(extra.get("aw_bin") or os.getenv("AWEB_PLATFORM_AW_BIN", "aw"))
+        self.aw_bin = str(extra.get("aw_bin") or os.getenv("AWEB_PLATFORM_AW_BIN", "murmel"))
         self.workdir = str(extra.get("workdir") or os.getenv("AWEB_PLATFORM_WORKDIR", "") or os.getcwd())
         self.enable_mail = bool(extra.get("enable_mail", _truthy(os.getenv("AWEB_PLATFORM_ENABLE_MAIL"), True)))
         self.enable_chat = bool(extra.get("enable_chat", _truthy(os.getenv("AWEB_PLATFORM_ENABLE_CHAT"), True)))
@@ -430,7 +430,7 @@ def interactive_setup() -> None:
 
     save_env_value("AWEB_PLATFORM_ENABLED", "true")
     prompt("AWEB_PLATFORM_WORKDIR", "aw workspace directory", os.getcwd())
-    prompt("AWEB_PLATFORM_AW_BIN", "aw binary", "aw")
+    prompt("AWEB_PLATFORM_AW_BIN", "murmel binary", "murmel")
     prompt("AWEB_ALLOWED_USERS", "allowed Aweb senders (comma-separated; blank=use AWEB_ALLOW_ALL_USERS)", "")
     prompt("AWEB_HOME_CHANNEL", "home Aweb alias/address for cron delivery (optional)", "")
     print("Done. Restart Hermes gateway after confirming `aw workspace status` works in that directory.")

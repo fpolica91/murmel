@@ -102,6 +102,11 @@ class IssueView(BaseModel):
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
     comment_count: int = 0
+    # Dependency neighbours; populated on GET /v1/issues/{id} (and the
+    # dependencies endpoint), absent on list views. ``blocked_by`` = issues this
+    # one depends on; ``blocks`` = issues that depend on this one.
+    blocked_by: Optional[list[dict]] = None
+    blocks: Optional[list[dict]] = None
 
 
 class CreateIssueRequest(BaseModel):
@@ -145,6 +150,12 @@ class UpdateIssueStatusRequest(BaseModel):
 class ListIssuesResponse(BaseModel):
     team_id: str
     issues: list[IssueView]
+
+
+class IssueDependenciesResponse(BaseModel):
+    issue_id: str
+    blocked_by: list[dict] = Field(default_factory=list)
+    blocks: list[dict] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -402,6 +413,46 @@ async def list_issues(
     )
 
 
+@router.get("/work/ready", response_model=ListIssuesResponse)
+async def list_ready_work(
+    request: Request,
+    db=Depends(get_db),
+    identity: TeamIdentity = Depends(get_team_identity),
+) -> ListIssuesResponse:
+    """Claimable work: unassigned todo issues with no unfinished dependency."""
+    try:
+        issues = await hierarchy_service.list_ready_issues(
+            db,
+            team_id=identity.team_id,
+        )
+    except ServiceError as exc:
+        _raise_http(exc)
+    return ListIssuesResponse(
+        team_id=identity.team_id,
+        issues=[IssueView(**i) for i in issues],
+    )
+
+
+@router.get("/work/blocked", response_model=ListIssuesResponse)
+async def list_blocked_work(
+    request: Request,
+    db=Depends(get_db),
+    identity: TeamIdentity = Depends(get_team_identity),
+) -> ListIssuesResponse:
+    """Open issues held up by at least one not-done dependency."""
+    try:
+        issues = await hierarchy_service.list_blocked_issues(
+            db,
+            team_id=identity.team_id,
+        )
+    except ServiceError as exc:
+        _raise_http(exc)
+    return ListIssuesResponse(
+        team_id=identity.team_id,
+        issues=[IssueView(**i) for i in issues],
+    )
+
+
 @router.get("/issues/{issue_id}", response_model=IssueView)
 async def get_issue(
     request: Request,
@@ -419,6 +470,29 @@ async def get_issue(
     except ServiceError as exc:
         _raise_http(exc)
     return IssueView(**issue)
+
+
+@router.get("/issues/{issue_id}/dependencies", response_model=IssueDependenciesResponse)
+async def get_issue_dependencies(
+    request: Request,
+    issue_id: str,
+    db=Depends(get_db),
+    identity: TeamIdentity = Depends(get_team_identity),
+) -> IssueDependenciesResponse:
+    """Dependency neighbours of an issue: what blocks it and what it blocks."""
+    try:
+        deps = await hierarchy_service.get_issue_dependencies(
+            db,
+            team_id=identity.team_id,
+            issue_id=issue_id,
+        )
+    except ServiceError as exc:
+        _raise_http(exc)
+    return IssueDependenciesResponse(
+        issue_id=issue_id,
+        blocked_by=deps["blocked_by"],
+        blocks=deps["blocks"],
+    )
 
 
 @router.patch("/issues/{issue_id}", response_model=IssueView)

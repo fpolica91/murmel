@@ -443,6 +443,11 @@ async def get_issue(db, *, team_id: str, issue_id: str | UUID) -> dict[str, Any]
     else:
         view["assignee_kind"] = view.get("assignee_type")
         view["assignee_display_name"] = None
+    # Surface dependency neighbours so the detail view (and issues_get) can show
+    # what blocks this issue and what it blocks, without a second round-trip.
+    deps = await _issue_dependencies(db, team_id=team_id, issue_id=resolved)
+    view["blocked_by"] = deps["blocked_by"]
+    view["blocks"] = deps["blocks"]
     return view
 
 
@@ -672,4 +677,186 @@ def _comment_view(row: Any) -> dict[str, Any]:
         "author": row["author"],
         "body": row["body"],
         "created_at": _iso(row["created_at"]),
+    }
+
+
+# -- Issue dependencies (ready vs blocked work) --
+
+
+async def add_issue_dependency(
+    db, *, team_id: str, issue_id: str | UUID, depends_on_id: str | UUID
+) -> dict[str, Any]:
+    """Record that ``issue_id`` depends on (is blocked by) ``depends_on_id``.
+
+    Rejects self-dependencies and any edge that would create a cycle. Both
+    issues must exist in the team. Idempotent on the (issue, depends_on) pair.
+    """
+    iid = _coerce_uuid(issue_id, label="issue_id")
+    did = _coerce_uuid(depends_on_id, label="depends_on_id")
+    if iid == did:
+        raise ValidationError("An issue cannot depend on itself")
+    # Both endpoints must be real issues in this team (raises NotFoundError).
+    await get_issue(db, team_id=team_id, issue_id=iid)
+    await get_issue(db, team_id=team_id, issue_id=did)
+
+    aweb_db = db.get_manager("aweb")
+    # Cycle guard: if depends_on already (transitively) reaches issue, the new
+    # edge would close a loop.
+    cycle = await aweb_db.fetch_one(
+        """
+        WITH RECURSIVE reach AS (
+            SELECT depends_on_id AS id
+            FROM {{tables.issue_dependencies}}
+            WHERE issue_id = $2
+            UNION ALL
+            SELECT d.depends_on_id
+            FROM {{tables.issue_dependencies}} d
+            JOIN reach r ON d.issue_id = r.id
+        )
+        SELECT 1 FROM reach WHERE id = $1
+        """,
+        iid,
+        did,
+    )
+    if cycle:
+        raise ValidationError("Dependency would create a cycle")
+
+    await aweb_db.execute(
+        """
+        INSERT INTO {{tables.issue_dependencies}} (issue_id, depends_on_id, team_id)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (issue_id, depends_on_id) DO NOTHING
+        """,
+        iid,
+        did,
+        team_id,
+    )
+    return {"issue_id": str(iid), "depends_on_id": str(did)}
+
+
+async def remove_issue_dependency(
+    db, *, team_id: str, issue_id: str | UUID, depends_on_id: str | UUID
+) -> dict[str, Any]:
+    """Remove a dependency edge."""
+    iid = _coerce_uuid(issue_id, label="issue_id")
+    did = _coerce_uuid(depends_on_id, label="depends_on_id")
+    aweb_db = db.get_manager("aweb")
+    await aweb_db.execute(
+        """
+        DELETE FROM {{tables.issue_dependencies}}
+        WHERE issue_id = $1 AND depends_on_id = $2 AND team_id = $3
+        """,
+        iid,
+        did,
+        team_id,
+    )
+    return {"issue_id": str(iid), "removed_depends_on_id": str(did)}
+
+
+# An issue is BLOCKED when it has a dependency on an issue that is not yet done.
+_BLOCKED_PREDICATE = """
+    EXISTS (
+        SELECT 1
+        FROM {{tables.issue_dependencies}} d
+        JOIN {{tables.issues}} blocker ON blocker.issue_id = d.depends_on_id
+        WHERE d.issue_id = i.issue_id AND blocker.status != 'done'
+    )
+"""
+
+_ISSUE_COLS = (
+    "i.issue_id, i.team_id, i.epic_id, i.story_id, i.title, i.description, "
+    "i.status, i.assignee_type, i.assignee_id, i.created_at, i.updated_at"
+)
+
+
+async def list_ready_issues(db, *, team_id: str) -> list[dict[str, Any]]:
+    """Unassigned ``todo`` issues whose dependencies are all done (claimable work)."""
+    aweb_db = db.get_manager("aweb")
+    rows = await aweb_db.fetch_all(
+        "SELECT "
+        + _ISSUE_COLS
+        + " FROM {{tables.issues}} i"
+        + " WHERE i.team_id = $1 AND i.status = 'todo' AND i.assignee_id IS NULL"
+        + " AND NOT "
+        + _BLOCKED_PREDICATE
+        + " ORDER BY i.created_at",
+        team_id,
+    )
+    return [_issue_view(r) for r in rows]
+
+
+async def list_blocked_issues(db, *, team_id: str) -> list[dict[str, Any]]:
+    """Open issues held up by at least one not-done dependency."""
+    aweb_db = db.get_manager("aweb")
+    rows = await aweb_db.fetch_all(
+        "SELECT "
+        + _ISSUE_COLS
+        + " FROM {{tables.issues}} i"
+        + " WHERE i.team_id = $1 AND i.status IN ('todo', 'in_progress', 'in_review')"
+        + " AND "
+        + _BLOCKED_PREDICATE
+        + " ORDER BY i.created_at",
+        team_id,
+    )
+    return [_issue_view(r) for r in rows]
+
+
+async def get_issue_dependencies(
+    db, *, team_id: str, issue_id: str | UUID
+) -> dict[str, Any]:
+    """Return an issue's dependency neighbours, team-scoped on every join.
+
+    ``blocked_by`` are issues THIS issue depends on (the things holding it up);
+    ``blocks`` are issues that depend on THIS one. Each entry is
+    ``{"issue_id", "title", "status"}``. Both the dependency edge and the joined
+    issue must belong to ``team_id`` — a cross-team edge or issue is never
+    surfaced. Validates the issue exists in the team first."""
+    await get_issue(db, team_id=team_id, issue_id=issue_id)
+    return await _issue_dependencies(db, team_id=team_id, issue_id=issue_id)
+
+
+async def _issue_dependencies(
+    db, *, team_id: str, issue_id: str | UUID
+) -> dict[str, Any]:
+    """Fetch dependency neighbours without re-validating the issue.
+
+    Split out so ``get_issue`` (which already loaded + validated the row) can
+    embed dependencies without recursing through ``get_issue_dependencies`` ->
+    ``get_issue``."""
+    aweb_db = db.get_manager("aweb")
+    resolved = _coerce_uuid(issue_id, label="issue_id")
+
+    blocked_by_rows = await aweb_db.fetch_all(
+        """
+        SELECT other.issue_id, other.title, other.status
+        FROM {{tables.issue_dependencies}} d
+        JOIN {{tables.issues}} other ON other.issue_id = d.depends_on_id
+        WHERE d.issue_id = $1 AND d.team_id = $2 AND other.team_id = $2
+        ORDER BY other.created_at
+        """,
+        resolved,
+        team_id,
+    )
+    blocks_rows = await aweb_db.fetch_all(
+        """
+        SELECT other.issue_id, other.title, other.status
+        FROM {{tables.issue_dependencies}} d
+        JOIN {{tables.issues}} other ON other.issue_id = d.issue_id
+        WHERE d.depends_on_id = $1 AND d.team_id = $2 AND other.team_id = $2
+        ORDER BY other.created_at
+        """,
+        resolved,
+        team_id,
+    )
+
+    def _dep_view(row: Any) -> dict[str, Any]:
+        return {
+            "issue_id": str(row["issue_id"]),
+            "title": row["title"],
+            "status": row["status"],
+        }
+
+    return {
+        "blocked_by": [_dep_view(r) for r in blocked_by_rows],
+        "blocks": [_dep_view(r) for r in blocks_rows],
     }

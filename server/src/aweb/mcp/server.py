@@ -47,7 +47,10 @@ from aweb.mcp.tools.hierarchy import epics_list as _epics_list_impl
 from aweb.mcp.tools.hierarchy import issues_claim as _issues_claim_impl
 from aweb.mcp.tools.hierarchy import issues_comment_add as _issues_comment_add_impl
 from aweb.mcp.tools.hierarchy import issues_comments_list as _issues_comments_list_impl
+from aweb.mcp.tools.hierarchy import issues_add_dependency as _issues_add_dependency_impl
+from aweb.mcp.tools.hierarchy import issues_remove_dependency as _issues_remove_dependency_impl
 from aweb.mcp.tools.hierarchy import issues_create as _issues_create_impl
+from aweb.mcp.tools.hierarchy import issues_dependencies as _issues_dependencies_impl
 from aweb.mcp.tools.hierarchy import issues_get as _issues_get_impl
 from aweb.mcp.tools.hierarchy import issues_list as _issues_list_impl
 from aweb.mcp.tools.hierarchy import issues_update_status as _issues_update_status_impl
@@ -61,6 +64,7 @@ from aweb.mcp.tools.team_instructions import instructions_show as _instructions_
 from aweb.mcp.tools.team_roles import roles_show as _roles_show_impl
 from aweb.mcp.tools.team_roles import roles_list as _roles_list_impl
 from aweb.mcp.tools.work import work_active as _work_active_impl
+from aweb.mcp.tools.work import work_blocked as _work_blocked_impl
 from aweb.mcp.tools.work import work_ready as _work_ready_impl
 from aweb.mcp.tools.workspace import workspace_status as _workspace_status_impl
 
@@ -410,6 +414,13 @@ def register_tools(
         return await _issues_get_impl(db_infra, issue_id=issue_id)
 
     @mcp.tool(
+        name="issues_dependencies",
+        description="Get an issue's dependency neighbours (what blocks it and what it blocks).",
+    )
+    async def issues_dependencies(issue_id: str) -> str:
+        return await _issues_dependencies_impl(db_infra, issue_id=issue_id)
+
+    @mcp.tool(
         name="issues_claim",
         description="Claim an issue for the authenticated actor (defaults to the agent alias).",
     )
@@ -506,7 +517,7 @@ def register_tools(
 
     @mcp.tool(
         name="work_ready",
-        description="List ready issues (status=todo, unassigned) for the current team.",
+        description="List ready issues (status=todo, unassigned, and not blocked by an incomplete dependency) for the current team.",
     )
     async def work_ready() -> str:
         return await _work_ready_impl(db_infra)
@@ -517,6 +528,31 @@ def register_tools(
     )
     async def work_active() -> str:
         return await _work_active_impl(db_infra)
+
+    @mcp.tool(
+        name="work_blocked",
+        description="List issues blocked by an incomplete dependency (waiting on other issues to be done).",
+    )
+    async def work_blocked() -> str:
+        return await _work_blocked_impl(db_infra)
+
+    @mcp.tool(
+        name="issues_add_dependency",
+        description="Mark an issue as depending on (blocked by) another issue. Blocked issues are withheld from work_ready until every issue they depend on is done. Rejects self-dependencies and cycles.",
+    )
+    async def issues_add_dependency(issue_id: str, depends_on_id: str) -> str:
+        return await _issues_add_dependency_impl(
+            db_infra, issue_id=issue_id, depends_on_id=depends_on_id
+        )
+
+    @mcp.tool(
+        name="issues_remove_dependency",
+        description="Remove a dependency edge between two issues.",
+    )
+    async def issues_remove_dependency(issue_id: str, depends_on_id: str) -> str:
+        return await _issues_remove_dependency_impl(
+            db_infra, issue_id=issue_id, depends_on_id=depends_on_id
+        )
 
     # -- Workspace --
 
