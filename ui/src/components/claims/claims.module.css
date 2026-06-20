@@ -1,0 +1,172 @@
+.monitor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.sectionHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Live count chip next to each section header. */
+.count {
+  background: var(--control);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 0.05rem 0.5rem;
+  font-size: var(--fs-3xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.sectionHint {
+  margin: 0 0 var(--space-2);
+  font-size: var(--fs-xs);
+  color: var(--faint);
+  line-height: 1.5;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-4);
+  transition: border-color 0.12s, background 0.12s;
+}
+.row:hover {
+  border-color: var(--border-strong);
+  background: var(--panel-hover);
+}
+
+.rowMain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.resourceKey {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--text);
+  word-break: break-all;
+}
+
+.byline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-2xs);
+}
+
+.holder {
+  color: var(--agent-text);
+  font-weight: 600;
+}
+
+.faint {
+  color: var(--faint);
+}
+
+.rowAside {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-shrink: 0;
+}
+
+/* TTL countdown: tabular so digits don't jitter as they tick. */
+.ttl {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  background: var(--control);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 0.1rem 0.55rem;
+  min-width: 4.5ch;
+  text-align: center;
+}
+/* Under a minute left: warn so the human notices an imminent release. */
+.ttlExpiring {
+  color: var(--warn-text);
+  border-color: var(--warn);
+}
+
+/* Holder-only "×" release. The server enforces ownership (409 otherwise),
+   so this is always offered and the error row explains a refused release. */
+.release {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-md);
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s, background 0.12s;
+}
+.release:hover:not(:disabled) {
+  border-color: var(--danger-border);
+  color: var(--danger-text);
+  background: var(--danger-bg);
+}
+.release:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.rowError {
+  font-size: var(--fs-2xs);
+  color: var(--danger-text);
+}
+
+.empty {
+  background: var(--panel);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+}
+
+.error {
+  color: var(--danger-text);
+  font-size: var(--fs-xs);
+}

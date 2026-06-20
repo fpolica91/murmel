@@ -8,6 +8,7 @@ import { BoardView } from "./board-view";
 import { HierarchyBar } from "./hierarchy-bar";
 import { ListView } from "./list-view";
 import { NewIssueForm } from "./new-issue-form";
+import { SwimlaneView } from "./swimlane-view";
 import {
   WorkFilters,
   type WorkFilterState,
@@ -15,7 +16,7 @@ import {
 } from "./work-filters";
 import styles from "./work.module.css";
 
-type ViewMode = "board" | "list";
+type ViewMode = "board" | "list" | "swimlane";
 
 /**
  * Top-level work surface: board/list toggle, a work lens (All / Ready /
@@ -109,6 +110,36 @@ export function WorkBoard() {
     [lens, filters, load],
   );
 
+  // Swimlane drop: a card can cross an epic row and/or a status column, so this
+  // persists `epic_id` + `status` together in ONE PATCH (workApi.updateIssue).
+  const reparent = useCallback(
+    async (
+      issueId: string,
+      update: { epic_id: string | null; status: IssueStatus },
+    ) => {
+      // Optimistic: reflect the new epic + status immediately, then persist.
+      setIssues((prev) =>
+        prev.map((i) =>
+          i.issue_id === issueId
+            ? { ...i, epic_id: update.epic_id, status: update.status }
+            : i,
+        ),
+      );
+      try {
+        await workApi.updateIssue(issueId, update);
+      } catch (err) {
+        setError(
+          err instanceof ApiError
+            ? `${err.message} (${err.status})`
+            : "Failed to move issue.",
+        );
+      } finally {
+        void load(lens, filters);
+      }
+    },
+    [lens, filters, load],
+  );
+
   return (
     <div>
       <div className={styles.toolbar}>
@@ -126,6 +157,13 @@ export function WorkBoard() {
             onClick={() => setView("list")}
           >
             List
+          </button>
+          <button
+            type="button"
+            className={view === "swimlane" ? styles.active : ""}
+            onClick={() => setView("swimlane")}
+          >
+            Swimlane
           </button>
         </div>
 
@@ -168,6 +206,14 @@ export function WorkBoard() {
       ) : view === "board" ? (
         <BoardView
           issues={issues}
+          onStatusChange={changeStatus}
+          blockedIds={blockedIds}
+        />
+      ) : view === "swimlane" ? (
+        <SwimlaneView
+          issues={issues}
+          epics={epics}
+          onReparent={reparent}
           onStatusChange={changeStatus}
           blockedIds={blockedIds}
         />

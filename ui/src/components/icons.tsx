@@ -111,6 +111,27 @@ export function RolesIcon(props: IconProps) {
   );
 }
 
+/** Claims — padlock (who holds what / resource locks). */
+export function ClaimsIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <rect x="4" y="11" width="16" height="10" rx="2" />
+      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    </svg>
+  );
+}
+
+/** Leaderboard — ranked bars. */
+export function LeaderboardIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <rect x="4" y="13" width="4" height="7" rx="1" />
+      <rect x="10" y="9" width="4" height="11" rx="1" />
+      <rect x="16" y="5" width="4" height="15" rx="1" />
+    </svg>
+  );
+}
+
 /** CLI — terminal prompt. */
 export function CliIcon(props: IconProps) {
   return (

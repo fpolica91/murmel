@@ -1,0 +1,190 @@
+/* Leaderboard view. Dark-first; reuses the theme CSS vars from globals.css and
+   never hardcodes a theme background/border. Two regions: a 3-up podium with a
+   raised centre, and a dense table for everyone below the top three. */
+
+.board {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+/* ---- Podium ------------------------------------------------------------ */
+.podium {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: var(--space-4);
+  list-style: none;
+  margin: 0;
+  padding: var(--space-4) 0 0;
+}
+
+.podiumSlot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1 1 0;
+  max-width: 16rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5) var(--space-4);
+  text-align: center;
+  transition: border-color 0.12s, transform 0.12s;
+}
+.podiumSlot:hover {
+  border-color: var(--border-strong);
+}
+
+/* #1 in the middle, raised and accented; #2 left, #3 right (flex order). */
+.rank1 {
+  order: 2;
+  border-color: var(--accent);
+  background: var(--accent-weak);
+  transform: translateY(-12px);
+}
+.rank2 {
+  order: 1;
+}
+.rank3 {
+  order: 3;
+}
+
+.medal {
+  font-size: var(--fs-2xl);
+  line-height: 1;
+}
+
+.podiumName {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--text);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.podiumScore {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.podiumMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  font-size: var(--fs-2xs);
+  color: var(--muted);
+}
+
+.streak {
+  color: var(--warn-text);
+  white-space: nowrap;
+}
+
+/* ---- Table ------------------------------------------------------------- */
+.tableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+
+.table thead th {
+  text-align: left;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.table tbody td {
+  padding: var(--space-3) var(--space-4);
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+.table tbody tr:hover td {
+  background: var(--panel-hover);
+}
+
+.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.rankCol {
+  width: 2.5rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.who {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.whoName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 14rem;
+}
+
+/* ---- States ------------------------------------------------------------ */
+.empty {
+  background: var(--panel);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-8) var(--space-6);
+  text-align: center;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+}
+
+.error {
+  color: var(--danger-text);
+  font-size: var(--fs-xs);
+}
+
+/* Stack the podium on narrow viewports; drop the #1 lift so it reads as a list. */
+@media (max-width: 640px) {
+  .podium {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .podiumSlot {
+    max-width: none;
+    flex-direction: row;
+    justify-content: flex-start;
+    text-align: left;
+  }
+  .rank1 {
+    transform: none;
+  }
+  .podiumMeta {
+    justify-content: flex-start;
+  }
+}

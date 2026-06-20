@@ -15,9 +15,11 @@ import { listInbox } from "@/lib/api/mail";
 import { subscribeEvents } from "@/lib/events/eventStream";
 import {
   ChatIcon,
+  ClaimsIcon,
   CliIcon,
   ConsoleIcon,
   EpicsIcon,
+  LeaderboardIcon,
   MailIcon,
   MembersIcon,
   MemoryIcon,
@@ -38,6 +40,8 @@ const NAV_LINKS: ReadonlyArray<{
   { href: "/dashboard/mail", label: "Mail", icon: <MailIcon /> },
   { href: "/dashboard/memory", label: "Memory", icon: <MemoryIcon /> },
   { href: "/dashboard/roles", label: "Roles", icon: <RolesIcon /> },
+  { href: "/dashboard/claims", label: "Claims", icon: <ClaimsIcon /> },
+  { href: "/dashboard/leaderboard", label: "Leaderboard", icon: <LeaderboardIcon /> },
   { href: "/dashboard/members", label: "Members", icon: <MembersIcon /> },
   { href: "/dashboard/cli", label: "CLI", icon: <CliIcon /> },
 ];
