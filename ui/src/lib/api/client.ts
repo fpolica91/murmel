@@ -21,6 +21,7 @@ import type {
   Epic,
   EpicListResponse,
   Issue,
+  IssueDependencies,
   IssueListFilters,
   IssueListResponse,
   Story,
@@ -243,8 +244,50 @@ export const workApi = {
     return res.issues ?? [];
   },
 
+  /** Claimable work: unassigned `todo` issues with all dependencies done. */
+  async listReady(): Promise<Issue[]> {
+    const res = await request<IssueListResponse>("/v1/work/ready");
+    return res.issues ?? [];
+  },
+
+  /** Open issues held up by at least one not-done dependency. */
+  async listBlocked(): Promise<Issue[]> {
+    const res = await request<IssueListResponse>("/v1/work/blocked");
+    return res.issues ?? [];
+  },
+
   async getIssue(issueId: string): Promise<Issue> {
     return request<Issue>(`/v1/issues/${encodeURIComponent(issueId)}`);
+  },
+
+  // ----- Issue dependencies ---------------------------------------------
+  /** Fetch an issue's dependency neighbours (blocked_by + blocks). */
+  async getDependencies(issueId: string): Promise<IssueDependencies> {
+    return request<IssueDependencies>(
+      `/v1/issues/${encodeURIComponent(issueId)}/dependencies`,
+    );
+  },
+
+  /** Add `issueId` depends-on `dependsOnId`; returns the fresh neighbours. */
+  async addDependency(
+    issueId: string,
+    dependsOnId: string,
+  ): Promise<IssueDependencies> {
+    return request<IssueDependencies>(
+      `/v1/issues/${encodeURIComponent(issueId)}/dependencies`,
+      { method: "POST", body: { depends_on_id: dependsOnId } },
+    );
+  },
+
+  /** Remove the `issueId -> dependsOnId` edge; returns the fresh neighbours. */
+  async removeDependency(
+    issueId: string,
+    dependsOnId: string,
+  ): Promise<IssueDependencies> {
+    return request<IssueDependencies>(
+      `/v1/issues/${encodeURIComponent(issueId)}/dependencies/${encodeURIComponent(dependsOnId)}`,
+      { method: "DELETE" },
+    );
   },
 
   async listComments(issueId: string): Promise<Comment[]> {

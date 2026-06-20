@@ -61,6 +61,11 @@ def test_canonical_chain_starts_with_reset_baseline_then_forward_migrations():
         "011_issue_comments.sql",
         "012_humans_as_participants.sql",
         "013_federation_server_key.sql",
+        "014_team_display_name.sql",
+        "015_invitations.sql",
+        "016_contacts_team_scope.sql",
+        "017_issue_dependencies.sql",
+        "018_memories.sql",
     ]
 
 

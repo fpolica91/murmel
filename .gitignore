@@ -50,3 +50,18 @@ ds-bundle/
 .design-sync/.cache/
 ui/dts-out/
 ui/storybook-static/
+# design-sync / storybook experiment (local only — not for prod build)
+ui/.storybook/
+ui/src/**/*.stories.tsx
+ui/src/ds-entry.tsx
+ui/src/_ds-process-shim.ts
+ui/src/_dts-shims.d.ts
+ui/src/**/*.d.ts
+ui/tsconfig.dts.json
+ui/public/mockServiceWorker.js
+ui/.npmrc
+ui/nixpacks.toml
+ui/vitest.config.ts
+ui/vitest.shims.d.ts
+ui/vitest.workspace.ts
+forks/

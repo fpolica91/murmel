@@ -23,9 +23,12 @@ import styles from "./work.module.css";
 export function BoardView({
   issues,
   onStatusChange,
+  blockedIds,
 }: {
   issues: Issue[];
   onStatusChange?: (issueId: string, status: IssueStatus) => void;
+  /** Ids of issues blocked by an unfinished dependency (per-card badge). */
+  blockedIds?: Set<string>;
 }) {
   const [dragOver, setDragOver] = useState<string | null>(null);
 
@@ -82,6 +85,7 @@ export function BoardView({
                   key={issue.issue_id}
                   issue={issue}
                   onStatusChange={onStatusChange}
+                  blocked={blockedIds?.has(issue.issue_id) ?? false}
                 />
               ))}
               {column.length === 0 && (

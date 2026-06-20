@@ -59,6 +59,11 @@ from aweb.mcp.tools.hierarchy import stories_list as _stories_list_impl
 from aweb.mcp.tools.identity import whoami as _whoami_impl
 from aweb.mcp.tools.mail import check_inbox as _check_inbox_impl
 from aweb.mcp.tools.mail import send_mail as _send_mail_impl
+from aweb.mcp.tools.memory import memory_delete as _memory_delete_impl
+from aweb.mcp.tools.memory import memory_get as _memory_get_impl
+from aweb.mcp.tools.memory import memory_save as _memory_save_impl
+from aweb.mcp.tools.memory import memory_search as _memory_search_impl
+from aweb.mcp.tools.memory import memory_update as _memory_update_impl
 from aweb.mcp.tools.team_instructions import instructions_history as _instructions_history_impl
 from aweb.mcp.tools.team_instructions import instructions_show as _instructions_show_impl
 from aweb.mcp.tools.team_roles import roles_show as _roles_show_impl
@@ -554,6 +559,55 @@ def register_tools(
             db_infra, issue_id=issue_id, depends_on_id=depends_on_id
         )
 
+    # -- Memory (team shared knowledge base) --
+
+    @mcp.tool(
+        name="memory_search",
+        description="Search the team knowledge base (full-text + tag filter). READ THIS ON SESSION START: an empty query returns the most recent notes the team has learned. Args: q (optional text), tags (optional comma-separated), assignee_alias (optional), limit (default 20).",
+    )
+    async def memory_search(
+        q: str = "", tags: str = "", assignee_alias: str = "", limit: int = 20
+    ) -> str:
+        return await _memory_search_impl(
+            db_infra, q=q, tags=tags, assignee_alias=assignee_alias, limit=limit
+        )
+
+    @mcp.tool(
+        name="memory_save",
+        description="Save a note to the team knowledge base -- write what you learn (a codebase quirk, a workflow, a fact about an external system) so future sessions inherit it. Args: title (required), body_md (markdown), tags (comma-separated), assignee_alias (optional: scope the note to one agent).",
+    )
+    async def memory_save(
+        title: str, body_md: str = "", tags: str = "", assignee_alias: str = ""
+    ) -> str:
+        return await _memory_save_impl(
+            db_infra, title=title, body_md=body_md, tags=tags, assignee_alias=assignee_alias
+        )
+
+    @mcp.tool(
+        name="memory_get",
+        description="Fetch one team memory by id.",
+    )
+    async def memory_get(memory_id: str) -> str:
+        return await _memory_get_impl(db_infra, memory_id=memory_id)
+
+    @mcp.tool(
+        name="memory_update",
+        description="Revise a team memory's title, body, and/or tags by id. Empty args are left unchanged.",
+    )
+    async def memory_update(
+        memory_id: str, title: str = "", body_md: str = "", tags: str = ""
+    ) -> str:
+        return await _memory_update_impl(
+            db_infra, memory_id=memory_id, title=title, body_md=body_md, tags=tags
+        )
+
+    @mcp.tool(
+        name="memory_delete",
+        description="Delete a team memory by id.",
+    )
+    async def memory_delete(memory_id: str) -> str:
+        return await _memory_delete_impl(db_infra, memory_id=memory_id)
+
     # -- Workspace --
 
     @mcp.tool(
@@ -651,9 +705,6 @@ def register_tools(
             priority=priority,
             wait=wait,
             wait_seconds=wait_seconds,
-            federation_mail_transport=federation_mail_transport,
-            federation_chat_transport=federation_chat_transport,
-            public_origin=public_origin,
         )
 
 

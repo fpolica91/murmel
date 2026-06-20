@@ -1,0 +1,262 @@
+.board {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.intro {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  margin: 0;
+  max-width: 60ch;
+}
+
+.spacerInline {
+  flex: 1;
+}
+
+/* Copy-on-write conflict banner: shown when a save 409s because the active
+   bundle moved under us. We refetch and ask the human to re-apply. */
+.conflict {
+  background: var(--warn);
+  background: color-mix(in srgb, var(--warn) 14%, transparent);
+  border: 1px solid var(--warn-text);
+  color: var(--warn-text);
+  border-radius: var(--radius-md);
+  padding: 0.6rem 0.8rem;
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  transition: border-color 0.12s, background 0.12s;
+}
+.card:hover {
+  border-color: var(--border-strong);
+  background: var(--panel-hover);
+}
+
+.cardHead {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.cardTitle {
+  flex: 1;
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  background: none;
+  border: none;
+  text-align: left;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* The role key (map key) shown under the human title, in mono — it is the
+   stable selector agents pass to `roles_show`. */
+.roleKey {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--faint);
+  letter-spacing: -0.01em;
+}
+
+.editBtn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: var(--radius-sm);
+  padding: 0.2rem 0.55rem;
+  font-size: var(--fs-2xs);
+  cursor: pointer;
+}
+.editBtn:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+/* Expanded playbook body. The <Markdown> renderer styles its own block
+   elements; this just frames it (top rule + spacing) like memory's .body. */
+.body {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  word-break: break-word;
+}
+
+.empty {
+  background: var(--panel);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-8) var(--space-6);
+  text-align: center;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+}
+
+.error {
+  color: var(--danger-text);
+  font-size: var(--fs-xs);
+}
+
+/* --- Dialog (mirrors memory.module.css modal idiom) --- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 6vh var(--space-4);
+  z-index: 50;
+}
+.modal {
+  width: min(680px, 100%);
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  max-height: 86vh;
+}
+.modalHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border);
+}
+.modalTitle {
+  flex: 1;
+  margin: 0;
+  font-size: var(--fs-md);
+  color: var(--text);
+}
+.tabs {
+  display: flex;
+  gap: var(--space-1);
+}
+.tab {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: var(--radius-sm);
+  padding: 0.2rem 0.6rem;
+  font-size: var(--fs-2xs);
+  cursor: pointer;
+}
+.tabActive {
+  border-color: var(--accent);
+  background: var(--accent-weak);
+  color: var(--accent);
+}
+.modalBody {
+  padding: var(--space-5);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.label {
+  font-size: var(--fs-2xs);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.input,
+.textarea {
+  width: 100%;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.55rem 0.7rem;
+  color: var(--text);
+  font-size: var(--fs-sm);
+  font-family: inherit;
+}
+.input:focus,
+.textarea:focus {
+  outline: none;
+  border-color: var(--focus-ring);
+  background: var(--panel-hover);
+}
+/* The role-key field is a code identifier — set it in mono. */
+.inputMono {
+  font-family: var(--font-mono);
+}
+.input:disabled {
+  color: var(--muted);
+  cursor: not-allowed;
+}
+.textarea {
+  min-height: 220px;
+  resize: vertical;
+  line-height: 1.55;
+  font-family: var(--font-mono);
+}
+/* Markdown preview pane in the dialog — frame matches a textarea so the toggle
+   doesn't jump. The <Markdown> renderer supplies its own block styling. */
+.preview {
+  min-height: 220px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.7rem;
+  color: var(--text);
+  font-size: var(--fs-sm);
+  line-height: 1.55;
+  word-break: break-word;
+  overflow-y: auto;
+}
+.hint {
+  font-size: var(--fs-2xs);
+  color: var(--faint);
+  line-height: 1.5;
+}
+.modalFoot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--border);
+}
+.spacer {
+  flex: 1;
+}
+
+/* Inline delete-confirm row inside the dialog footer. */
+.confirm {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-xs);
+  color: var(--danger-text);
+}

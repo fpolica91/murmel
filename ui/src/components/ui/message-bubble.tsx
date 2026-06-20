@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 import { Avatar } from "./avatar";
 import { KindBadge, VerificationBadge, type ParticipantKind } from "./badge";
+import { Markdown } from "./markdown";
 import styles from "./ui.module.css";
 
 /**
@@ -72,7 +73,9 @@ export function MessageBubble({
           <VerificationBadge status={verificationStatus} />
           {time != null && <span className={styles.msgTime}>{time}</span>}
         </div>
-        <div className={styles.msgBubble}>{text}</div>
+        <div className={styles.msgBubble}>
+          <Markdown>{text}</Markdown>
+        </div>
       </div>
     </div>
   );

@@ -8,6 +8,7 @@ import type { IssueComment } from "@/lib/api/comments";
 import { Avatar } from "@/components/ui/avatar";
 import { KindBadge } from "@/components/ui/badge";
 import { stripAuthorPrefix } from "@/components/ui/message-bubble";
+import { Markdown } from "@/components/ui/markdown";
 import styles from "./issue-thread.module.css";
 
 /**
@@ -153,7 +154,9 @@ function CommentRow({ comment }: { comment: IssueComment }) {
             </span>
           ) : null}
         </div>
-        <div className={styles.commentBody}>{body}</div>
+        <div className={styles.commentBody}>
+          <Markdown>{body}</Markdown>
+        </div>
       </div>
     </li>
   );

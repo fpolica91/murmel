@@ -4,7 +4,7 @@ import { Fragment } from "react";
 import { useRouter } from "next/navigation";
 
 import type { Epic, Issue, Story } from "@/lib/api/types";
-import { AssigneeChip, StatusBadge } from "./issue-badges";
+import { AssigneeChip, BlockedBadge, StatusBadge } from "./issue-badges";
 import styles from "./work.module.css";
 
 const NO_EPIC = "__no_epic__";
@@ -19,10 +19,13 @@ export function ListView({
   issues,
   epics,
   stories,
+  blockedIds,
 }: {
   issues: Issue[];
   epics: Epic[];
   stories: Story[];
+  /** Ids of issues blocked by an unfinished dependency (per-row badge). */
+  blockedIds?: Set<string>;
 }) {
   const router = useRouter();
 
@@ -84,7 +87,18 @@ export function ListView({
                   >
                     <td style={{ paddingLeft: "2.75rem" }}>{issue.title}</td>
                     <td>
-                      <StatusBadge status={issue.status} />
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "0.35rem",
+                        }}
+                      >
+                        <StatusBadge status={issue.status} />
+                        {blockedIds?.has(issue.issue_id) ? (
+                          <BlockedBadge />
+                        ) : null}
+                      </span>
                     </td>
                     <td>
                       <AssigneeChip

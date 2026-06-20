@@ -9,18 +9,21 @@ import {
   type Issue,
   type IssueStatus,
 } from "@/lib/api/types";
-import { AssigneeChip } from "./issue-badges";
+import { AssigneeChip, BlockedBadge } from "./issue-badges";
 import styles from "./work.module.css";
 
 /** Compact issue card. The title links to the detail view; the card is
  * draggable between columns (drop = PATCH via onStatusChange) and the status
- * select is the keyboard-accessible fallback for the same move. */
+ * select is the keyboard-accessible fallback for the same move. A "Blocked"
+ * badge shows when the issue is held up by an unfinished dependency. */
 export function IssueCard({
   issue,
   onStatusChange,
+  blocked = false,
 }: {
   issue: Issue;
   onStatusChange?: (issueId: string, status: IssueStatus) => void;
+  blocked?: boolean;
 }) {
   const [dragging, setDragging] = useState(false);
   // Only draggable when a status-change handler is wired (board view).
@@ -53,6 +56,7 @@ export function IssueCard({
           assigneeType={issue.assignee_type}
           assigneeId={issue.assignee_id}
         />
+        {blocked ? <BlockedBadge /> : null}
         {issue.comment_count ? (
           <span className={styles.commentCount} title="Comments">
             💬 {issue.comment_count}

@@ -158,6 +158,12 @@ class IssueDependenciesResponse(BaseModel):
     blocks: list[dict] = Field(default_factory=list)
 
 
+class AddDependencyRequest(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    depends_on_id: str = Field(..., min_length=1, max_length=64)
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -481,6 +487,78 @@ async def get_issue_dependencies(
 ) -> IssueDependenciesResponse:
     """Dependency neighbours of an issue: what blocks it and what it blocks."""
     try:
+        deps = await hierarchy_service.get_issue_dependencies(
+            db,
+            team_id=identity.team_id,
+            issue_id=issue_id,
+        )
+    except ServiceError as exc:
+        _raise_http(exc)
+    return IssueDependenciesResponse(
+        issue_id=issue_id,
+        blocked_by=deps["blocked_by"],
+        blocks=deps["blocks"],
+    )
+
+
+@router.post(
+    "/issues/{issue_id}/dependencies",
+    response_model=IssueDependenciesResponse,
+    status_code=201,
+)
+async def add_issue_dependency(
+    request: Request,
+    issue_id: str,
+    payload: AddDependencyRequest,
+    db=Depends(get_db),
+    identity: TeamIdentity = Depends(get_team_identity),
+) -> IssueDependenciesResponse:
+    """Record that ``issue_id`` depends on (is blocked by) ``depends_on_id``.
+
+    Self-dependencies and cycles are rejected by the service (mapped to 4xx);
+    a missing issue on either side is a 404. Returns the issue's fresh
+    dependency neighbours (same shape as ``GET .../dependencies``)."""
+    try:
+        await hierarchy_service.add_issue_dependency(
+            db,
+            team_id=identity.team_id,
+            issue_id=issue_id,
+            depends_on_id=payload.depends_on_id,
+        )
+        deps = await hierarchy_service.get_issue_dependencies(
+            db,
+            team_id=identity.team_id,
+            issue_id=issue_id,
+        )
+    except ServiceError as exc:
+        _raise_http(exc)
+    return IssueDependenciesResponse(
+        issue_id=issue_id,
+        blocked_by=deps["blocked_by"],
+        blocks=deps["blocks"],
+    )
+
+
+@router.delete(
+    "/issues/{issue_id}/dependencies/{depends_on_id}",
+    response_model=IssueDependenciesResponse,
+)
+async def remove_issue_dependency(
+    request: Request,
+    issue_id: str,
+    depends_on_id: str,
+    db=Depends(get_db),
+    identity: TeamIdentity = Depends(get_team_identity),
+) -> IssueDependenciesResponse:
+    """Remove the ``issue_id -> depends_on_id`` dependency edge and return the
+    issue's fresh dependency neighbours."""
+    try:
+        await hierarchy_service.remove_issue_dependency(
+            db,
+            team_id=identity.team_id,
+            issue_id=issue_id,
+            depends_on_id=depends_on_id,
+        )
         deps = await hierarchy_service.get_issue_dependencies(
             db,
             team_id=identity.team_id,

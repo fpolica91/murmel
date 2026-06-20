@@ -39,6 +39,7 @@ from .routes.service_registration import router as service_registration_router
 from .routes.status import router as status_router
 from .coordination.routes.team_instructions import instructions_router
 from .coordination.routes.team_roles import roles_router
+from .coordination.routes.memories import memories_router
 from .coordination.routes.repos import router as repos_router
 from .coordination.routes.workspaces import router as workspaces_router
 
@@ -452,6 +453,7 @@ def create_app(
     app.include_router(status_router)
     app.include_router(instructions_router)
     app.include_router(roles_router)
+    app.include_router(memories_router)
     app.include_router(workspaces_router)
     app.include_router(repos_router)
     # Simple-auth (Better Auth JWT) additive routers. Membership admin and the

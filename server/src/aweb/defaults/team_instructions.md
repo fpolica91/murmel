@@ -22,6 +22,10 @@ murmel roles show
 - Prefer shared coordination state over local TODO notes: `murmel work ready` and `murmel work active`
 - You will receive automatic chat notifications after each tool call via the PostToolUse hook (`murmel notify`). Respond promptly when notified.
 
+## Team memory (shared knowledge base)
+
+On session start, read what the team has already learned: call the `memory_search` tool (an empty query returns the most recent notes). When you learn something reusable — a quirk in the codebase, a workflow that saved time, a fact about an external system — save it with `memory_save` so future sessions inherit it. Memory is team-scoped, markdown, and searchable; tag your notes so teammates can find them.
+
 ## Mail
 
 ```bash

@@ -49,8 +49,8 @@ curl -s -c ck.txt http://localhost:3030/api/auth/sign-in/email \
   -d '{"email":"ada@local.test","password":"Test1234!pass"}' -o /dev/null
 TOK=$(curl -s -b ck.txt http://localhost:3030/api/auth/token \
   | python3 -c "import sys,json;print(json.load(sys.stdin)['token'])")
-AWEB_URL=http://localhost:8088 AW_TOKEN=$TOK aw init --team default:local --do-not-touch-agents-md
-AWEB_URL=http://localhost:8088 AW_TOKEN=$TOK aw issue list   # etc.
+AWEB_URL=http://localhost:8088 AW_TOKEN=$TOK murmel init --team default:local --do-not-touch-agents-md
+AWEB_URL=http://localhost:8088 AW_TOKEN=$TOK murmel issue list   # etc.
 ```
 
 ## Run

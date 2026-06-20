@@ -91,6 +91,24 @@ export interface CommentListResponse {
   comments: Comment[];
 }
 
+/** A dependency-graph neighbour of an issue (a blocking or blocked issue). */
+export interface IssueDependencyRef {
+  issue_id: string;
+  title: string;
+  status: IssueStatus;
+}
+
+/**
+ * Dependency neighbours of an issue, returned by
+ * `GET/POST/DELETE /v1/issues/{id}/dependencies`. `blocked_by` are the issues
+ * THIS one depends on (its blockers); `blocks` are the issues that depend on it.
+ */
+export interface IssueDependencies {
+  issue_id: string;
+  blocked_by: IssueDependencyRef[];
+  blocks: IssueDependencyRef[];
+}
+
 export interface CreateEpicInput {
   title: string;
   status?: string;

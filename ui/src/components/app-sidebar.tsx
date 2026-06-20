@@ -11,12 +11,17 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { UserBadge } from "@/components/user-badge";
 import { useTeam } from "@/components/team-context";
 import { listChatConversations } from "@/lib/api/chat";
+import { listInbox } from "@/lib/api/mail";
 import { subscribeEvents } from "@/lib/events/eventStream";
 import {
   ChatIcon,
   CliIcon,
   ConsoleIcon,
+  EpicsIcon,
+  MailIcon,
   MembersIcon,
+  MemoryIcon,
+  RolesIcon,
   WorkIcon,
 } from "@/components/icons";
 
@@ -28,7 +33,11 @@ const NAV_LINKS: ReadonlyArray<{
 }> = [
   { href: "/dashboard", label: "Console", icon: <ConsoleIcon /> },
   { href: "/dashboard/work", label: "Work", icon: <WorkIcon /> },
+  { href: "/dashboard/epics", label: "Epics", icon: <EpicsIcon /> },
   { href: "/dashboard/chat", label: "Chat", icon: <ChatIcon /> },
+  { href: "/dashboard/mail", label: "Mail", icon: <MailIcon /> },
+  { href: "/dashboard/memory", label: "Memory", icon: <MemoryIcon /> },
+  { href: "/dashboard/roles", label: "Roles", icon: <RolesIcon /> },
   { href: "/dashboard/members", label: "Members", icon: <MembersIcon /> },
   { href: "/dashboard/cli", label: "CLI", icon: <CliIcon /> },
 ];
@@ -37,6 +46,7 @@ function DashboardNav() {
   const pathname = usePathname();
   const { activeTeam } = useTeam();
   const [unreadChat, setUnreadChat] = useState(0);
+  const [unreadMail, setUnreadMail] = useState(0);
 
   // Live unread-chat badge: refresh on the SSE event stream (actionable_chat),
   // with a slow poll as a fallback so a dropped stream still updates eventually.
@@ -61,6 +71,35 @@ function DashboardNav() {
     void refresh();
     const unsub = subscribeEvents(activeTeam, (e) => {
       if (e.type === "actionable_chat") void refresh();
+    });
+    const id = setInterval(() => void refresh(), 30000);
+    return () => {
+      cancelled = true;
+      unsub();
+      clearInterval(id);
+    };
+  }, [activeTeam]);
+
+  // Live unread-mail badge: same shape as the chat badge but driven by the
+  // unread inbox count and refreshed on the SSE `actionable_mail` event, with a
+  // 30s poll fallback.
+  useEffect(() => {
+    if (!activeTeam) {
+      setUnreadMail(0);
+      return;
+    }
+    let cancelled = false;
+    const refresh = async () => {
+      try {
+        const unread = await listInbox(activeTeam, { unreadOnly: true });
+        if (!cancelled) setUnreadMail(unread.length);
+      } catch {
+        /* keep the last known count on transient errors */
+      }
+    };
+    void refresh();
+    const unsub = subscribeEvents(activeTeam, (e) => {
+      if (e.type === "actionable_mail") void refresh();
     });
     const id = setInterval(() => void refresh(), 30000);
     return () => {
@@ -96,6 +135,14 @@ function DashboardNav() {
               aria-label={`${unreadChat} unread`}
             >
               {unreadChat > 99 ? "99+" : unreadChat}
+            </span>
+          ) : null}
+          {link.href === "/dashboard/mail" && unreadMail > 0 ? (
+            <span
+              className="sidebar-badge"
+              aria-label={`${unreadMail} unread`}
+            >
+              {unreadMail > 99 ? "99+" : unreadMail}
             </span>
           ) : null}
         </Link>

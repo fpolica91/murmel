@@ -1,0 +1,205 @@
+/* Rendered Markdown for body text (chat, issues, comments, memory). Tight,
+   readable, dark-first. Pulls every colour/space/radius from the globals.css
+   tokens so it tracks the theme (incl. light) with no hardcoded surfaces. */
+
+.md {
+  color: var(--text);
+  font-size: var(--fs-base);
+  line-height: var(--lh-relaxed);
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  /* Defeat an inherited `white-space: pre-wrap` from a host container (some
+     body wrappers still carry it) — Markdown manages its own line breaks. */
+  white-space: normal;
+}
+
+/* Collapse the outer margins so the block fits flush in a bubble/card. */
+.md > :first-child {
+  margin-top: 0;
+}
+.md > :last-child {
+  margin-bottom: 0;
+}
+
+.md p {
+  margin: 0 0 var(--space-3);
+}
+
+/* Headings: scaled down a notch — body copy, not page chrome. */
+.md h1,
+.md h2,
+.md h3,
+.md h4,
+.md h5,
+.md h6 {
+  margin: var(--space-4) 0 var(--space-2);
+  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+}
+.md h1 {
+  font-size: var(--fs-lg);
+}
+.md h2 {
+  font-size: var(--fs-md);
+}
+.md h3 {
+  font-size: var(--fs-base);
+}
+.md h4,
+.md h5,
+.md h6 {
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+
+.md ul,
+.md ol {
+  margin: 0 0 var(--space-3);
+  padding-left: var(--space-6);
+}
+.md li {
+  margin: var(--space-1) 0;
+}
+.md li > ul,
+.md li > ol {
+  margin: var(--space-1) 0 0;
+}
+
+/* GFM task-list checkboxes: align with their text, leave them disabled. */
+.md li input[type="checkbox"] {
+  margin-right: var(--space-2);
+  vertical-align: middle;
+}
+.md li:has(> input[type="checkbox"]) {
+  list-style: none;
+  margin-left: calc(-1 * var(--space-5));
+}
+
+.md a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.md a:hover {
+  text-decoration: underline;
+}
+
+.md strong {
+  font-weight: 600;
+}
+.md em {
+  font-style: italic;
+}
+.md del {
+  color: var(--faint);
+}
+
+.md blockquote {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-1) var(--space-4);
+  border-left: 3px solid var(--border-strong);
+  color: var(--muted);
+}
+.md blockquote > :last-child {
+  margin-bottom: 0;
+}
+
+.md hr {
+  margin: var(--space-4) 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+/* Inline code. */
+.inlineCode {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  background: var(--control);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.05em 0.35em;
+  word-break: break-all;
+}
+
+/* Fenced code block: a panel-elevated <pre> with the copy toggle pinned in the
+   top-right. The wrapper provides positioning context + scroll. */
+.codeWrap {
+  position: relative;
+  margin: 0 0 var(--space-3);
+}
+
+.codeWrap pre {
+  margin: 0;
+  padding: var(--space-3);
+  padding-right: var(--space-8); /* clear the copy button */
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--text);
+}
+
+/* The <code> inside a fenced block is bare — no inline pill styling. */
+.codeWrap pre code {
+  font-family: inherit;
+  font-size: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+}
+
+.copyBtn {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  background: var(--control);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: var(--radius-sm);
+  padding: 0.15rem 0.5rem;
+  font-size: var(--fs-3xs);
+  font-family: var(--font-sans);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+/* Reveal on hover/focus of the block; keep it visible once focused for a11y. */
+.codeWrap:hover .copyBtn,
+.copyBtn:focus-visible {
+  opacity: 1;
+}
+.copyBtn:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+
+/* Tables (GFM). */
+.md table {
+  width: 100%;
+  margin: 0 0 var(--space-3);
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+  display: block;
+  overflow-x: auto;
+}
+.md th,
+.md td {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+.md th {
+  background: var(--bg-elev);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.md img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-sm);
+}

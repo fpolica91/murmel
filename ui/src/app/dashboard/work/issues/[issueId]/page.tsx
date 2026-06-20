@@ -9,6 +9,8 @@ import { useTeam } from "@/components/team-context";
 import { AssigneePicker } from "@/components/work/assignee-picker";
 import { IssueThread } from "@/components/work/issue-thread";
 import { StatusBadge } from "@/components/work/issue-badges";
+import { DependenciesSection } from "@/components/work/dependencies-section";
+import { Markdown } from "@/components/ui/markdown";
 import workStyles from "@/components/work/work.module.css";
 
 /**
@@ -123,9 +125,12 @@ export default function IssueDetailPage({
           {issue.description ? (
             <>
               <h2 className={workStyles.sectionTitle}>Description</h2>
-              <p className={workStyles.description}>{issue.description}</p>
+              <Markdown>{issue.description}</Markdown>
             </>
           ) : null}
+
+          <h2 className={workStyles.sectionTitle}>Dependencies</h2>
+          <DependenciesSection issueId={issue.issue_id} />
 
           <h2 className={workStyles.sectionTitle}>Conversation</h2>
           <IssueThread issueId={issue.issue_id} teamId={activeTeam} />

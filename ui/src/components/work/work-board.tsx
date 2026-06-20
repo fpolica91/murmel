@@ -8,62 +8,85 @@ import { BoardView } from "./board-view";
 import { HierarchyBar } from "./hierarchy-bar";
 import { ListView } from "./list-view";
 import { NewIssueForm } from "./new-issue-form";
-import { WorkFilters, type WorkFilterState } from "./work-filters";
+import {
+  WorkFilters,
+  type WorkFilterState,
+  type WorkLens,
+} from "./work-filters";
 import styles from "./work.module.css";
 
 type ViewMode = "board" | "list";
 
 /**
- * Top-level work surface: board/list toggle, assignee + status filters, and the
- * Epic -> Story -> Issue data load. Status/assignee filters are pushed to the
- * server query; epics + stories are loaded once to resolve titles in the list
+ * Top-level work surface: board/list toggle, a work lens (All / Ready /
+ * Blocked), assignee + status filters, and the Epic -> Story -> Issue data
+ * load. Status/assignee filters are pushed to the server query; the Ready /
+ * Blocked lenses are server-computed slices of the dependency graph. We always
+ * load the blocked set so every card shows a "Blocked" badge regardless of the
+ * active lens. Epics + stories are loaded to resolve titles in the list
  * grouping.
  */
 export function WorkBoard() {
   const [view, setView] = useState<ViewMode>("board");
+  const [lens, setLens] = useState<WorkLens>("all");
   const [filters, setFilters] = useState<WorkFilterState>({});
 
   const [issues, setIssues] = useState<Issue[]>([]);
   const [epics, setEpics] = useState<Epic[]>([]);
   const [stories, setStories] = useState<Story[]>([]);
+  // Ids of issues blocked by an unfinished dependency (drives the per-card
+  // "Blocked" badge). Always loaded, even when the lens is "all".
+  const [blockedIds, setBlockedIds] = useState<Set<string>>(new Set());
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async (active: WorkFilterState) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [issueList, epicList, storyList] = await Promise.all([
-        workApi.listIssues({
-          status: active.status,
-          assignee_type: active.assignee_type,
-          assignee_id: active.assignee_id,
-          epic_id: active.epic_id,
-          story_id: active.story_id,
-        }),
-        workApi.listEpics(),
-        workApi.listStories(),
-      ]);
-      setIssues(issueList);
-      setEpics(epicList);
-      setStories(storyList);
-    } catch (err) {
-      const message =
-        err instanceof ApiError
-          ? `${err.message} (${err.status})`
-          : err instanceof Error
-            ? err.message
-            : "Failed to load work items.";
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const load = useCallback(
+    async (activeLens: WorkLens, active: WorkFilterState) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const issuesP =
+          activeLens === "ready"
+            ? workApi.listReady()
+            : activeLens === "blocked"
+              ? workApi.listBlocked()
+              : workApi.listIssues({
+                  status: active.status,
+                  assignee_type: active.assignee_type,
+                  assignee_id: active.assignee_id,
+                  epic_id: active.epic_id,
+                  story_id: active.story_id,
+                });
+        const [issueList, epicList, storyList, blockedList] = await Promise.all([
+          issuesP,
+          workApi.listEpics(),
+          workApi.listStories(),
+          // Reuse the lens result when it already IS the blocked set.
+          activeLens === "blocked" ? issuesP : workApi.listBlocked(),
+        ]);
+        setIssues(issueList);
+        setEpics(epicList);
+        setStories(storyList);
+        setBlockedIds(new Set(blockedList.map((i) => i.issue_id)));
+      } catch (err) {
+        const message =
+          err instanceof ApiError
+            ? `${err.message} (${err.status})`
+            : err instanceof Error
+              ? err.message
+              : "Failed to load work items.";
+        setError(message);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
-    void load(filters);
-  }, [filters, load]);
+    void load(lens, filters);
+  }, [lens, filters, load]);
 
   const changeStatus = useCallback(
     async (issueId: string, status: IssueStatus) => {
@@ -80,10 +103,10 @@ export function WorkBoard() {
             : "Failed to update status.",
         );
       } finally {
-        void load(filters);
+        void load(lens, filters);
       }
     },
-    [filters, load],
+    [lens, filters, load],
   );
 
   return (
@@ -109,6 +132,8 @@ export function WorkBoard() {
         <WorkFilters
           value={filters}
           onChange={setFilters}
+          lens={lens}
+          onLensChange={setLens}
           epics={epics}
           stories={stories}
         />
@@ -118,7 +143,7 @@ export function WorkBoard() {
           type="button"
           className="btn"
           style={{ width: "auto", marginTop: 0 }}
-          onClick={() => void load(filters)}
+          onClick={() => void load(lens, filters)}
         >
           Refresh
         </button>
@@ -131,9 +156,9 @@ export function WorkBoard() {
         <NewIssueForm
           epics={epics}
           stories={stories}
-          onCreated={() => void load(filters)}
+          onCreated={() => void load(lens, filters)}
         />
-        <HierarchyBar epics={epics} onChanged={() => void load(filters)} />
+        <HierarchyBar epics={epics} onChanged={() => void load(lens, filters)} />
       </div>
 
       {error && <div className={styles.error}>{error}</div>}
@@ -141,9 +166,18 @@ export function WorkBoard() {
       {loading ? (
         <p className={styles.empty}>Loading work items…</p>
       ) : view === "board" ? (
-        <BoardView issues={issues} onStatusChange={changeStatus} />
+        <BoardView
+          issues={issues}
+          onStatusChange={changeStatus}
+          blockedIds={blockedIds}
+        />
       ) : (
-        <ListView issues={issues} epics={epics} stories={stories} />
+        <ListView
+          issues={issues}
+          epics={epics}
+          stories={stories}
+          blockedIds={blockedIds}
+        />
       )}
     </div>
   );

@@ -57,6 +57,16 @@ export function ChatIcon(props: IconProps) {
   );
 }
 
+/** Mail — envelope. */
+export function MailIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="m3 7 9 6 9-6" />
+    </svg>
+  );
+}
+
 /** Members — people. */
 export function MembersIcon(props: IconProps) {
   return (
@@ -65,6 +75,38 @@ export function MembersIcon(props: IconProps) {
       <circle cx="9" cy="7" r="4" />
       <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
       <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  );
+}
+
+/** Memory — open book (shared knowledge base). */
+export function MemoryIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M12 7v13" />
+      <path d="M3 5.5A2 2 0 0 1 5 4h4a3 3 0 0 1 3 3 3 3 0 0 1 3-3h4a2 2 0 0 1 2 1.5" />
+      <path d="M3 5.5V19a1 1 0 0 0 1 1h6a2 2 0 0 1 2 1 2 2 0 0 1 2-1h6a1 1 0 0 0 1-1V5.5" />
+    </svg>
+  );
+}
+
+/** Epics — stacked layers (an epic groups issues). */
+export function EpicsIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="m12 2 9 5-9 5-9-5 9-5Z" />
+      <path d="m3 12 9 5 9-5" />
+      <path d="m3 17 9 5 9-5" />
+    </svg>
+  );
+}
+
+/** Roles — shield with a check (the playbook an agent is assigned). */
+export function RolesIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" />
+      <path d="m9 12 2 2 4-4" />
     </svg>
   );
 }

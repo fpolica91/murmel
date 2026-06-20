@@ -30,3 +30,6 @@ e2e/artifacts/
 e2e/.trace/
 test-results/
 playwright-report/
+
+*storybook.log
+storybook-static

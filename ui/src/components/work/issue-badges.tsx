@@ -19,6 +19,22 @@ export function StatusBadge({ status }: { status: IssueStatus }) {
 }
 
 /**
+ * "Blocked" pill shown on cards/rows when an issue is held up by at least one
+ * unfinished dependency. `count` (when known) is surfaced in the tooltip.
+ */
+export function BlockedBadge({ count }: { count?: number }) {
+  const title =
+    count && count > 0
+      ? `Blocked by ${count} unfinished ${count === 1 ? "dependency" : "dependencies"}`
+      : "Blocked by an unfinished dependency";
+  return (
+    <span className={`${styles.badge} ${styles.blocked}`} title={title}>
+      Blocked
+    </span>
+  );
+}
+
+/**
  * Assignee chip: the shared Avatar (colour-coded by human vs agent, one
  * initials rule) plus the id. Renders an "Unassigned" placeholder when no
  * assignee is set.

@@ -393,6 +393,14 @@
   color: var(--good-text);
 }
 
+/* "Blocked" indicator — an issue held up by an unfinished dependency. Reuses
+   the pill but reads as a warning, distinct from the status colours. */
+.badge.blocked {
+  border-color: var(--danger-border);
+  color: var(--danger-text);
+  background: var(--danger-bg);
+}
+
 /* ---- List -------------------------------------------------------------- */
 /* Horizontal scroll container so the 3-column table stays legible on phones. */
 .listScroll {
@@ -509,6 +517,98 @@
   color: var(--muted);
   font-size: var(--fs-sm);
   text-align: center;
+}
+
+/* ---- Dependencies (issue detail) --------------------------------------- */
+.deps {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.depsGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.depsHeading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.depsList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.depsItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  background: var(--control);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.4rem 0.6rem;
+}
+
+.depLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.depLink a {
+  color: var(--accent);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.depLink a:hover {
+  text-decoration: underline;
+}
+
+.depRemove {
+  flex: none;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: var(--fs-md);
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0.25rem;
+  border-radius: var(--radius-sm);
+}
+
+.depRemove:hover:not(:disabled) {
+  color: var(--danger-text);
+  background: var(--panel);
+}
+
+.depRemove:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.depAdd {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
 }
 
 .breadcrumb {
