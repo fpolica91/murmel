@@ -4,17 +4,13 @@
   "private": true,
   "description": "aweb simple-auth UI: Next.js App Router shell with Better Auth as the JWT issuer (JWKS), SSO login, and a team switcher.",
   "type": "module",
-  "types": "src/ds-entry.d.ts",
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",
     "start": "next start -p 3000",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "db:migrate": "node ./scripts/migrate.mjs",
-    "test:e2e": "playwright test",
-    "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "db:migrate": "node ./scripts/migrate.mjs"
   },
   "dependencies": {
     "better-auth": "^1.2.7",
@@ -26,30 +22,10 @@
     "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
-    "@chromatic-com/storybook": "^5.2.1",
-    "@playwright/test": "^1.61.0",
-    "@storybook/addon-a11y": "^10.4.6",
-    "@storybook/addon-docs": "^10.4.6",
-    "@storybook/addon-mcp": "^0.6.0",
-    "@storybook/addon-vitest": "^10.4.6",
-    "@storybook/nextjs-vite": "^10.4.6",
     "@types/node": "^22.13.0",
     "@types/pg": "^8.11.10",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
-    "@vitest/browser-playwright": "^4.1.9",
-    "@vitest/coverage-v8": "^4.1.9",
-    "msw": "^2.14.6",
-    "msw-storybook-addon": "^2.0.7",
-    "playwright": "^1.61.0",
-    "storybook": "^10.4.6",
-    "typescript": "^5.8.0",
-    "vite": "^8.0.16",
-    "vitest": "^4.1.9"
-  },
-  "msw": {
-    "workerDirectory": [
-      "public"
-    ]
+    "typescript": "^5.8.0"
   }
 }
