@@ -193,49 +193,6 @@
   color: var(--muted);
 }
 
-/* ---- Role control (operator role assignment) ------------------------- */
-/* A compact picker slotted between the identity block and presence. Mirrors
-   the work-filters select idiom (control bg, subtle border) so it reads as a
-   native, low-emphasis affordance rather than a primary action. */
-.roleControl {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.2rem;
-  flex-shrink: 0;
-}
-
-.roleSelect {
-  background: var(--control);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 0.3rem 0.55rem;
-  font-size: var(--fs-2xs);
-  max-width: 11rem;
-}
-
-.roleSelect:hover {
-  border-color: var(--border-strong);
-}
-
-.roleSelect:focus {
-  outline: none;
-  border-color: var(--focus-ring);
-}
-
-.roleSelect:disabled {
-  opacity: 0.6;
-  cursor: progress;
-}
-
-.roleError {
-  font-size: var(--fs-3xs);
-  color: var(--danger-text);
-  max-width: 11rem;
-  text-align: right;
-}
-
 /* ---- Presence (right side) ------------------------------------------- */
 .presence {
   display: flex;
