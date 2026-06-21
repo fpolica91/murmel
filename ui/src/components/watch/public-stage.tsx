@@ -9,6 +9,7 @@ import type { Issue } from "@/lib/api/types";
 import { deriveStage } from "./stage-derive";
 import { StageView } from "./stage-view";
 import { useShipDetector } from "./use-ship";
+import styles from "./suggest.module.css";
 
 const API_BASE = (
   process.env.NEXT_PUBLIC_AWEB_API_URL ?? "http://localhost:8000"
@@ -38,6 +39,7 @@ interface StagePayload {
   }>;
   claims: Array<{ task_ref: string; alias: string; claimed_at: string | null }>;
   chat: Array<{ from: string; body: string; ts: string | null }>;
+  suggestions?: Array<{ idea: string; ts: number }>;
 }
 
 /**
@@ -55,6 +57,12 @@ export function PublicStage() {
     {},
   );
   const [team, setTeam] = useState("the team");
+  const [suggestions, setSuggestions] = useState<
+    Array<{ idea: string; ts: number }>
+  >([]);
+  const [draft, setDraft] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const [state, setState] = useState<"loading" | "ok" | "off" | "err">(
     "loading",
   );
@@ -124,11 +132,43 @@ export function PublicStage() {
       setRoster(ros);
       setSays(sayMap);
       setTeam(d.team || "the team");
+      setSuggestions(d.suggestions ?? []);
       setState("ok");
     } catch {
       setState((s) => (s === "ok" ? "ok" : "err"));
     }
   }, []);
+
+  const submitIdea = useCallback(async () => {
+    const idea = draft.trim();
+    if (!idea || submitting) return;
+    setSubmitting(true);
+    setNotice(null);
+    try {
+      const res = await fetch(`${API_BASE}/v1/public/stage/suggest`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ idea }),
+      });
+      if (res.status === 429) {
+        setNotice("Easy there — a few per minute. Try again shortly.");
+        return;
+      }
+      if (!res.ok) {
+        setNotice("Couldn’t add that. Try again.");
+        return;
+      }
+      setDraft("");
+      // optimistic: show it at the top immediately
+      setSuggestions((prev) => [{ idea, ts: Date.now() / 1000 }, ...prev].slice(0, 20));
+      setNotice("Added — watch for it on the board ↓");
+      void refresh();
+    } catch {
+      setNotice("Couldn’t reach the stage. Try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }, [draft, submitting, refresh]);
 
   useEffect(() => {
     void refresh();
@@ -152,5 +192,42 @@ export function PublicStage() {
   if (state === "err" && rows.length === 0)
     return <p className="muted">Couldn’t reach the stage. Retrying…</p>;
 
-  return <StageView view={view} rows={rows} ship={ship} />;
+  return (
+    <>
+      <section className={styles.suggest}>
+        <div className={styles.suggestRow}>
+          <input
+            className={styles.input}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void submitIdea();
+            }}
+            maxLength={200}
+            placeholder="💡 Suggest what they build next — e.g. “a pomodoro timer”"
+            aria-label="Suggest a build"
+          />
+          <button
+            className={styles.btn}
+            onClick={() => void submitIdea()}
+            disabled={submitting || !draft.trim()}
+          >
+            {submitting ? "Adding…" : "Suggest"}
+          </button>
+        </div>
+        {notice ? <div className={styles.notice}>{notice}</div> : null}
+        {suggestions.length > 0 ? (
+          <div className={styles.queue} aria-label="Recent suggestions">
+            <span className={styles.queueLabel}>Up next</span>
+            {suggestions.slice(0, 8).map((s, i) => (
+              <span key={`${s.ts}-${i}`} className={styles.chip} title={s.idea}>
+                {s.idea}
+              </span>
+            ))}
+          </div>
+        ) : null}
+      </section>
+      <StageView view={view} rows={rows} ship={ship} />
+    </>
+  );
 }

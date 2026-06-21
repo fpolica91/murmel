@@ -19,10 +19,14 @@ team-wide chat (across sessions) is intentional and confined to that one team.
 
 from __future__ import annotations
 
+import json
 import os
+import re
+import time
 from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from pydantic import BaseModel, Field
 
 from ..db import DatabaseInfra, get_db_infra
 from ..deps import get_redis
@@ -31,6 +35,37 @@ from ..coordination.hierarchy import list_issues
 from ..presence import list_agent_presences_by_workspace_ids
 
 router = APIRouter(prefix="/v1/public", tags=["public-stage"])
+
+# ── Suggestion box (the public clout loop) ───────────────────────────────────
+# A visitor can append a BUILD IDEA to a queue for the showcase team. This is a
+# write surface, so it is locked down hard: server-configured team only (no
+# client team id), rate-limited per IP, length-capped, control-chars stripped,
+# and — critically — INERT: a suggestion is text in a queue, it never drives an
+# autonomous agent. An operator/agent decides which suggestion to actually
+# build, so untrusted public input can't trigger execution.
+_SUGGEST_MAX_CHARS = 200
+_SUGGEST_KEEP = 40           # recent suggestions retained per team
+_SUGGEST_RL_MAX = 5          # max suggestions per IP per window
+_SUGGEST_RL_WINDOW = 60      # seconds
+_CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+
+
+class SuggestRequest(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    idea: str = Field(..., min_length=1, max_length=_SUGGEST_MAX_CHARS)
+
+
+def _client_ip(request: Request) -> str:
+    """Best-effort client IP, honoring the proxy header Railway sets."""
+    fwd = request.headers.get("x-forwarded-for", "")
+    if fwd:
+        return fwd.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def _clean_idea(idea: str) -> str:
+    return _CONTROL_CHARS.sub("", idea).strip()[:_SUGGEST_MAX_CHARS]
 
 
 def _stage_team() -> Optional[str]:
@@ -157,6 +192,20 @@ async def public_stage(
         for r in chat_rows
     ]
 
+    # ── suggestions: the recent public build-idea queue (inert) ──────────
+    suggestions: list[dict[str, Any]] = []
+    if redis is not None:
+        try:
+            raw = await redis.lrange(f"stage:suggest:{team_id}", 0, 19)
+            for item in raw:
+                try:
+                    s = json.loads(item)
+                    suggestions.append({"idea": s.get("idea"), "ts": s.get("ts")})
+                except (ValueError, TypeError):
+                    continue
+        except Exception:
+            suggestions = []
+
     # short cache: cheap read, blunts public hammering without going stale
     response.headers["Cache-Control"] = "public, max-age=2"
     return {
@@ -165,4 +214,52 @@ async def public_stage(
         "issues": issues,
         "claims": claims,
         "chat": chat,
+        "suggestions": suggestions,
     }
+
+
+@router.post("/stage/suggest")
+async def suggest_build(
+    payload: SuggestRequest,
+    request: Request,
+    redis=Depends(get_redis),
+) -> dict[str, Any]:
+    """Append a public build idea to the showcase team's suggestion queue.
+
+    INERT by design: the idea is queued text that an operator/agent may later
+    choose to build — it never auto-triggers an agent. 404 when no showcase team
+    is configured; 429 when the per-IP rate limit is exceeded; 503 if the queue
+    backend is unavailable.
+    """
+    team_id = _stage_team()
+    if not team_id:
+        raise HTTPException(status_code=404, detail="No public stage configured")
+    if redis is None:
+        raise HTTPException(status_code=503, detail="Suggestion queue unavailable")
+
+    idea = _clean_idea(payload.idea)
+    if not idea:
+        raise HTTPException(status_code=422, detail="idea is empty after cleaning")
+
+    # Per-IP rate limit: a fixed window counter that self-expires.
+    rl_key = f"stage:suggest:rl:{_client_ip(request)}"
+    try:
+        count = await redis.incr(rl_key)
+        if count == 1:
+            await redis.expire(rl_key, _SUGGEST_RL_WINDOW)
+        if count > _SUGGEST_RL_MAX:
+            raise HTTPException(
+                status_code=429,
+                detail=f"Rate limit: max {_SUGGEST_RL_MAX} suggestions per minute.",
+            )
+    except HTTPException:
+        raise
+    except Exception:
+        # If the limiter itself fails, fail closed on the write.
+        raise HTTPException(status_code=503, detail="Suggestion queue unavailable")
+
+    entry = json.dumps({"idea": idea, "ts": int(time.time())})
+    key = f"stage:suggest:{team_id}"
+    await redis.lpush(key, entry)
+    await redis.ltrim(key, 0, _SUGGEST_KEEP - 1)
+    return {"ok": True, "idea": idea}
