@@ -20,6 +20,7 @@ import {
   ConsoleIcon,
   EpicsIcon,
   LeaderboardIcon,
+  LiveIcon,
   MailIcon,
   MembersIcon,
   MemoryIcon,
@@ -34,6 +35,7 @@ const NAV_LINKS: ReadonlyArray<{
   icon: ReactNode;
 }> = [
   { href: "/dashboard", label: "Console", icon: <ConsoleIcon /> },
+  { href: "/dashboard/watch", label: "Live", icon: <LiveIcon /> },
   { href: "/dashboard/work", label: "Work", icon: <WorkIcon /> },
   { href: "/dashboard/epics", label: "Epics", icon: <EpicsIcon /> },
   { href: "/dashboard/chat", label: "Chat", icon: <ChatIcon /> },
