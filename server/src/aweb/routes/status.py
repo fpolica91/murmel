@@ -14,6 +14,7 @@ import logging
 
 from awid.ratelimit import rate_limit_dep
 from aweb.auth import validate_workspace_id
+from aweb.mcp.tools.memory import prime_memories
 from aweb.team_auth_deps import TeamIdentity, get_team_identity
 
 logger = logging.getLogger(__name__)
@@ -330,6 +331,12 @@ async def status(
         }
 
     now = datetime.now(timezone.utc)
+    # Prime: surface the team's recent knowledge so a CLI/REST caller is fed
+    # memory on its first status call, the same way the MCP workspace_status
+    # tool does. Best-effort; never blocks status.
+    memory_prime = await prime_memories(
+        aweb_db, team_id=team_id, alias=getattr(identity, "alias", None), limit=6
+    )
 
     if not workspace_ids:
         return {
@@ -338,6 +345,7 @@ async def status(
             "claims": [],
             "locks": [],
             "conflicts": [],
+            "memory_prime": memory_prime,
             "timestamp": now.isoformat(),
         }
 
@@ -537,6 +545,7 @@ async def status(
         "claims": claims,
         "locks": reservations,
         "conflicts": conflicts,
+        "memory_prime": memory_prime,
         "timestamp": now.isoformat(),
     }
 

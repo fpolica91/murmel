@@ -67,6 +67,7 @@ type workspaceStatusOutput struct {
 	TeamLocks          map[string][]aweb.ReservationView `json:"team_locks,omitempty"`
 	EscalationsPending int                               `json:"escalations_pending"`
 	ConflictCount      int                               `json:"conflict_count"`
+	MemoryPrime        []aweb.CoordinationMemoryNote     `json:"memory_prime,omitempty"`
 }
 
 type workspaceAddWorktreeOutput struct {
@@ -212,6 +213,7 @@ func runWorkspaceStatus(cmd *cobra.Command, args []string) error {
 		TeamLocks:          teamLocks,
 		EscalationsPending: statusResp.EscalationsPending,
 		ConflictCount:      len(statusResp.Conflicts),
+		MemoryPrime:        statusResp.MemoryPrime,
 	}, formatWorkspaceStatus)
 
 	// Opportunistically clean up workspaces whose directories have disappeared.
@@ -1027,6 +1029,33 @@ func formatWorkspaceStatus(v any) string {
 	if out.ConflictCount > 0 {
 		sb.WriteString(fmt.Sprintf("Claim conflicts: %d\n", out.ConflictCount))
 	}
+
+	if len(out.MemoryPrime) > 0 {
+		sb.WriteString("\n## Team memory (recent notes)\n")
+		for _, note := range out.MemoryPrime {
+			title := strings.TrimSpace(note.Title)
+			if title == "" {
+				title = "(untitled)"
+			}
+			meta := []string{}
+			if len(note.Tags) > 0 {
+				meta = append(meta, strings.Join(note.Tags, ", "))
+			}
+			if strings.TrimSpace(note.PrivateTo) != "" {
+				meta = append(meta, "private: "+strings.TrimSpace(note.PrivateTo))
+			}
+			line := "- " + title
+			if len(meta) > 0 {
+				line += " [" + strings.Join(meta, " · ") + "]"
+			}
+			sb.WriteString(line + "\n")
+			if snip := strings.TrimSpace(note.Snippet); snip != "" {
+				sb.WriteString("  " + snip + "\n")
+			}
+		}
+		sb.WriteString("Run `murmel memory search` for the full notes.\n")
+	}
+
 	return sb.String()
 }
 

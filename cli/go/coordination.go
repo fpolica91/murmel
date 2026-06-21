@@ -69,6 +69,16 @@ type CoordinationReservation struct {
 	Metadata            map[string]any `json:"metadata,omitempty"`
 }
 
+// CoordinationMemoryNote is one primed team knowledge note surfaced on status.
+type CoordinationMemoryNote struct {
+	ID        string   `json:"id"`
+	Title     string   `json:"title"`
+	Tags      []string `json:"tags"`
+	Updated   string   `json:"updated"`
+	PrivateTo string   `json:"private_to"`
+	Snippet   string   `json:"snippet"`
+}
+
 type CoordinationStatusResponse struct {
 	Workspace          CoordinationWorkspace     `json:"workspace"`
 	Agents             []CoordinationAgent       `json:"agents"`
@@ -76,7 +86,9 @@ type CoordinationStatusResponse struct {
 	Conflicts          []CoordinationConflict    `json:"conflicts"`
 	Locks              []CoordinationReservation `json:"locks,omitempty"`
 	EscalationsPending int                       `json:"escalations_pending"`
-	Timestamp          string                    `json:"timestamp"`
+	// Team's recent knowledge notes — primes an agent on its first status call.
+	MemoryPrime []CoordinationMemoryNote `json:"memory_prime,omitempty"`
+	Timestamp   string                   `json:"timestamp"`
 }
 
 func (c *Client) CoordinationStatus(ctx context.Context, workspaceID string) (*CoordinationStatusResponse, error) {
