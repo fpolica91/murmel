@@ -10,7 +10,10 @@ from __future__ import annotations
 
 import json
 
+import os as _os
+
 from aweb.coordination.compaction import compact_issue
+from aweb.integrations.linear_pull import LinearError, pull_linear
 from aweb.coordination.hierarchy import (
     add_issue_comment,
     add_issue_dependency,
@@ -287,6 +290,29 @@ async def issues_compact(db_infra, *, issue_id: str, summary: str) -> str:
         )
     except (NotFoundError, ValidationError) as exc:
         return json.dumps({"error": exc.detail})
+    return json.dumps(result)
+
+
+async def linear_pull(db_infra, *, linear_team_key: str = "") -> str:
+    """Pull issues from Linear into the authenticated team (one-way, idempotent:
+    re-pull updates, never duplicates). Optionally pass a Linear team key (e.g.
+    "ENG") to import just that team. Imported issues land unassigned and carry
+    their Linear identifier. Requires LINEAR_API_KEY configured on the server."""
+    auth, error = require_team_context()
+    if auth is None:
+        return error or json.dumps({"error": "This tool requires team context."})
+    api_key = (_os.getenv("LINEAR_API_KEY") or "").strip()
+    if not api_key:
+        return json.dumps({"error": "LINEAR_API_KEY is not configured; Linear pull is disabled."})
+    try:
+        result = await pull_linear(
+            db_infra,
+            team_id=auth.team_id,
+            api_key=api_key,
+            linear_team_key=linear_team_key or None,
+        )
+    except LinearError as exc:
+        return json.dumps({"error": str(exc)})
     return json.dumps(result)
 
 

@@ -28,6 +28,7 @@ from .routes.conversations import router as conversations_router
 from .routes.events import router as events_router
 from .routes.federation import router as federation_router
 from .routes.hierarchy import router as hierarchy_router
+from .routes.integrations import router as integrations_router
 from .routes.public_stage import router as public_stage_router
 from .routes.members import router as members_router
 from .routes.members import hint_router as memberships_hint_router
@@ -472,6 +473,7 @@ def create_app(
     app.include_router(presence_router)
     app.include_router(hierarchy_router)
     app.include_router(public_stage_router)
+    app.include_router(integrations_router)
 
     return app
 
