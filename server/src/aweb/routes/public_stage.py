@@ -115,6 +115,8 @@ async def public_stage(
             "status": i.get("status") or "todo",
             "assignee_type": i.get("assignee_type"),
             "assignee_id": i.get("assignee_id"),
+            "pinned": bool(i.get("pinned") or False),
+            "is_blocked": bool(i.get("is_blocked") or False),
             "created_at": _iso(i.get("created_at")),
             "updated_at": _iso(i.get("updated_at")),
         }

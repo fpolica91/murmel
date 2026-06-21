@@ -59,7 +59,10 @@
 /* ---- Board ------------------------------------------------------------- */
 .board {
   display: grid;
-  grid-template-columns: repeat(4, minmax(220px, 1fr));
+  /* One track per status (todo, in_progress, in_review, done, blocked,
+     deferred). Min width keeps lanes legible; the board scrolls horizontally
+     when they don't all fit. */
+  grid-template-columns: repeat(6, minmax(208px, 1fr));
   gap: 1rem;
   /* stretch so every column shares the tallest column's height (M4): an
      empty column fills to match its siblings instead of collapsing. */
@@ -494,6 +497,17 @@
   border-color: var(--danger-border);
   color: var(--danger-text);
   background: var(--danger-bg);
+}
+.badge.deferred {
+  border-color: var(--border-strong);
+  color: var(--faint);
+  opacity: 0.85;
+}
+
+/* Pin marker prefixed on a pinned issue's title. */
+.pin {
+  font-size: 0.8em;
+  vertical-align: middle;
 }
 
 /* ---- List -------------------------------------------------------------- */

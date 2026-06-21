@@ -69,6 +69,46 @@ def memories_to_xml(mems: list[MemoryView]) -> str:
     return f'<memories count="{len(mems)}">\n{inner}\n</memories>'
 
 
+def _snippet(body: str, limit: int = 180) -> str:
+    """First line / first ``limit`` chars of a note body, for compact priming."""
+    text = " ".join((body or "").split())
+    return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
+
+
+async def prime_memories(
+    aweb_db, *, team_id: str, alias: str | None = None, limit: int = 6
+) -> list[dict]:
+    """The session-start priming set: the most recent team notes plus any scoped
+    to ``alias``, as compact dicts (``id/title/tags/updated/snippet``). Embedded
+    in ``workspace_status`` so an agent is auto-primed with team knowledge on the
+    first call it makes — no separate ``memory_search`` required. Best-effort:
+    returns ``[]`` rather than raising, so priming never breaks startup."""
+    try:
+        recent = await list_memories(aweb_db, team_id=team_id, limit=limit)
+        seen = {m.memory_id for m in recent}
+        mine: list[MemoryView] = []
+        if alias:
+            for m in await list_memories(
+                aweb_db, team_id=team_id, assignee_alias=alias, limit=limit
+            ):
+                if m.memory_id not in seen:
+                    mine.append(m)
+        merged = (recent + mine)[:limit]
+        return [
+            {
+                "id": m.memory_id,
+                "title": m.title,
+                "tags": list(m.tags or []),
+                "updated": m.updated_at.date().isoformat() if m.updated_at else None,
+                "private_to": m.assignee_alias or None,
+                "snippet": _snippet(m.body_md or ""),
+            }
+            for m in merged
+        ]
+    except Exception:
+        return []
+
+
 async def memory_search(
     db_infra, *, q: str = "", tags: str = "", assignee_alias: str = "", limit: int = 20
 ) -> str:

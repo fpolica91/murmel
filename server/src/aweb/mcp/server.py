@@ -543,11 +543,16 @@ def register_tools(
 
     @mcp.tool(
         name="issues_add_dependency",
-        description="Mark an issue as depending on (blocked by) another issue. Blocked issues are withheld from work_ready until every issue they depend on is done. Rejects self-dependencies and cycles.",
+        description="Add a typed edge from an issue to another. dep_type: 'blocks' (default — hard dependency; the issue is withheld from work_ready until the other is done), 'related' (soft link, no gating), or 'discovered_from' (spun off while working the other). Rejects self-dependencies; blocks edges are cycle-guarded.",
     )
-    async def issues_add_dependency(issue_id: str, depends_on_id: str) -> str:
+    async def issues_add_dependency(
+        issue_id: str, depends_on_id: str, dep_type: str = "blocks"
+    ) -> str:
         return await _issues_add_dependency_impl(
-            db_infra, issue_id=issue_id, depends_on_id=depends_on_id
+            db_infra,
+            issue_id=issue_id,
+            depends_on_id=depends_on_id,
+            dep_type=dep_type,
         )
 
     @mcp.tool(
@@ -612,7 +617,7 @@ def register_tools(
 
     @mcp.tool(
         name="workspace_status",
-        description="Show self/team coordination status for the current agent.",
+        description="Show self/team coordination status for the current agent. Includes a memory_prime field — the team's recent knowledge notes — so you start primed without a separate memory_search.",
     )
     async def workspace_status(limit: int = 15) -> str:
         return await _workspace_status_impl(db_infra, redis, limit=limit)

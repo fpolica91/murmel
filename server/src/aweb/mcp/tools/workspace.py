@@ -6,6 +6,7 @@ import json
 from datetime import datetime, timezone
 
 from aweb.mcp.tools._common import require_team_context
+from aweb.mcp.tools.memory import prime_memories
 from aweb.presence import list_agent_presences_by_workspace_ids
 
 
@@ -131,6 +132,12 @@ async def workspace_status(db_infra, redis, *, limit: int = 15) -> str:
         for task_ref, claimants in sorted(conflict_map.items())
     ]
 
+    # Prime: auto-surface the team's recent knowledge so an agent is fed memory
+    # on its first startup call instead of having to remember memory_search.
+    memory_prime = await prime_memories(
+        aweb_db, team_id=auth.team_id, alias=auth.alias, limit=6
+    )
+
     return json.dumps(
         {
             "team_id": auth.team_id,
@@ -139,6 +146,7 @@ async def workspace_status(db_infra, redis, *, limit: int = 15) -> str:
             "team_agents": team,
             "conflicts": conflicts,
             "conflict_count": len(conflicts),
+            "memory_prime": memory_prime,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
     )

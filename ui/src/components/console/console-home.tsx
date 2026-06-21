@@ -154,6 +154,8 @@ export function ConsoleHome() {
     in_progress: 0,
     in_review: 0,
     done: 0,
+    blocked: 0,
+    deferred: 0,
   };
   for (const issue of issues) counts[issue.status] += 1;
 

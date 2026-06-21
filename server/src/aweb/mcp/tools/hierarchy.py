@@ -141,7 +141,11 @@ async def issues_claim(
 
 
 async def issues_update_status(db_infra, *, issue_id: str, status: str) -> str:
-    """Update the status of an issue in the authenticated team."""
+    """Update the status of an issue in the authenticated team.
+
+    Valid statuses: todo, in_progress, in_review, done, blocked (you are
+    explicitly stuck — distinct from a not-done dependency), deferred (snoozed;
+    skipped by work_ready)."""
     auth, error = require_team_context()
     if auth is None:
         return error or json.dumps({"error": "This tool requires team context. Provide a valid team token."})
@@ -238,11 +242,16 @@ async def stories_list(db_infra, *, epic_id: str = "", status: str = "") -> str:
     return json.dumps({"team_id": auth.team_id, "stories": result})
 
 
-async def issues_add_dependency(db_infra, *, issue_id: str, depends_on_id: str) -> str:
-    """Mark that ``issue_id`` depends on (is blocked by) ``depends_on_id``.
+async def issues_add_dependency(
+    db_infra, *, issue_id: str, depends_on_id: str, dep_type: str = "blocks"
+) -> str:
+    """Add a typed edge from ``issue_id`` to ``depends_on_id``.
 
-    A blocked issue is withheld from ``work_ready`` until every issue it depends
-    on is ``done``. Rejects self-dependencies and cycles."""
+    ``dep_type``: ``blocks`` (default — hard dependency; ``issue_id`` is withheld
+    from ``work_ready`` until ``depends_on_id`` is ``done``), ``related`` (soft
+    link, no gating), or ``discovered_from`` (this issue was spun off while
+    working the other). Rejects self-dependencies; ``blocks`` edges are
+    cycle-guarded."""
     auth, error = require_team_context()
     if auth is None:
         return error or json.dumps({"error": "This tool requires team context."})
@@ -252,6 +261,7 @@ async def issues_add_dependency(db_infra, *, issue_id: str, depends_on_id: str) 
             team_id=auth.team_id,
             issue_id=issue_id,
             depends_on_id=depends_on_id,
+            dep_type=dep_type,
         )
     except (NotFoundError, ValidationError) as exc:
         return json.dumps({"error": exc.detail})

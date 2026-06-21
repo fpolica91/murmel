@@ -66,6 +66,7 @@ def test_canonical_chain_starts_with_reset_baseline_then_forward_migrations():
         "016_contacts_team_scope.sql",
         "017_issue_dependencies.sql",
         "018_memories.sql",
+        "019_richer_work_graph.sql",
     ]
 
 

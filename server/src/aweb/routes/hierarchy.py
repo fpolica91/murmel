@@ -96,6 +96,10 @@ class IssueView(BaseModel):
     status: str
     assignee_type: Optional[str] = None
     assignee_id: Optional[str] = None
+    pinned: bool = False
+    # Derived: has at least one not-done 'blocks' dependency (distinct from an
+    # explicit status='blocked').
+    is_blocked: bool = False
     # Directory-resolved on GET /v1/issues/{id}; absent on list views.
     assignee_kind: Optional[str] = None
     assignee_display_name: Optional[str] = None
@@ -131,6 +135,7 @@ class UpdateIssueRequest(BaseModel):
     story_id: Optional[str] = Field(None, max_length=64)
     assignee_type: Optional[str] = Field(None, max_length=16)
     assignee_id: Optional[str] = Field(None, max_length=256)
+    pinned: Optional[bool] = Field(None, description="Pin/unpin the issue")
 
 
 class ClaimIssueRequest(BaseModel):
@@ -162,6 +167,10 @@ class AddDependencyRequest(BaseModel):
     model_config = {"extra": "forbid"}
 
     depends_on_id: str = Field(..., min_length=1, max_length=64)
+    dep_type: str = Field(
+        "blocks",
+        description="Edge type: blocks | related | discovered_from",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -524,6 +533,7 @@ async def add_issue_dependency(
             team_id=identity.team_id,
             issue_id=issue_id,
             depends_on_id=payload.depends_on_id,
+            dep_type=payload.dep_type,
         )
         deps = await hierarchy_service.get_issue_dependencies(
             db,
@@ -598,6 +608,8 @@ async def update_issue(
         kwargs["assignee_type"] = payload.assignee_type
     if "assignee_id" in fields:
         kwargs["assignee_id"] = payload.assignee_id
+    if "pinned" in fields:
+        kwargs["pinned"] = payload.pinned
     try:
         issue = await hierarchy_service.update_issue(
             db,

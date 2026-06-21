@@ -32,7 +32,7 @@ const JUDGE_OUT = {
 // Real default:local targets the attacker has somehow learned the IDs of.
 const T = {
   session: '6bdd3082-7704-48b0-8289-c3ecab9018f1',
-  issue: 'e11e871b-6cc3-4500-8a94-929f0a8bac03',
+  issue: 'b8d28187-a2e9-4a0f-b55e-f22061082e56',
   conv: '4af31cde-6cd3-4c8a-af9d-ef235ebe80cb',
   victimTeam: 'default:local',
   attackerTeam: '66ce2a0cc4:personal',

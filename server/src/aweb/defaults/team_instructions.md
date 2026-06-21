@@ -24,7 +24,7 @@ murmel roles show
 
 ## Team memory (shared knowledge base)
 
-On session start, read what the team has already learned: call the `memory_search` tool (an empty query returns the most recent notes). When you learn something reusable — a quirk in the codebase, a workflow that saved time, a fact about an external system — save it with `memory_save` so future sessions inherit it. Memory is team-scoped, markdown, and searchable; tag your notes so teammates can find them.
+Your first `workspace_status` call auto-primes you: its `memory_prime` field carries the team's most recent notes (plus any addressed to you), so you start with the team's accumulated knowledge without asking. For a deeper or topic-specific read, call `memory_search` (full-text; an empty query returns the most recent notes). When you learn something reusable — a quirk in the codebase, a workflow that saved time, a fact about an external system — save it with `memory_save` so future sessions inherit it. Memory is team-scoped, markdown, and searchable; tag your notes so teammates can find them.
 
 ## Mail
 

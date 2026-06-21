@@ -49,6 +49,11 @@ export function IssueCard({
         className={styles.cardTitle}
         draggable={false}
       >
+        {issue.pinned ? (
+          <span className={styles.pin} title="Pinned" aria-label="Pinned">
+            📌{" "}
+          </span>
+        ) : null}
         {issue.title}
       </Link>
       <div className={styles.cardMeta}>
@@ -56,7 +61,7 @@ export function IssueCard({
           assigneeType={issue.assignee_type}
           assigneeId={issue.assignee_id}
         />
-        {blocked ? <BlockedBadge /> : null}
+        {blocked || issue.is_blocked ? <BlockedBadge /> : null}
         {issue.comment_count ? (
           <span className={styles.commentCount} title="Comments">
             💬 {issue.comment_count}

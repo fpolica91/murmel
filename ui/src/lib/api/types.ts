@@ -6,7 +6,13 @@
  * issues are the unit of work surfaced by the board / list views.
  */
 
-export type IssueStatus = "todo" | "in_progress" | "in_review" | "done";
+export type IssueStatus =
+  | "todo"
+  | "in_progress"
+  | "in_review"
+  | "done"
+  | "blocked"
+  | "deferred";
 
 /** Ordered columns for the board view. */
 export const ISSUE_STATUSES: IssueStatus[] = [
@@ -14,6 +20,8 @@ export const ISSUE_STATUSES: IssueStatus[] = [
   "in_progress",
   "in_review",
   "done",
+  "blocked",
+  "deferred",
 ];
 
 export const ISSUE_STATUS_LABELS: Record<IssueStatus, string> = {
@@ -21,6 +29,8 @@ export const ISSUE_STATUS_LABELS: Record<IssueStatus, string> = {
   in_progress: "In progress",
   in_review: "In review",
   done: "Done",
+  blocked: "Blocked",
+  deferred: "Deferred",
 };
 
 export type AssigneeType = "human" | "agent";
@@ -54,6 +64,10 @@ export interface Issue {
   status: IssueStatus;
   assignee_type: AssigneeType | null;
   assignee_id: string | null;
+  /** Pinned issues are surfaced first and excluded from memory compaction. */
+  pinned?: boolean;
+  /** Derived: has a not-done `blocks` dependency (distinct from status==="blocked"). */
+  is_blocked?: boolean;
   created_at: string;
   updated_at: string;
   comment_count?: number;

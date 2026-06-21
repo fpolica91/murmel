@@ -16,7 +16,14 @@ from ..service_errors import NotFoundError, ValidationError
 
 _UNSET = object()
 
-ISSUE_STATUSES = ("todo", "in_progress", "in_review", "done")
+ISSUE_STATUSES = (
+    "todo",
+    "in_progress",
+    "in_review",
+    "done",
+    "blocked",
+    "deferred",
+)
 ASSIGNEE_TYPES = ("human", "agent")
 
 
@@ -350,6 +357,9 @@ def _issue_view(row: Any) -> dict[str, Any]:
         "status": row["status"],
         "assignee_type": row["assignee_type"],
         "assignee_id": row["assignee_id"],
+        "pinned": bool(row.get("pinned") or False),
+        # Derived dependency-graph signal; present where _ISSUE_COLS is selected.
+        "is_blocked": bool(row.get("is_blocked") or False),
         "created_at": _iso(row["created_at"]),
         "updated_at": _iso(row.get("updated_at")),
         # Present on list queries (correlated subquery); 0 elsewhere.
@@ -399,7 +409,7 @@ async def create_issue(
              assignee_type, assignee_id)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING issue_id, team_id, epic_id, story_id, title, description,
-                  status, assignee_type, assignee_id, created_at, updated_at
+                  status, assignee_type, assignee_id, pinned, created_at, updated_at
         """,
         team_id,
         resolved_epic_id,
@@ -419,7 +429,7 @@ async def get_issue(db, *, team_id: str, issue_id: str | UUID) -> dict[str, Any]
     row = await aweb_db.fetch_one(
         """
         SELECT issue_id, team_id, epic_id, story_id, title, description,
-               status, assignee_type, assignee_id, created_at, updated_at
+               status, assignee_type, assignee_id, pinned, created_at, updated_at
         FROM {{tables.issues}}
         WHERE issue_id = $1 AND team_id = $2
         """,
@@ -448,6 +458,13 @@ async def get_issue(db, *, team_id: str, issue_id: str | UUID) -> dict[str, Any]
     deps = await _issue_dependencies(db, team_id=team_id, issue_id=resolved)
     view["blocked_by"] = deps["blocked_by"]
     view["blocks"] = deps["blocks"]
+    # Single-issue SELECT can't carry the correlated is_blocked column; derive it
+    # from the blockers we just loaded (any not-done 'blocks' edge).
+    view["is_blocked"] = any(
+        d.get("status") != "done"
+        for d in deps["blocked_by"]
+        if d.get("dep_type", "blocks") == "blocks"
+    )
     return view
 
 
@@ -494,13 +511,15 @@ async def list_issues(
 
     rows = await aweb_db.fetch_all(
         f"""
-        SELECT issue_id, team_id, epic_id, story_id, title, description,
-               status, assignee_type, assignee_id, created_at, updated_at,
+        SELECT i.issue_id, i.team_id, i.epic_id, i.story_id, i.title, i.description,
+               i.status, i.assignee_type, i.assignee_id, i.pinned,
+               i.created_at, i.updated_at,
+               {_BLOCKED_PREDICATE.strip()} AS is_blocked,
                (SELECT COUNT(*) FROM {{{{tables.issue_comments}}}} c
                 WHERE c.issue_id = i.issue_id) AS comment_count
         FROM {{{{tables.issues}}}} i
         WHERE {' AND '.join(conditions)}
-        ORDER BY created_at ASC
+        ORDER BY i.pinned DESC, i.created_at ASC
         """,
         *params,
     )
@@ -519,6 +538,7 @@ async def update_issue(
     story_id: str | UUID | None | object = _UNSET,
     assignee_type: str | None | object = _UNSET,
     assignee_id: str | None | object = _UNSET,
+    pinned: bool | None = None,
 ) -> dict[str, Any]:
     aweb_db = db.get_manager("aweb")
     resolved = _coerce_uuid(issue_id, label="issue_id")
@@ -569,6 +589,10 @@ async def update_issue(
         sets.append(f"assignee_id = ${idx}")
         params.append(assignee_id)
         idx += 1
+    if pinned is not None:
+        sets.append(f"pinned = ${idx}")
+        params.append(bool(pinned))
+        idx += 1
 
     row = await aweb_db.fetch_one(
         f"""
@@ -576,7 +600,7 @@ async def update_issue(
         SET {', '.join(sets)}
         WHERE issue_id = $1 AND team_id = $2
         RETURNING issue_id, team_id, epic_id, story_id, title, description,
-                  status, assignee_type, assignee_id, created_at, updated_at
+                  status, assignee_type, assignee_id, pinned, created_at, updated_at
         """,
         *params,
     )
@@ -683,14 +707,29 @@ def _comment_view(row: Any) -> dict[str, Any]:
 # -- Issue dependencies (ready vs blocked work) --
 
 
-async def add_issue_dependency(
-    db, *, team_id: str, issue_id: str | UUID, depends_on_id: str | UUID
-) -> dict[str, Any]:
-    """Record that ``issue_id`` depends on (is blocked by) ``depends_on_id``.
+DEPENDENCY_TYPES = ("blocks", "related", "discovered_from")
 
-    Rejects self-dependencies and any edge that would create a cycle. Both
-    issues must exist in the team. Idempotent on the (issue, depends_on) pair.
+
+async def add_issue_dependency(
+    db,
+    *,
+    team_id: str,
+    issue_id: str | UUID,
+    depends_on_id: str | UUID,
+    dep_type: str = "blocks",
+) -> dict[str, Any]:
+    """Record a typed edge from ``issue_id`` to ``depends_on_id``.
+
+    ``dep_type`` is ``blocks`` (hard dependency — gates the ready queue),
+    ``related`` (soft link), or ``discovered_from`` (spun off while working the
+    other). Rejects self-dependencies; only ``blocks`` edges are cycle-guarded
+    (related/discovered_from carry no ordering, so a loop is harmless). Both
+    issues must exist in the team. Re-adding a pair updates its type.
     """
+    if dep_type not in DEPENDENCY_TYPES:
+        raise ValidationError(
+            f"dep_type must be one of {', '.join(DEPENDENCY_TYPES)}"
+        )
     iid = _coerce_uuid(issue_id, label="issue_id")
     did = _coerce_uuid(depends_on_id, label="depends_on_id")
     if iid == did:
@@ -700,38 +739,41 @@ async def add_issue_dependency(
     await get_issue(db, team_id=team_id, issue_id=did)
 
     aweb_db = db.get_manager("aweb")
-    # Cycle guard: if depends_on already (transitively) reaches issue, the new
-    # edge would close a loop.
-    cycle = await aweb_db.fetch_one(
-        """
-        WITH RECURSIVE reach AS (
-            SELECT depends_on_id AS id
-            FROM {{tables.issue_dependencies}}
-            WHERE issue_id = $2
-            UNION ALL
-            SELECT d.depends_on_id
-            FROM {{tables.issue_dependencies}} d
-            JOIN reach r ON d.issue_id = r.id
+    if dep_type == "blocks":
+        # Cycle guard (blocks only): if depends_on already (transitively) reaches
+        # issue via blocks edges, the new edge would close a loop.
+        cycle = await aweb_db.fetch_one(
+            """
+            WITH RECURSIVE reach AS (
+                SELECT depends_on_id AS id
+                FROM {{tables.issue_dependencies}}
+                WHERE issue_id = $2 AND dep_type = 'blocks'
+                UNION ALL
+                SELECT d.depends_on_id
+                FROM {{tables.issue_dependencies}} d
+                JOIN reach r ON d.issue_id = r.id
+                WHERE d.dep_type = 'blocks'
+            )
+            SELECT 1 FROM reach WHERE id = $1
+            """,
+            iid,
+            did,
         )
-        SELECT 1 FROM reach WHERE id = $1
-        """,
-        iid,
-        did,
-    )
-    if cycle:
-        raise ValidationError("Dependency would create a cycle")
+        if cycle:
+            raise ValidationError("Dependency would create a cycle")
 
     await aweb_db.execute(
         """
-        INSERT INTO {{tables.issue_dependencies}} (issue_id, depends_on_id, team_id)
-        VALUES ($1, $2, $3)
-        ON CONFLICT (issue_id, depends_on_id) DO NOTHING
+        INSERT INTO {{tables.issue_dependencies}} (issue_id, depends_on_id, team_id, dep_type)
+        VALUES ($1, $2, $3, $4)
+        ON CONFLICT (issue_id, depends_on_id) DO UPDATE SET dep_type = EXCLUDED.dep_type
         """,
         iid,
         did,
         team_id,
+        dep_type,
     )
-    return {"issue_id": str(iid), "depends_on_id": str(did)}
+    return {"issue_id": str(iid), "depends_on_id": str(did), "dep_type": dep_type}
 
 
 async def remove_issue_dependency(
@@ -759,13 +801,19 @@ _BLOCKED_PREDICATE = """
         SELECT 1
         FROM {{tables.issue_dependencies}} d
         JOIN {{tables.issues}} blocker ON blocker.issue_id = d.depends_on_id
-        WHERE d.issue_id = i.issue_id AND blocker.status != 'done'
+        WHERE d.issue_id = i.issue_id
+          AND d.dep_type = 'blocks'
+          AND blocker.status != 'done'
     )
 """
 
 _ISSUE_COLS = (
     "i.issue_id, i.team_id, i.epic_id, i.story_id, i.title, i.description, "
-    "i.status, i.assignee_type, i.assignee_id, i.created_at, i.updated_at"
+    "i.status, i.assignee_type, i.assignee_id, i.pinned, i.created_at, i.updated_at, "
+    # Derived: has at least one not-done 'blocks' dependency. Distinct from an
+    # explicit status='blocked'; the UI treats either as blocked.
+    + _BLOCKED_PREDICATE.strip()
+    + " AS is_blocked"
 )
 
 
@@ -828,7 +876,7 @@ async def _issue_dependencies(
 
     blocked_by_rows = await aweb_db.fetch_all(
         """
-        SELECT other.issue_id, other.title, other.status
+        SELECT other.issue_id, other.title, other.status, d.dep_type
         FROM {{tables.issue_dependencies}} d
         JOIN {{tables.issues}} other ON other.issue_id = d.depends_on_id
         WHERE d.issue_id = $1 AND d.team_id = $2 AND other.team_id = $2
@@ -839,7 +887,7 @@ async def _issue_dependencies(
     )
     blocks_rows = await aweb_db.fetch_all(
         """
-        SELECT other.issue_id, other.title, other.status
+        SELECT other.issue_id, other.title, other.status, d.dep_type
         FROM {{tables.issue_dependencies}} d
         JOIN {{tables.issues}} other ON other.issue_id = d.issue_id
         WHERE d.depends_on_id = $1 AND d.team_id = $2 AND other.team_id = $2
@@ -854,6 +902,7 @@ async def _issue_dependencies(
             "issue_id": str(row["issue_id"]),
             "title": row["title"],
             "status": row["status"],
+            "dep_type": row.get("dep_type") or "blocks",
         }
 
     return {
