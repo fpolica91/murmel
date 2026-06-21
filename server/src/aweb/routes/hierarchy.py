@@ -14,6 +14,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
+from aweb.coordination import compaction as compaction_service
 from aweb.coordination import hierarchy as hierarchy_service
 from aweb.deps import get_db
 from aweb.service_errors import ServiceError
@@ -100,6 +101,10 @@ class IssueView(BaseModel):
     # Derived: has at least one not-done 'blocks' dependency (distinct from an
     # explicit status='blocked').
     is_blocked: bool = False
+    # Compaction digest of the older thread; populated on GET /v1/issues/{id}.
+    compacted_summary: Optional[str] = None
+    compaction_level: int = 0
+    compacted_at: Optional[str] = None
     # Directory-resolved on GET /v1/issues/{id}; absent on list views.
     assignee_kind: Optional[str] = None
     assignee_display_name: Optional[str] = None
@@ -581,6 +586,33 @@ async def remove_issue_dependency(
         blocked_by=deps["blocked_by"],
         blocks=deps["blocks"],
     )
+
+
+class CompactIssueRequest(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    summary: str = Field(..., min_length=1, max_length=16384)
+
+
+@router.post("/issues/{issue_id}/compact")
+async def compact_issue(
+    request: Request,
+    issue_id: str,
+    payload: CompactIssueRequest,
+    db=Depends(get_db),
+    identity: TeamIdentity = Depends(get_team_identity),
+) -> dict:
+    """Fold the issue's older comments behind the caller-supplied ``summary``
+    digest, keeping the recent tail verbatim. Pinned issues and threads without
+    enough old history are no-ops. The server runs no model — the digest is the
+    caller's (the agent's)."""
+    try:
+        result = await compaction_service.compact_issue(
+            db, team_id=identity.team_id, issue_id=issue_id, summary=payload.summary
+        )
+    except ServiceError as exc:
+        _raise_http(exc)
+    return result
 
 
 @router.patch("/issues/{issue_id}", response_model=IssueView)

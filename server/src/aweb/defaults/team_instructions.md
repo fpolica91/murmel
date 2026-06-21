@@ -26,6 +26,10 @@ murmel roles show
 
 Your first `workspace_status` call auto-primes you: its `memory_prime` field carries the team's most recent notes (plus any addressed to you), so you start with the team's accumulated knowledge without asking. For a deeper or topic-specific read, call `memory_search` (full-text; an empty query returns the most recent notes). When you learn something reusable — a quirk in the codebase, a workflow that saved time, a fact about an external system — save it with `memory_save` so future sessions inherit it. Memory is team-scoped, markdown, and searchable; tag your notes so teammates can find them.
 
+## Keep long issue threads tight (compaction)
+
+When an issue's comment thread has grown long, condense it so future readers don't have to wade through everything. Read the thread (`issues_comments_list`), write a tight digest of the OLDER discussion — merge the existing digest from `issues_get` if there is one, preserving decisions, facts, owners, and open questions — then call `issues_compact(issue_id, summary)` with your digest. The server folds the older comments behind it and keeps the recent tail verbatim; the issue then loads your summary instead of the full history. Pin an issue (`pinned`) to protect it from compaction.
+
 ## Mail
 
 ```bash

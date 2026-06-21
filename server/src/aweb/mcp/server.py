@@ -49,6 +49,7 @@ from aweb.mcp.tools.hierarchy import issues_comment_add as _issues_comment_add_i
 from aweb.mcp.tools.hierarchy import issues_comments_list as _issues_comments_list_impl
 from aweb.mcp.tools.hierarchy import issues_add_dependency as _issues_add_dependency_impl
 from aweb.mcp.tools.hierarchy import issues_remove_dependency as _issues_remove_dependency_impl
+from aweb.mcp.tools.hierarchy import issues_compact as _issues_compact_impl
 from aweb.mcp.tools.hierarchy import issues_create as _issues_create_impl
 from aweb.mcp.tools.hierarchy import issues_dependencies as _issues_dependencies_impl
 from aweb.mcp.tools.hierarchy import issues_get as _issues_get_impl
@@ -563,6 +564,13 @@ def register_tools(
         return await _issues_remove_dependency_impl(
             db_infra, issue_id=issue_id, depends_on_id=depends_on_id
         )
+
+    @mcp.tool(
+        name="issues_compact",
+        description="Compact a long-standing issue's comment thread. YOU write `summary` — a tight digest of the older discussion (merge the existing digest from issues_get if present; preserve decisions, facts, owners, open questions). The server folds the older comments behind your digest and keeps the recent tail verbatim, so the issue loads the digest instead of the whole history. Read the thread first. Pinned issues and short threads are no-ops; non-destructive (comments are flagged, not deleted).",
+    )
+    async def issues_compact(issue_id: str, summary: str) -> str:
+        return await _issues_compact_impl(db_infra, issue_id=issue_id, summary=summary)
 
     # -- Memory (team shared knowledge base) --
 

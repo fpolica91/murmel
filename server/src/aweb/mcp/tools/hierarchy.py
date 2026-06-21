@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 
+from aweb.coordination.compaction import compact_issue
 from aweb.coordination.hierarchy import (
     add_issue_comment,
     add_issue_dependency,
@@ -262,6 +263,27 @@ async def issues_add_dependency(
             issue_id=issue_id,
             depends_on_id=depends_on_id,
             dep_type=dep_type,
+        )
+    except (NotFoundError, ValidationError) as exc:
+        return json.dumps({"error": exc.detail})
+    return json.dumps(result)
+
+
+async def issues_compact(db_infra, *, issue_id: str, summary: str) -> str:
+    """Compact a long issue thread. YOU write ``summary`` — a tight digest of the
+    older discussion, merging the existing digest from ``issues_get`` if any
+    (preserve decisions, facts, owners, open questions). The server then folds
+    the older comments behind your digest and keeps the recent tail verbatim, so
+    picking the issue up later loads the digest instead of the whole history.
+    Read the thread (``issues_comments_list``) before summarizing. Pinned issues
+    and short threads are no-ops. Non-destructive — comments are flagged, not
+    deleted."""
+    auth, error = require_team_context()
+    if auth is None:
+        return error or json.dumps({"error": "This tool requires team context."})
+    try:
+        result = await compact_issue(
+            db_infra, team_id=auth.team_id, issue_id=issue_id, summary=summary
         )
     except (NotFoundError, ValidationError) as exc:
         return json.dumps({"error": exc.detail})

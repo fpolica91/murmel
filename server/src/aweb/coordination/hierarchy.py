@@ -429,7 +429,9 @@ async def get_issue(db, *, team_id: str, issue_id: str | UUID) -> dict[str, Any]
     row = await aweb_db.fetch_one(
         """
         SELECT issue_id, team_id, epic_id, story_id, title, description,
-               status, assignee_type, assignee_id, pinned, created_at, updated_at
+               status, assignee_type, assignee_id, pinned,
+               compacted_summary, compaction_level, compacted_at,
+               created_at, updated_at
         FROM {{tables.issues}}
         WHERE issue_id = $1 AND team_id = $2
         """,
@@ -439,6 +441,10 @@ async def get_issue(db, *, team_id: str, issue_id: str | UUID) -> dict[str, Any]
     if not row:
         raise NotFoundError("Issue not found")
     view = _issue_view(row)
+    # Compaction digest of the older thread (present only on get_issue).
+    view["compacted_summary"] = row.get("compacted_summary") or None
+    view["compaction_level"] = int(row.get("compaction_level") or 0)
+    view["compacted_at"] = _iso(row.get("compacted_at")) if row.get("compacted_at") else None
     # Resolve assignee kind + display name from the participant directory so the
     # UI renders the assignee without a second lookup. Falls back to the stored
     # assignee_type / assignee_id when the assignee alias does not resolve.
@@ -654,7 +660,7 @@ async def add_issue_comment(
         """
         INSERT INTO {{tables.issue_comments}} (issue_id, team_id, author, body)
         VALUES ($1, $2, $3, $4)
-        RETURNING comment_id, issue_id, author, body, created_at
+        RETURNING comment_id, issue_id, author, body, compacted, created_at
         """,
         resolved,
         team_id,
@@ -665,17 +671,20 @@ async def add_issue_comment(
 
 
 async def list_issue_comments(
-    db, *, team_id: str, issue_id: str | UUID
+    db, *, team_id: str, issue_id: str | UUID, include_compacted: bool = False
 ) -> list[dict[str, Any]]:
-    """List an issue's comments oldest-first. Validates the issue exists."""
+    """List an issue's comments oldest-first. By default only the live tail —
+    comments folded into the compaction digest are hidden unless
+    ``include_compacted`` is set. Validates the issue exists."""
     await get_issue(db, team_id=team_id, issue_id=issue_id)
     aweb_db = db.get_manager("aweb")
     resolved = _coerce_uuid(issue_id, label="issue_id")
+    compacted_filter = "" if include_compacted else " AND compacted = FALSE"
     rows = await aweb_db.fetch_all(
-        """
-        SELECT comment_id, issue_id, author, body, created_at
-        FROM {{tables.issue_comments}}
-        WHERE issue_id = $1 AND team_id = $2
+        f"""
+        SELECT comment_id, issue_id, author, body, compacted, created_at
+        FROM {{{{tables.issue_comments}}}}
+        WHERE issue_id = $1 AND team_id = $2{compacted_filter}
         ORDER BY created_at ASC
         """,
         resolved,
@@ -700,6 +709,7 @@ def _comment_view(row: Any) -> dict[str, Any]:
         "issue_id": str(row["issue_id"]),
         "author": row["author"],
         "body": row["body"],
+        "compacted": bool(row.get("compacted") or False),
         "created_at": _iso(row["created_at"]),
     }
 
