@@ -348,6 +348,11 @@ def create_app(
             allow_headers=["*"],
         )
 
+    from .metrics import metrics_middleware, metrics_endpoint
+
+    app.middleware("http")(metrics_middleware)
+    app.add_api_route("/metrics", metrics_endpoint, methods=["GET"], include_in_schema=False)
+
     @app.middleware("http")
     async def security_headers_middleware(request: Request, call_next):
         """Baseline hardening headers on every API response."""
