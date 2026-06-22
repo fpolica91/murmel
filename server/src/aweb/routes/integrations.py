@@ -1,60 +1,57 @@
-"""External tracker integration routes (pull-only).
+"""External-tracker import routes — RECEIVE-ONLY.
 
-Auth is the normal team bearer token, so a pull imports into the CALLER's team.
-The Linear API key is read from the ``LINEAR_API_KEY`` env (the same optional-
-integration pattern as ANTHROPIC_API_KEY / AWEB_PUBLIC_STAGE_TEAM); per-team
-encrypted key storage is a deliberate multi-tenant follow-up. 503 when no key is
-configured.
+Murmel never fetches from or holds credentials for any external tracker. The
+agent fetches + maps issues with its OWN access and POSTs them here; this
+endpoint just upserts them idempotently into the authenticated team.
 """
 
 from __future__ import annotations
 
-import os
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from aweb.deps import get_db
-from aweb.integrations.linear_pull import LinearError, pull_linear
+from aweb.integrations.issue_import import ImportError_, import_issues
 from aweb.team_auth_deps import TeamIdentity, get_team_identity
 
 router = APIRouter(prefix="/v1/integrations", tags=["integrations"])
 
 
-class LinearPullRequest(BaseModel):
+class ImportIssue(BaseModel):
     model_config = {"extra": "forbid"}
 
-    # Optional: restrict the import to one Linear team by its key (e.g. "ENG").
-    linear_team_key: Optional[str] = None
+    external_ref: str = Field(..., min_length=1, max_length=256)
+    title: str = Field(..., min_length=1, max_length=500)
+    status: Optional[str] = None  # a Murmel status; caller maps from the source
+    description: Optional[str] = Field(None, max_length=16384)
 
 
-def _linear_api_key() -> Optional[str]:
-    return (os.getenv("LINEAR_API_KEY") or "").strip() or None
+class ImportRequest(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    external_system: str = Field(..., min_length=1, max_length=64)
+    issues: List[ImportIssue] = Field(..., max_length=2000)
 
 
-@router.post("/linear/pull")
-async def linear_pull(
+@router.post("/issues/import")
+async def import_external_issues(
     request: Request,
-    payload: LinearPullRequest | None = None,
+    payload: ImportRequest,
     db=Depends(get_db),
     identity: TeamIdentity = Depends(get_team_identity),
 ) -> dict:
-    """Pull Linear issues into the authenticated team (one-way, idempotent)."""
-    api_key = _linear_api_key()
-    if not api_key:
-        raise HTTPException(
-            status_code=503,
-            detail="LINEAR_API_KEY is not configured; Linear pull is disabled.",
-        )
-    team_key = payload.linear_team_key if payload else None
+    """Upsert externally-sourced issues into the authenticated team (idempotent
+    on external_ref). The caller (agent/client) supplies already-fetched issues —
+    Murmel makes no external API calls and holds no keys."""
     try:
-        result = await pull_linear(
+        result = await import_issues(
             db,
             team_id=identity.team_id,
-            api_key=api_key,
-            linear_team_key=team_key,
+            external_system=payload.external_system,
+            issues=[i.model_dump() for i in payload.issues],
         )
-    except LinearError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except ImportError_ as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     return result

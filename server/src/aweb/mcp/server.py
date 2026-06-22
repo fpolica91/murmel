@@ -50,7 +50,7 @@ from aweb.mcp.tools.hierarchy import issues_comments_list as _issues_comments_li
 from aweb.mcp.tools.hierarchy import issues_add_dependency as _issues_add_dependency_impl
 from aweb.mcp.tools.hierarchy import issues_remove_dependency as _issues_remove_dependency_impl
 from aweb.mcp.tools.hierarchy import issues_compact as _issues_compact_impl
-from aweb.mcp.tools.hierarchy import linear_pull as _linear_pull_impl
+from aweb.mcp.tools.hierarchy import issues_import as _issues_import_impl
 from aweb.mcp.tools.hierarchy import issues_create as _issues_create_impl
 from aweb.mcp.tools.hierarchy import issues_dependencies as _issues_dependencies_impl
 from aweb.mcp.tools.hierarchy import issues_get as _issues_get_impl
@@ -574,11 +574,13 @@ def register_tools(
         return await _issues_compact_impl(db_infra, issue_id=issue_id, summary=summary)
 
     @mcp.tool(
-        name="linear_pull",
-        description="Pull issues from Linear into the authenticated team (one-way, idempotent — re-pull updates, never duplicates). Optionally pass a Linear team key (e.g. 'ENG') to import just that team. Imported issues land unassigned and carry their Linear identifier. Requires LINEAR_API_KEY configured on the server.",
+        name="issues_import",
+        description="Import issues YOU fetched from an external tracker (Linear/Jira/GitHub/...) into the authenticated team. Murmel never calls the tracker or holds its key — you fetch + map with your own access, then push results here. external_system: source name e.g. 'linear'. issues_json: JSON array of {external_ref (stable source id), title, status (one of todo/in_progress/in_review/done/blocked/deferred — map from the source yourself), description?}. Idempotent: re-importing the same external_ref updates that issue instead of duplicating.",
     )
-    async def linear_pull(linear_team_key: str = "") -> str:
-        return await _linear_pull_impl(db_infra, linear_team_key=linear_team_key)
+    async def issues_import(external_system: str, issues_json: str) -> str:
+        return await _issues_import_impl(
+            db_infra, external_system=external_system, issues_json=issues_json
+        )
 
     # -- Memory (team shared knowledge base) --
 

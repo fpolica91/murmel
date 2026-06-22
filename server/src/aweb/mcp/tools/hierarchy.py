@@ -10,10 +10,8 @@ from __future__ import annotations
 
 import json
 
-import os as _os
-
 from aweb.coordination.compaction import compact_issue
-from aweb.integrations.linear_pull import LinearError, pull_linear
+from aweb.integrations.issue_import import ImportError_, import_issues
 from aweb.coordination.hierarchy import (
     add_issue_comment,
     add_issue_dependency,
@@ -293,25 +291,33 @@ async def issues_compact(db_infra, *, issue_id: str, summary: str) -> str:
     return json.dumps(result)
 
 
-async def linear_pull(db_infra, *, linear_team_key: str = "") -> str:
-    """Pull issues from Linear into the authenticated team (one-way, idempotent:
-    re-pull updates, never duplicates). Optionally pass a Linear team key (e.g.
-    "ENG") to import just that team. Imported issues land unassigned and carry
-    their Linear identifier. Requires LINEAR_API_KEY configured on the server."""
+async def issues_import(db_infra, *, external_system: str, issues_json: str) -> str:
+    """Import issues YOU fetched from an external tracker (Linear/Jira/GitHub/...)
+    into the authenticated team. Murmel never calls the tracker or holds its key —
+    you fetch + map with your own access, then push the results here.
+
+    ``external_system``: the source name, e.g. "linear". ``issues_json``: a JSON
+    array of objects, each {"external_ref": <stable source id>, "title": str,
+    "status": one of todo/in_progress/in_review/done/blocked/deferred (map from
+    the source yourself), "description": str?}. Idempotent: re-importing the same
+    external_ref UPDATES that issue instead of duplicating it."""
     auth, error = require_team_context()
     if auth is None:
         return error or json.dumps({"error": "This tool requires team context."})
-    api_key = (_os.getenv("LINEAR_API_KEY") or "").strip()
-    if not api_key:
-        return json.dumps({"error": "LINEAR_API_KEY is not configured; Linear pull is disabled."})
     try:
-        result = await pull_linear(
+        items = json.loads(issues_json)
+        if not isinstance(items, list):
+            raise ValueError("issues_json must be a JSON array")
+    except (ValueError, TypeError) as exc:
+        return json.dumps({"error": f"Invalid issues_json: {exc}"})
+    try:
+        result = await import_issues(
             db_infra,
             team_id=auth.team_id,
-            api_key=api_key,
-            linear_team_key=linear_team_key or None,
+            external_system=external_system,
+            issues=items,
         )
-    except LinearError as exc:
+    except ImportError_ as exc:
         return json.dumps({"error": str(exc)})
     return json.dumps(result)
 
