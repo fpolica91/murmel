@@ -41,7 +41,7 @@ func init() {
 }
 
 func runMCPServe(cmd *cobra.Command, _ []string) error {
-	baseURL, teamID, err := resolveMCPTarget()
+	baseURL, teamID, project, err := resolveMCPTarget()
 	if err != nil {
 		return err
 	}
@@ -59,7 +59,7 @@ func runMCPServe(cmd *cobra.Command, _ []string) error {
 	for {
 		line, readErr := in.ReadBytes('\n')
 		if msg := bytes.TrimSpace(line); len(msg) > 0 {
-			respLines, newSession := forwardMCPMessage(ctx, client, mcpURL, teamID, sessionID, msg)
+			respLines, newSession := forwardMCPMessage(ctx, client, mcpURL, teamID, project, sessionID, msg)
 			if newSession != "" {
 				sessionID = newSession
 			}
@@ -80,18 +80,19 @@ func runMCPServe(cmd *cobra.Command, _ []string) error {
 	}
 }
 
-// resolveMCPTarget resolves the aweb base URL + active team for the current
-// workspace, matching the rest of the CLI: AWEB_URL env wins, then the
-// workspace's aweb_url, then the baked default; the team comes from --team or
-// the workspace's active membership.
-func resolveMCPTarget() (baseURL, teamID string, err error) {
+// resolveMCPTarget resolves the aweb base URL, active team, and canonical
+// project origin for the current workspace, matching the rest of the CLI:
+// AWEB_URL env wins, then the workspace's aweb_url, then the baked default;
+// the team comes from --team or the workspace's active membership; the project
+// comes from the workspace's canonical_origin (empty when not in a workspace).
+func resolveMCPTarget() (baseURL, teamID, project string, err error) {
 	wd, err := os.Getwd()
 	if err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 	workspace, teamState, _, lerr := awconfig.LoadWorkspaceAndTeamState(wd)
 	if lerr != nil && workspace == nil && !errors.Is(lerr, os.ErrNotExist) {
-		return "", "", fmt.Errorf("load workspace: %w", lerr)
+		return "", "", "", fmt.Errorf("load workspace: %w", lerr)
 	}
 
 	switch {
@@ -103,7 +104,7 @@ func resolveMCPTarget() (baseURL, teamID string, err error) {
 		baseURL = DefaultAwebURL
 	}
 	if strings.TrimSpace(baseURL) == "" {
-		return "", "", fmt.Errorf("no aweb server configured; run `murmel init` or set AWEB_URL")
+		return "", "", "", fmt.Errorf("no aweb server configured; run `murmel init` or set AWEB_URL")
 	}
 
 	switch {
@@ -116,12 +117,16 @@ func resolveMCPTarget() (baseURL, teamID string, err error) {
 			teamID = strings.TrimSpace(teamState.ActiveTeam)
 		}
 	}
-	return baseURL, teamID, nil
+
+	if workspace != nil {
+		project = strings.TrimSpace(workspace.CanonicalOrigin)
+	}
+	return baseURL, teamID, project, nil
 }
 
-// forwardMCPMessage POSTs one MCP message to /mcp/ with a fresh bearer + team,
-// and returns the JSON-RPC response message(s) to write back to the host.
-func forwardMCPMessage(ctx context.Context, client *http.Client, mcpURL, teamID, sessionID string, msg []byte) (lines [][]byte, newSession string) {
+// forwardMCPMessage POSTs one MCP message to /mcp/ with a fresh bearer + team
+// + project, and returns the JSON-RPC response message(s) to write back to the host.
+func forwardMCPMessage(ctx context.Context, client *http.Client, mcpURL, teamID, project, sessionID string, msg []byte) (lines [][]byte, newSession string) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, mcpURL, bytes.NewReader(msg))
 	if err != nil {
 		return [][]byte{mcpErrorFor(msg, err)}, ""
@@ -137,6 +142,9 @@ func forwardMCPMessage(ctx context.Context, client *http.Client, mcpURL, teamID,
 	}
 	if teamID != "" {
 		req.Header.Set("X-AWEB-Team-Id", teamID)
+	}
+	if project != "" {
+		req.Header.Set("X-AWEB-Project", project)
 	}
 	if sessionID != "" {
 		req.Header.Set("Mcp-Session-Id", sessionID)
