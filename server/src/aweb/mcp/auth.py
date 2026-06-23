@@ -24,6 +24,8 @@ from aweb.token_team_scope import (
     token_auth_enabled,
 )
 
+PROJECT_HEADER = "X-AWEB-Project"
+
 logger = logging.getLogger(__name__)
 
 
@@ -38,6 +40,7 @@ class AuthContext:
     did_aw: str | None = None
     address: str | None = None
     workspace_id: str | None = None
+    project: str | None = None
     trusted_proxy: bool = False
 
 
@@ -134,7 +137,7 @@ class MCPAuthMiddleware:
     async def _resolve_auth(self, request: Request) -> AuthContext | None:
         internal = parse_internal_auth_context(request)
         if internal is not None:
-            return await self._resolve_proxy_auth(internal)
+            return await self._resolve_proxy_auth(internal, request)
 
         # Bearer-JWT (Better Auth) is the only client auth path for MCP.
         if request_has_bearer_token(request) and token_auth_enabled():
@@ -177,6 +180,7 @@ class MCPAuthMiddleware:
             team_id=team_id,
             agent_id=auth.subject,
             workspace_id=None,
+            project=request.headers.get(PROJECT_HEADER),
             alias=alias,
             did_key=did_key,
             did_aw=None,
@@ -236,7 +240,7 @@ class MCPAuthMiddleware:
                 return value
         return None
 
-    async def _resolve_proxy_auth(self, internal: dict[str, str]) -> AuthContext:
+    async def _resolve_proxy_auth(self, internal: dict[str, str], request: Request) -> AuthContext:
         aweb_db = _aweb_db(self.db_infra)
         team_id = internal["team_id"]
         row = await aweb_db.fetch_one(
@@ -267,6 +271,7 @@ class MCPAuthMiddleware:
             team_id=team_id,
             agent_id=str(row["agent_id"]),
             workspace_id=(str(workspace["workspace_id"]) if workspace else None),
+            project=request.headers.get(PROJECT_HEADER),
             alias=row["alias"],
             did_key=str(row["did_key"]),
             did_aw=(str(row.get("did_aw") or "").strip() or None),
