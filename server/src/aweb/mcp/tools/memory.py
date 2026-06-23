@@ -144,7 +144,10 @@ async def memory_search(
             q=q or None,
             tags=_split_tags(tags),
             assignee_alias=assignee_alias or None,
-            project=(project or getattr(auth, "project", None)) or None,
+            # Cross-project by DEFAULT — only narrow when a project is explicitly
+            # passed. (Unlike memory_save, which auto-stamps from the workspace
+            # header, search must not silently scope to the current repo.)
+            project=project or None,
             limit=limit,
         )
     except ValueError as exc:
