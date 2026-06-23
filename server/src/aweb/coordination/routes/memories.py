@@ -56,6 +56,7 @@ class CreateMemoryRequest(BaseModel):
     title: str = Field(min_length=1, max_length=_MAX_TITLE)
     body_md: str = Field(default="", max_length=_MAX_BODY)
     tags: List[str] = Field(default_factory=list)
+    project: Optional[str] = None
     assignee_alias: Optional[str] = None
 
 
@@ -285,6 +286,7 @@ async def list_memories_endpoint(
     q: Optional[str] = Query(None, description="Full-text search over title+body"),
     tag: Optional[str] = Query(None, description="Comma-separated tags; matches memories having ANY of them"),
     assignee_alias: Optional[str] = Query(None),
+    project: Optional[str] = Query(None, description="Filter to one repo origin (plus team-global notes)"),
     limit: int = Query(50, ge=1, le=200),
     db=Depends(get_db),
     identity: TeamIdentity = Depends(get_team_identity),
@@ -297,6 +299,7 @@ async def list_memories_endpoint(
             q=q,
             tags=tags,
             assignee_alias=assignee_alias,
+            project=project,
             limit=limit,
         )
     except ValueError as exc:
@@ -318,6 +321,7 @@ async def create_memory_endpoint(
             title=payload.title,
             body_md=payload.body_md,
             tags=payload.tags,
+            project=payload.project or request.headers.get("X-AWEB-Project"),
             assignee_alias=payload.assignee_alias,
             created_by_alias=identity.alias,
         )
