@@ -586,24 +586,24 @@ def register_tools(
 
     @mcp.tool(
         name="memory_search",
-        description="Search the team knowledge base (full-text + tag filter). READ THIS ON SESSION START: an empty query returns the most recent notes the team has learned. Args: q (optional text), tags (optional comma-separated), assignee_alias (optional), limit (default 20).",
+        description="Search the team knowledge base (full-text + tag filter). READ THIS ON SESSION START: an empty query returns the most recent notes the team has learned. Args: q (optional text), tags (optional comma-separated), assignee_alias (optional), project (optional repo origin like github.com/acme/api — narrows to that repo plus team-global notes), limit (default 20).",
     )
     async def memory_search(
-        q: str = "", tags: str = "", assignee_alias: str = "", limit: int = 20
+        q: str = "", tags: str = "", assignee_alias: str = "", project: str = "", limit: int = 20
     ) -> str:
         return await _memory_search_impl(
-            db_infra, q=q, tags=tags, assignee_alias=assignee_alias, limit=limit
+            db_infra, q=q, tags=tags, assignee_alias=assignee_alias, project=project, limit=limit
         )
 
     @mcp.tool(
         name="memory_save",
-        description="Save a note to the team knowledge base -- write what you learn (a codebase quirk, a workflow, a fact about an external system) so future sessions inherit it. Args: title (required), body_md (markdown), tags (comma-separated), assignee_alias (optional: scope the note to one agent).",
+        description="Save a note to the team knowledge base -- write what you learn (a codebase quirk, a workflow, a fact about an external system) so future sessions inherit it. Args: title (required), body_md (markdown), tags (comma-separated), project (optional repo origin like github.com/acme/api — defaults to your current repo from workspace context), assignee_alias (optional: scope the note to one agent).",
     )
     async def memory_save(
-        title: str, body_md: str = "", tags: str = "", assignee_alias: str = ""
+        title: str, body_md: str = "", tags: str = "", project: str = "", assignee_alias: str = ""
     ) -> str:
         return await _memory_save_impl(
-            db_infra, title=title, body_md=body_md, tags=tags, assignee_alias=assignee_alias
+            db_infra, title=title, body_md=body_md, tags=tags, project=project, assignee_alias=assignee_alias
         )
 
     @mcp.tool(

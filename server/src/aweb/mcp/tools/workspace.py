@@ -135,7 +135,7 @@ async def workspace_status(db_infra, redis, *, limit: int = 15) -> str:
     # Prime: auto-surface the team's recent knowledge so an agent is fed memory
     # on its first startup call instead of having to remember memory_search.
     memory_prime = await prime_memories(
-        aweb_db, team_id=auth.team_id, alias=auth.alias, limit=6
+        aweb_db, team_id=auth.team_id, alias=auth.alias, project=getattr(auth, "project", None), limit=6
     )
 
     return json.dumps(

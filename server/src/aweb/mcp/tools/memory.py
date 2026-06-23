@@ -53,6 +53,8 @@ def memory_to_xml(m: MemoryView) -> str:
     if m.assignee_alias:
         # Per-agent scope; surfaced so the reader knows it's not team-general.
         attrs.append(f"private={quoteattr(m.assignee_alias)}")
+    if m.project:
+        attrs.append(f"project={quoteattr(m.project)}")
     updated = m.updated_at.date().isoformat() if m.updated_at else ""
     if updated:
         attrs.append(f"updated={quoteattr(updated)}")
@@ -76,45 +78,62 @@ def _snippet(body: str, limit: int = 180) -> str:
 
 
 async def prime_memories(
-    aweb_db, *, team_id: str, alias: str | None = None, limit: int = 6
+    aweb_db,
+    *,
+    team_id: str,
+    alias: str | None = None,
+    project: str | None = None,
+    limit: int = 6,
 ) -> list[dict]:
-    """The session-start priming set: the most recent team notes plus any scoped
-    to ``alias``, as compact dicts (``id/title/tags/updated/snippet``). Embedded
-    in ``workspace_status`` so an agent is auto-primed with team knowledge on the
-    first call it makes — no separate ``memory_search`` required. Best-effort:
-    returns ``[]`` rather than raising, so priming never breaks startup."""
+    """The session-start priming set. When ``project`` is set, the caller's
+    current-repo notes are surfaced FIRST, then a tail of cross-project/global
+    recents (shared awareness across the team's repos). Best-effort: returns
+    ``[]`` rather than raising, so priming never breaks startup."""
     try:
-        recent = await list_memories(aweb_db, team_id=team_id, limit=limit)
-        seen = {m.memory_id for m in recent}
-        mine: list[MemoryView] = []
-        if alias:
-            for m in await list_memories(
-                aweb_db, team_id=team_id, assignee_alias=alias, limit=limit
-            ):
+        ordered: list[MemoryView] = []
+        seen: set[str] = set()
+
+        def _add(mems: list[MemoryView]) -> None:
+            for m in mems:
                 if m.memory_id not in seen:
-                    mine.append(m)
-        merged = (recent + mine)[:limit]
+                    seen.add(m.memory_id)
+                    ordered.append(m)
+
+        if project:
+            _add(await list_memories(aweb_db, team_id=team_id, project=project, limit=limit))
+        _add(await list_memories(aweb_db, team_id=team_id, limit=limit))
+        if alias:
+            _add(await list_memories(aweb_db, team_id=team_id, assignee_alias=alias, limit=limit))
+
         return [
             {
                 "id": m.memory_id,
                 "title": m.title,
                 "tags": list(m.tags or []),
+                "project": m.project,
                 "updated": m.updated_at.date().isoformat() if m.updated_at else None,
                 "private_to": m.assignee_alias or None,
                 "snippet": _snippet(m.body_md or ""),
             }
-            for m in merged
+            for m in ordered[:limit]
         ]
     except Exception:
         return []
 
 
 async def memory_search(
-    db_infra, *, q: str = "", tags: str = "", assignee_alias: str = "", limit: int = 20
+    db_infra,
+    *,
+    q: str = "",
+    tags: str = "",
+    assignee_alias: str = "",
+    project: str = "",
+    limit: int = 20,
 ) -> str:
     """Search the team knowledge base (full-text over title+body, tag-filtered).
-    Empty query returns the most recent notes -- the session-start reading set.
-    Returns a ``<memories>`` XML block."""
+    Empty query returns the most recent notes. Pass ``project`` (a repo origin
+    like github.com/acme/api) to narrow to one repo plus team-global notes;
+    omit it to search across ALL of the team's repos. Returns ``<memories>``."""
     auth, error = require_team_context()
     if auth is None:
         return _NO_TEAM
@@ -125,6 +144,7 @@ async def memory_search(
             q=q or None,
             tags=_split_tags(tags),
             assignee_alias=assignee_alias or None,
+            project=(project or getattr(auth, "project", None)) or None,
             limit=limit,
         )
     except ValueError as exc:
@@ -138,14 +158,18 @@ async def memory_save(
     title: str,
     body_md: str = "",
     tags: str = "",
+    project: str = "",
     assignee_alias: str = "",
 ) -> str:
     """Save a note to the team knowledge base. The author byline is filled from
-    the authenticated agent; set assignee_alias to scope a note to one agent.
-    Returns the saved note as a ``<memory>`` element."""
+    the authenticated agent. ``project`` defaults to your current repo (stamped
+    from the workspace); pass it explicitly only to file a note about a DIFFERENT
+    repo. Set assignee_alias to scope a note to one agent. Returns the saved
+    ``<memory>`` element."""
     auth, error = require_team_context()
     if auth is None:
         return _NO_TEAM
+    resolved_project = (project or getattr(auth, "project", None)) or None
     try:
         memory = await create_memory(
             db_infra.get_manager("aweb"),
@@ -153,6 +177,7 @@ async def memory_save(
             title=title,
             body_md=body_md,
             tags=_split_tags(tags),
+            project=resolved_project,
             assignee_alias=assignee_alias or None,
             created_by_alias=getattr(auth, "alias", None),
         )

@@ -1,6 +1,7 @@
 import pytest
 
 from aweb.coordination.routes.memories import create_memory, list_memories
+from aweb.mcp.tools.memory import memory_to_xml, prime_memories
 
 TEAM = "backend:acme.com"
 
@@ -56,3 +57,24 @@ async def test_list_project_filter_includes_globals(aweb_cloud_db):
     assert "api-only" in titles
     assert "global-note" in titles      # NULL globals always visible
     assert "web-only" not in titles     # other repo filtered out
+
+
+@pytest.mark.asyncio
+async def test_prime_current_project_first(aweb_cloud_db):
+    db = aweb_cloud_db.aweb_db
+    await _seed_team(db)
+    await create_memory(db, team_id=TEAM, title="api-1", project="github.com/acme/api")
+    await create_memory(db, team_id=TEAM, title="web-1", project="github.com/acme/web")
+    primed = await prime_memories(db, team_id=TEAM, project="github.com/acme/web", limit=6)
+    titles = [p["title"] for p in primed]
+    assert titles[0] == "web-1"          # current project surfaces first
+    assert "api-1" in titles             # sibling repos still present (the tail)
+    assert primed[0]["project"] == "github.com/acme/web"
+
+
+@pytest.mark.asyncio
+async def test_memory_xml_includes_project(aweb_cloud_db):
+    db = aweb_cloud_db.aweb_db
+    await _seed_team(db)
+    m = await create_memory(db, team_id=TEAM, title="X", project="github.com/acme/api")
+    assert 'project="github.com/acme/api"' in memory_to_xml(m)
