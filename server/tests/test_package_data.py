@@ -69,6 +69,7 @@ def test_canonical_chain_starts_with_reset_baseline_then_forward_migrations():
         "019_richer_work_graph.sql",
         "020_issue_compaction.sql",
         "021_external_refs.sql",
+        "022_memory_project.sql",
     ]
 
 
