@@ -34,7 +34,7 @@ _MAX_TAG = 64
 _MAX_TAGS = 32
 
 _COLUMNS = (
-    "memory_id, team_id, title, body_md, tags, "
+    "memory_id, team_id, title, body_md, tags, project, "
     "created_by_alias, assignee_alias, created_at, updated_at"
 )
 
@@ -45,6 +45,7 @@ class MemoryView(BaseModel):
     title: str
     body_md: str
     tags: List[str]
+    project: Optional[str] = None
     created_by_alias: Optional[str] = None
     assignee_alias: Optional[str] = None
     created_at: datetime
@@ -107,6 +108,7 @@ def _row_to_view(row) -> MemoryView:
         title=row["title"],
         body_md=row["body_md"],
         tags=list(row["tags"] or []),
+        project=row["project"],
         created_by_alias=row["created_by_alias"],
         assignee_alias=row["assignee_alias"],
         created_at=row["created_at"],
@@ -121,6 +123,7 @@ async def list_memories(
     q: Optional[str] = None,
     tags: Optional[Sequence[str]] = None,
     assignee_alias: Optional[str] = None,
+    project: Optional[str] = None,
     limit: int = 50,
 ) -> List[MemoryView]:
     """Team-scoped search. ``q`` -> full-text rank order; empty -> most-recent
@@ -143,6 +146,10 @@ async def list_memories(
     if assignee_alias:
         params.append(assignee_alias)
         clauses.append(f"assignee_alias = ${len(params)}")
+    if project:
+        params.append(project)
+        # Project narrows to that repo PLUS team-global (NULL) notes.
+        clauses.append(f"(project = ${len(params)} OR project IS NULL)")
 
     params.append(limit)
     limit_idx = len(params)
@@ -183,6 +190,7 @@ async def create_memory(
     title: str,
     body_md: str = "",
     tags: Optional[Sequence[str]] = None,
+    project: Optional[str] = None,
     assignee_alias: Optional[str] = None,
     created_by_alias: Optional[str] = None,
 ) -> MemoryView:
@@ -193,13 +201,14 @@ async def create_memory(
     tag_list = _clean_tags(tags)
     row = await db.fetch_one(
         f"INSERT INTO {{{{tables.memories}}}} "
-        "(team_id, title, body_md, tags, created_by_alias, assignee_alias) "
-        "VALUES ($1, $2, $3, $4, $5, $6) "
+        "(team_id, title, body_md, tags, project, created_by_alias, assignee_alias) "
+        "VALUES ($1, $2, $3, $4, $5, $6, $7) "
         f"RETURNING {_COLUMNS}",
         team_id,
         title,
         body_md,
         tag_list,
+        (project or None),
         created_by_alias,
         (assignee_alias or None),
     )
