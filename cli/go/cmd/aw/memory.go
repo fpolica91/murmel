@@ -8,6 +8,7 @@ import (
 	"time"
 
 	aweb "github.com/awebai/aw"
+	"github.com/awebai/aw/awconfig"
 	"github.com/spf13/cobra"
 )
 
@@ -59,11 +60,13 @@ func init() {
 	memorySearchCmd.Flags().StringP("query", "q", "", "Full-text search query (empty lists most recent)")
 	memorySearchCmd.Flags().String("tag", "", "Filter by tags (comma-separated)")
 	memorySearchCmd.Flags().Int("limit", 20, "Maximum number of memories to return")
+	memorySearchCmd.Flags().String("project", "", "Filter to one repo origin, e.g. github.com/acme/api (plus team-global notes)")
 
 	memorySaveCmd.Flags().String("title", "", "Memory title (required)")
 	memorySaveCmd.Flags().String("body", "", "Memory body (markdown)")
 	memorySaveCmd.Flags().String("tags", "", "Tags (comma-separated)")
 	memorySaveCmd.Flags().String("private", "", "Restrict to an assignee alias (private memory)")
+	memorySaveCmd.Flags().String("project", "", "Repo this note is about (default: current workspace repo)")
 	_ = memorySaveCmd.MarkFlagRequired("title")
 
 	memoryUpdateCmd.Flags().String("title", "", "New title (empty = unchanged)")
@@ -88,6 +91,21 @@ func memoryClient() (*aweb.Client, context.Context, context.CancelFunc, error) {
 	return client, ctx, cancel, nil
 }
 
+// workspaceProjectOrigin returns the current workspace's canonical git origin
+// (the memory "project"), or "" when not inside a workspace. Best-effort: any
+// load error yields "" so saving a note never fails on project resolution.
+func workspaceProjectOrigin() string {
+	wd, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	workspace, _, _, _ := awconfig.LoadWorkspaceAndTeamState(wd)
+	if workspace == nil {
+		return ""
+	}
+	return strings.TrimSpace(workspace.CanonicalOrigin)
+}
+
 func runMemorySearch(cmd *cobra.Command, args []string) error {
 	client, ctx, cancel, err := memoryClient()
 	if err != nil {
@@ -97,9 +115,10 @@ func runMemorySearch(cmd *cobra.Command, args []string) error {
 
 	query, _ := cmd.Flags().GetString("query")
 	tags, _ := cmd.Flags().GetString("tag")
+	project, _ := cmd.Flags().GetString("project")
 	limit, _ := cmd.Flags().GetInt("limit")
 
-	resp, err := client.MemorySearch(ctx, query, tags, "", limit)
+	resp, err := client.MemorySearch(ctx, query, tags, "", project, limit)
 	if err != nil {
 		return fmt.Errorf("searching memories: %w", err)
 	}
@@ -129,8 +148,12 @@ func runMemorySave(cmd *cobra.Command, args []string) error {
 	body, _ := cmd.Flags().GetString("body")
 	tags, _ := cmd.Flags().GetString("tags")
 	private, _ := cmd.Flags().GetString("private")
+	project, _ := cmd.Flags().GetString("project")
+	if strings.TrimSpace(project) == "" {
+		project = workspaceProjectOrigin()
+	}
 
-	mem, err := client.MemorySave(ctx, title, body, tags, private)
+	mem, err := client.MemorySave(ctx, title, body, tags, private, project)
 	if err != nil {
 		return fmt.Errorf("saving memory: %w", err)
 	}
@@ -230,8 +253,12 @@ func formatMemoryLine(m aweb.Memory) string {
 	if strings.TrimSpace(m.AssigneeAlias) != "" {
 		private = " 🔒" + strings.TrimSpace(m.AssigneeAlias)
 	}
-	return fmt.Sprintf("○ %s  %s — by %s%s  (%s)%s",
-		m.MemoryID, m.Title, memoryAuthor(m), tags, updated, private)
+	repo := ""
+	if strings.TrimSpace(m.Project) != "" {
+		repo = "  ⎇ " + strings.TrimSpace(m.Project)
+	}
+	return fmt.Sprintf("○ %s  %s — by %s%s%s  (%s)%s",
+		m.MemoryID, m.Title, memoryAuthor(m), tags, repo, updated, private)
 }
 
 func formatMemoryDetail(v any) string {
@@ -244,6 +271,9 @@ func formatMemoryDetail(v any) string {
 	}
 	if len(m.Tags) > 0 {
 		fmt.Fprintf(&sb, "Tags: %s\n", strings.Join(m.Tags, ", "))
+	}
+	if strings.TrimSpace(m.Project) != "" {
+		fmt.Fprintf(&sb, "Repo: %s\n", strings.TrimSpace(m.Project))
 	}
 	fmt.Fprintf(&sb, "Updated: %s\n", formatTimeAgo(m.UpdatedAt))
 	if strings.TrimSpace(m.BodyMD) != "" {

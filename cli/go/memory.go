@@ -14,6 +14,7 @@ type Memory struct {
 	Title          string   `json:"title"`
 	BodyMD         string   `json:"body_md"`
 	Tags           []string `json:"tags"`
+	Project        string   `json:"project"`
 	CreatedByAlias string   `json:"created_by_alias"`
 	AssigneeAlias  string   `json:"assignee_alias"`
 	CreatedAt      string   `json:"created_at"`
@@ -31,6 +32,7 @@ type MemoryCreateRequest struct {
 	Title         string   `json:"title"`
 	BodyMD        string   `json:"body_md,omitempty"`
 	Tags          []string `json:"tags,omitempty"`
+	Project       string   `json:"project,omitempty"`
 	AssigneeAlias string   `json:"assignee_alias,omitempty"`
 }
 
@@ -45,7 +47,7 @@ type MemoryUpdateRequest struct {
 // full-text query, tag filter, assignee filter, and result limit. An empty
 // query returns the most-recent memories. tags is a comma-separated string
 // matching the REST `tag` query param (e.g. "ops,infra").
-func (c *Client) MemorySearch(ctx context.Context, q, tags, assignee string, limit int) (*MemoryListResponse, error) {
+func (c *Client) MemorySearch(ctx context.Context, q, tags, assignee, project string, limit int) (*MemoryListResponse, error) {
 	path := "/v1/memories"
 	v := url.Values{}
 	if strings.TrimSpace(q) != "" {
@@ -56,6 +58,9 @@ func (c *Client) MemorySearch(ctx context.Context, q, tags, assignee string, lim
 	}
 	if strings.TrimSpace(assignee) != "" {
 		v.Set("assignee_alias", strings.TrimSpace(assignee))
+	}
+	if strings.TrimSpace(project) != "" {
+		v.Set("project", strings.TrimSpace(project))
 	}
 	if limit > 0 {
 		v.Set("limit", itoa(limit))
@@ -72,11 +77,12 @@ func (c *Client) MemorySearch(ctx context.Context, q, tags, assignee string, lim
 
 // MemorySave creates a memory. tags is a comma-separated string; assignee, when
 // set, marks the memory private to that alias.
-func (c *Client) MemorySave(ctx context.Context, title, bodyMd, tags, assignee string) (*Memory, error) {
+func (c *Client) MemorySave(ctx context.Context, title, bodyMd, tags, assignee, project string) (*Memory, error) {
 	req := &MemoryCreateRequest{
 		Title:         strings.TrimSpace(title),
 		BodyMD:        bodyMd,
 		Tags:          splitTags(tags),
+		Project:       strings.TrimSpace(project),
 		AssigneeAlias: strings.TrimSpace(assignee),
 	}
 	var out Memory
