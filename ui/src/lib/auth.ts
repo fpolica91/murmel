@@ -37,6 +37,7 @@ import { bearer, deviceAuthorization, jwt } from "better-auth/plugins";
 import { Pool } from "pg";
 
 import { resolveSubjectClaims } from "./claims";
+import { sendVerificationEmail } from "./email";
 
 function buildAuth() {
   const databaseUrl = process.env.DATABASE_URL;
@@ -69,6 +70,16 @@ function buildAuth() {
     // --- Authentication methods ---
     emailAndPassword: {
       enabled: true,
+      requireEmailVerification:
+        process.env.AWEB_REQUIRE_EMAIL_VERIFICATION === "true",
+    },
+
+    emailVerification: {
+      sendOnSignUp: true,
+      autoSignInAfterVerification: true,
+      sendVerificationEmail: async ({ user, url }) => {
+        await sendVerificationEmail({ to: user.email, url });
+      },
     },
 
     socialProviders: buildSocialProviders(),
