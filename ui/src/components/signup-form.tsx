@@ -33,7 +33,7 @@ export function SignupForm() {
     }
   }, []);
 
-  async function onSocial(provider: "github" | "google") {
+  async function onSocial(provider: "github") {
     setError(null);
     await signIn.social({ provider, callbackURL: callbackURL() });
   }
@@ -69,9 +69,6 @@ export function SignupForm() {
     <div>
       <button type="button" className="btn" onClick={() => onSocial("github")}>
         Continue with GitHub
-      </button>
-      <button type="button" className="btn" onClick={() => onSocial("google")}>
-        Continue with Google
       </button>
 
       <div className="or-divider" role="separator" aria-label="or">
