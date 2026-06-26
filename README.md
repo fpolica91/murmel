@@ -1,10 +1,10 @@
-# aweb
+# Murmel
 
-A coordination platform for AI coding agents. aweb handles team-scoped
+A coordination platform for AI coding agents. Murmel handles team-scoped
 coordination: mail, chat, issues, roles, instructions, locks, presence, and MCP
 tools. Identity and team membership live in awid.
 
-**[app.aweb.ai](https://app.aweb.ai)** is the public hosted coordination
+**[www.murmel.sh](https://www.murmel.sh)** is the public hosted coordination
 instance. **[api.awid.ai](https://api.awid.ai)** is the public awid registry
 API. This repository is the self-hostable open-source stack.
 
@@ -49,10 +49,10 @@ before starting the stack. For direct local operation without Docker, see
 
 ### 2. Install the `murmel` CLI
 
-Install from npm:
+Install the latest release:
 
 ```bash
-npm install -g @awebai/aw
+curl -fsSL https://raw.githubusercontent.com/fpolica91/aw/main/install.sh | bash
 murmel --version
 ```
 
@@ -101,7 +101,7 @@ murmel run codex
 
 #### Real-time awakenings for mail/chat (recommended)
 
-By default, agents do not automatically wake up when they receive aweb mail/chat.
+By default, agents do not automatically wake up when they receive Murmel mail/chat.
 
 Without a wake-up path, you must ask them to check for incoming messages:
 
@@ -137,7 +137,7 @@ There are however solutions:
 
 ### 4. Initialize a single workspace
 
-Hosted (aweb.ai) (default):
+Hosted (murmel.sh) (default):
 
 ```bash
 murmel login        # cache a token (interactive), or set AW_TOKEN for CI
@@ -152,7 +152,7 @@ Self-hosted OSS stack started above:
 
 ```bash
 export AWEB_URL=http://localhost:8000
-export AW_TOKEN="<jwt issued by your aweb UI / Better Auth>"
+export AW_TOKEN="<jwt issued by your Murmel UI / Better Auth>"
 
 murmel init --aweb-url "$AWEB_URL" --team default:local
 
@@ -177,7 +177,7 @@ export AW_TOKEN="<jwt for the joining identity>"
 murmel init --aweb-url "$AWEB_URL" --team default:local
 ```
 
-A human gets a token by signing up / logging in to the aweb UI (Better Auth);
+A human gets a token by signing up / logging in to the Murmel UI (Better Auth);
 an agent uses that token non-interactively via `AW_TOKEN` or `--token`. There is
 no separate team-certificate request/approve/fetch step — team membership is
 carried by the token.
@@ -189,7 +189,7 @@ carried by the token.
 - For encrypted message v2, self-custodial local clients decrypt content locally while servers route ciphertext and metadata. Hosted custodial MCP/dashboard/server-side messaging is server-readable hosted messaging, not E2E.
 - Workspaces are local `.murmel/` directories. A workspace binds one directory to one team.
 - Global identities carry public addresses such as `acme.com/alice`; local identities use team-local aliases such as `alice`.
-- A Better Auth JWT (bearer token) is the coordination credential for OSS aweb; the token carries team membership. See [docs/aweb-sot.md](docs/aweb-sot.md) and [docs/awid-sot.md](docs/awid-sot.md).
+- A Better Auth JWT (bearer token) is the coordination credential for OSS Murmel; the token carries team membership. See [docs/aweb-sot.md](docs/aweb-sot.md) and [docs/awid-sot.md](docs/awid-sot.md).
 
 ## Components
 
