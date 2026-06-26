@@ -41,7 +41,9 @@ jobs:
           cache-dependency-path: cli/go/go.sum
       - name: go test
         working-directory: cli/go
-        run: go test ./... -count=1
+        # PTY/TTY behaviour can't be exercised reliably on a CI runner (no
+        # stable controlling terminal); that one test is flaky here.
+        run: go test ./... -count=1 -skip 'TestRealCommandRunnerPTYProvidesTTYAndAcceptsInput'
 
   channel:
     runs-on: ubuntu-latest
