@@ -53,7 +53,7 @@ func TestFetchLatestRelease(t *testing.T) {
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/repos/awebai/aw/releases/latest" {
+		if r.URL.Path != "/repos/fpolica91/aw/releases/latest" {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 			http.NotFound(w, r)
 			return
@@ -581,7 +581,7 @@ func resetUpdateCheckTestState(t *testing.T, testVersion, apiBase string, output
 func updateCheckTestServer(t *testing.T, tagName string, calls *int) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/repos/awebai/aw/releases/latest" {
+		if r.URL.Path != "/repos/fpolica91/aw/releases/latest" {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 			http.NotFound(w, r)
 			return

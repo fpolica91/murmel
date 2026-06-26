@@ -20,6 +20,12 @@ func TestAwWorkReadyFiltersClaimsHeldByOthers(t *testing.T) {
 	server := newLocalHTTPServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requireCertificateAuthForTest(t, r)
 		switch r.URL.Path {
+		case "/v1/work/ready":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"issues": []map[string]any{
+					{"issue_id": "ISSUE-001", "title": "Unclaimed ready issue", "status": "todo"},
+				},
+			})
 		case "/v1/claims":
 			_ = json.NewEncoder(w).Encode(map[string]any{
 				"claims": []map[string]any{
@@ -32,18 +38,6 @@ func TestAwWorkReadyFiltersClaimsHeldByOthers(t *testing.T) {
 					},
 				},
 				"has_more": false,
-			})
-		case "/v1/issues":
-			// `murmel work ready` filters todo issues to unassigned ones.
-			if got := r.URL.Query().Get("status"); got != "todo" {
-				t.Fatalf("status=%q", got)
-			}
-			_ = json.NewEncoder(w).Encode(map[string]any{
-				"issues": []map[string]any{
-					{"issue_id": "ISSUE-001", "title": "Unclaimed ready issue", "status": "todo"},
-					{"issue_id": "ISSUE-002", "title": "Claimed elsewhere", "status": "todo"},
-					{"issue_id": "ISSUE-003", "title": "Already assigned", "status": "todo", "assignee_type": "agent", "assignee_id": "carol"},
-				},
 			})
 		case "/v1/agents/heartbeat":
 			w.WriteHeader(http.StatusOK)
