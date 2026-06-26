@@ -6,6 +6,7 @@ import { auth } from "@/lib/auth";
 import { resolveSubjectClaims } from "@/lib/claims";
 import { TeamProvider } from "@/components/team-context";
 import { AppSidebar } from "@/components/app-sidebar";
+import { VerifyEmailBanner } from "@/components/verify-email-banner";
 
 // Guards on the live session (reads request `headers` + the auth database), so
 // the whole dashboard subtree must render per-request, not at build time.
@@ -36,7 +37,12 @@ export default async function DashboardLayout({
     <TeamProvider teams={teamIds} teamLabels={teamLabels} teamRoles={teamRoles}>
       <div className="dashboard-shell">
         <AppSidebar userName={session.user.name ?? session.user.email} />
-        <main className="content">{children}</main>
+        <main className="content">
+          {session.user.emailVerified ? null : (
+            <VerifyEmailBanner email={session.user.email} />
+          )}
+          {children}
+        </main>
       </div>
     </TeamProvider>
   );
